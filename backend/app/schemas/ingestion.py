@@ -46,5 +46,5 @@ class IngestionOverview(BaseModel):
 
 class EnqueueResponse(BaseModel):
     task_id: str
-    source_id: uuid.UUID
+    source_id: uuid.UUID | None = None
     status: JobStatus | str = "queued"

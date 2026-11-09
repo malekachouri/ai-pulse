@@ -1,12 +1,13 @@
 """Read access to stored briefings. Generation is implemented in phase 7 (Celery)."""
 
 import uuid
-from datetime import date
+from datetime import UTC, date, datetime, timedelta
 
 from fastapi import APIRouter, Query
 from sqlalchemy import or_, select
 
-from app.api.deps import OptionalUser, SessionDep
+from app.ai.briefing import BriefingGenerator
+from app.api.deps import AIDep, CurrentUser, OptionalUser, SessionDep
 from app.core.errors import NotFoundError
 from app.models import DailyBriefing
 from app.schemas.common import ErrorResponse
@@ -51,6 +52,27 @@ async def latest(session: SessionDep, user: OptionalUser) -> BriefingOut:
     )
     if b is None:
         raise NotFoundError("No briefing has been generated yet")
+    return BriefingOut.model_validate(b)
+
+
+@router.post(
+    "/generate",
+    response_model=BriefingOut,
+    summary="Generate (or refresh) today's personalised briefing now",
+    description="Idempotent per user and day; one generated under 10 minutes ago is returned as is.",
+)
+async def generate(session: SessionDep, user: CurrentUser, ai: AIDep) -> BriefingOut:
+    now = datetime.now(UTC)
+    recent = await session.scalar(
+        select(DailyBriefing).where(
+            DailyBriefing.user_id == user.id,
+            DailyBriefing.briefing_date == now.date(),
+            DailyBriefing.generated_at >= now - timedelta(minutes=10),
+        )
+    )
+    if recent is not None:
+        return BriefingOut.model_validate(recent)
+    b = await BriefingGenerator(session, ai, now).generate(user)
     return BriefingOut.model_validate(b)
 
 

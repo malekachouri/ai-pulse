@@ -1,26 +1,29 @@
 "use client";
 
-import { ExternalLink, Sparkles, Sunrise } from "lucide-react";
+import { ExternalLink, Loader2, RefreshCw, Sparkles, Sunrise } from "lucide-react";
 import Link from "next/link";
 
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState, ErrorState, ListSkeleton } from "@/components/states/states";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useBriefings, useLatestBriefing } from "@/lib/queries";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/lib/auth";
+import { useBriefings, useGenerateBriefing, useLatestBriefing } from "@/lib/queries";
 import type { BriefingSectionItem } from "@/lib/types";
 import { formatDateTime, safeUrl, titleCase } from "@/lib/utils";
 
 const SECTION_TITLES: Record<string, string> = {
-  top_ai: "Most important AI news",
+  top_ai: "Top AI developments",
   model_releases: "New model releases",
   new_tools: "New tools & frameworks",
   research: "Research papers",
-  bugs: "Important bugs",
+  bugs: "Important bugs & failures",
   vulnerabilities: "Critical vulnerabilities",
   incidents: "Cloud & infrastructure incidents",
+  devops: "DevOps & cloud updates",
   changes: "What changed since the previous briefing",
-  learning: "Recommended learning",
+  learning: "Recommended learning tasks",
 };
 
 function Section({ name, value }: { name: string; value: BriefingSectionItem[] | string }) {
@@ -48,7 +51,24 @@ function Section({ name, value }: { name: string; value: BriefingSectionItem[] |
                   ) : (
                     <span className="font-medium">{item.title}</span>
                   )}
-                  {item.summary && <p className="mt-0.5 text-muted-foreground">{item.summary}</p>}
+                  {(item.source || item.importance != null) && (
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      {item.source}
+                      {item.importance != null && ` · importance ${Math.round(item.importance)}`}
+                      {item.severity && ` · ${item.severity}`}
+                    </p>
+                  )}
+                  {item.summary && (
+                    <p className="mt-0.5 text-muted-foreground">
+                      {item.summary_is_ai && (
+                        <span className="mr-1 text-[10px] font-semibold uppercase text-violet-700 dark:text-violet-300">AI</span>
+                      )}
+                      {item.summary}
+                    </p>
+                  )}
+                  {item.why_for_you && item.why_for_you.length > 0 && (
+                    <p className="mt-0.5 text-[11px] text-primary">{item.why_for_you.join(" · ")}</p>
+                  )}
                 </li>
               );
             })}
@@ -62,7 +82,15 @@ function Section({ name, value }: { name: string; value: BriefingSectionItem[] |
 export default function BriefingPage() {
   const latest = useLatestBriefing();
   const history = useBriefings();
+  const { status } = useAuth();
+  const gen = useGenerateBriefing();
   const b = latest.data;
+  const action =
+    status === "authenticated" ? (
+      <Button variant="outline" size="sm" onClick={() => gen.mutate()} disabled={gen.isPending}>
+        {gen.isPending ? <Loader2 className="animate-spin" /> : <RefreshCw />} Generate now
+      </Button>
+    ) : undefined;
 
   return (
     <>
@@ -70,6 +98,7 @@ export default function BriefingPage() {
         title="Daily Briefing"
         description="A daily digest of what matters for your interests. Every item links to its original source."
         icon={Sunrise}
+        actions={action}
       />
       {latest.isLoading ? (
         <ListSkeleton rows={3} />
@@ -97,8 +126,8 @@ export default function BriefingPage() {
               <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-brand-blue/10 via-transparent to-brand-violet/10" />
               <CardContent className="relative pt-5">
                 <div className="mb-3 flex flex-wrap items-center gap-2">
-                  <Badge variant="violet">
-                    <Sparkles /> AI-generated
+                  <Badge variant={b.llm_model ? "violet" : "secondary"}>
+                    <Sparkles /> {b.llm_model ? "AI-generated summary" : "Automatic summary (no LLM)"}
                   </Badge>
                   {b.user_id && <Badge variant="secondary">Personalised</Badge>}
                   <span className="text-xs text-muted-foreground">

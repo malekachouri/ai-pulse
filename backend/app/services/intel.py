@@ -50,7 +50,8 @@ def incident_flags(i: Incident, now: datetime) -> tuple[bool, bool]:
 
 _BUG_FIELDS = (
     "id", "project", "kind", "severity", "severity_basis", "status", "affected_versions", "fixed_in_version",
-    "fix_url", "source_url", "article_id", "created_at", "updated_at",
+    "fix_url", "fix_merged_at", "resolution", "last_verified_at", "source_url", "article_id", "created_at",
+    "updated_at",
 )  # fmt: skip
 
 
@@ -172,8 +173,13 @@ class IntelService:
 
     # incidents
     def _incident(self, i: Incident, now: datetime, schema: type[IncidentOut] = IncidentOut) -> IncidentOut:
+        from app.services.radar import duration_minutes, incident_categories, incident_state
+
         out = schema.model_validate(i)
         out.is_active, out.status_is_stale = incident_flags(i, now)
+        out.state = incident_state(i, now)
+        out.categories = incident_categories(i.provider, i.title, list(i.affected_services))
+        out.duration_minutes = duration_minutes(i)
         return out
 
     async def list_incidents(self, f: IncidentFilters) -> Page[IncidentOut]:

@@ -17,7 +17,7 @@ import { api, errorMessage } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { INTEREST_LABEL, SEVERITIES, SEVERITY_LABEL } from "@/lib/labels";
 import { usePreferences, useUpdatePreferences } from "@/lib/queries";
-import type { BriefingFrequency, Preferences, Severity } from "@/lib/types";
+import type { AlertSettings, BriefingFrequency, Preferences, Severity } from "@/lib/types";
 
 function TagInput({
   id,
@@ -106,6 +106,7 @@ function PreferencesForm({ initial }: { initial: Preferences }) {
           briefing_frequency: p.briefing_frequency,
           briefing_hour: p.briefing_hour,
           timezone: p.timezone,
+          alert_settings: p.alert_settings,
         });
       }}
       className="space-y-6"
@@ -192,10 +193,74 @@ function PreferencesForm({ initial }: { initial: Preferences }) {
         </div>
       </div>
 
+      <AlertsFieldset value={p.alert_settings} onChange={(v) => set("alert_settings", v)} />
+
       <Button type="submit" variant="brand" disabled={save.isPending}>
         {save.isPending && <Loader2 className="animate-spin" />} Save preferences
       </Button>
     </form>
+  );
+}
+
+const ALERT_RULES: { key: keyof AlertSettings; label: string; hint: string }[] = [
+  { key: "critical_cves", label: "New critical CVEs", hint: "Critical severity with a documented basis (NVD / vendor)" },
+  { key: "exploited", label: "Actively exploited vulnerabilities", hint: "Newly added to CISA KEV" },
+  { key: "critical_bugs", label: "Critical software bugs", hint: "Labelled critical by the project" },
+  { key: "outages", label: "Important service outages", hint: "Only incidents verified active on the provider's status page" },
+  { key: "watched_tech", label: "Advisories affecting what I follow", hint: "Uses your followed technologies and providers" },
+];
+
+function AlertsFieldset({ value, onChange }: { value: AlertSettings; onChange: (v: AlertSettings) => void }) {
+  const set = <K extends keyof AlertSettings>(k: K, v: AlertSettings[K]) => onChange({ ...value, [k]: v });
+  return (
+    <fieldset className="space-y-4 rounded-xl border p-4">
+      <legend className="px-1 text-sm font-medium">Alerts</legend>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {ALERT_RULES.map((r) => (
+          <label key={r.key} className="flex cursor-pointer items-start gap-2.5 rounded-lg border px-3 py-2 text-sm hover:bg-accent/50">
+            <Checkbox className="mt-0.5" checked={Boolean(value[r.key])} onCheckedChange={(c) => set(r.key, Boolean(c) as never)} />
+            <span>
+              {r.label}
+              <span className="block text-xs text-muted-foreground">{r.hint}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="mincvss">Critical CVE alerts: minimum CVSS</Label>
+          <NativeSelect id="mincvss" value={value.min_cvss ?? ""} onChange={(e) => set("min_cvss", e.target.value === "" ? null : Number(e.target.value))}>
+            <option value="">Any critical CVE</option>
+            {[9, 9.5, 9.8, 10].map((n) => <option key={n} value={n}>CVSS ≥ {n}</option>)}
+          </NativeSelect>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="impact">Outage alerts: minimum provider impact</Label>
+          <NativeSelect id="impact" value={value.outage_min_impact} onChange={(e) => set("outage_min_impact", e.target.value as AlertSettings["outage_min_impact"])}>
+            <option value="minor">Minor and above (includes unknown impact)</option>
+            <option value="major">Major and above</option>
+            <option value="critical">Critical only</option>
+          </NativeSelect>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="oprov">Outage alerts: only these providers</Label>
+          <TagInput id="oprov" value={value.outage_providers} onChange={(v) => set("outage_providers", v)} placeholder="e.g. OpenAI, AWS (empty = all)" />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="bproj">Bug alerts: only these repositories</Label>
+          <TagInput
+            id="bproj"
+            value={value.bug_projects}
+            onChange={(v) => set("bug_projects", v)}
+            placeholder="owner/name (empty = followed repositories)"
+            validate={(v) => (/^[\w.-]+\/[\w.-]+$/.test(v) ? null : "Use the owner/name format")}
+          />
+        </div>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Bug and watched-technology alerts also respect “Notify me from severity” above. Each event is notified once.
+      </p>
+    </fieldset>
   );
 }
 

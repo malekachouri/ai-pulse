@@ -12,6 +12,7 @@ from app.models.intel import (
 )
 from app.models.ops import (
     AIAnalysis,
+    AIUsage,
     ArticleRead,
     AuditLog,
     Bookmark,
@@ -23,6 +24,7 @@ from app.models.user import PasswordResetToken, RefreshToken, Role, User, UserPr
 
 __all__ = [
     "AIAnalysis",
+    "AIUsage",
     "AIModel",
     "AIModelRelease",
     "AITool",

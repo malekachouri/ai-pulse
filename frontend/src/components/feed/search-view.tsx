@@ -8,9 +8,10 @@ import { ArticleCard } from "@/components/feed/article-card";
 import { Pagination } from "@/components/feed/pagination";
 import { EmptyState, ErrorState, ListSkeleton } from "@/components/states/states";
 import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 import { parseHighlights } from "@/lib/highlight";
 import { ITEM_TYPE_LABEL } from "@/lib/labels";
-import { useSearch } from "@/lib/queries";
+import { useSearch, useSearchCapabilities } from "@/lib/queries";
 import type { ItemType } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -41,6 +42,9 @@ export function SearchView() {
   const q = (params.get("q") ?? "").slice(0, 300);
   const types = params.getAll("type").filter((t): t is ItemType => TYPES.includes(t as ItemType));
   const page = Math.max(1, Number.parseInt(params.get("page") ?? "1", 10) || 1);
+  const caps = useSearchCapabilities();
+  const rawMode = params.get("mode");
+  const mode = rawMode === "semantic" || rawMode === "hybrid" ? rawMode : "keyword";
   const [draft, setDraft] = useState(q);
 
   useEffect(() => {
@@ -48,27 +52,30 @@ export function SearchView() {
     setDraft(q);
   }, [q]);
 
-  const go = (next: { q?: string; types?: ItemType[]; page?: number }) => {
+  const go = (next: { q?: string; types?: ItemType[]; page?: number; mode?: string }) => {
     const sp = new URLSearchParams();
     const nq = next.q ?? q;
     if (nq) sp.set("q", nq);
+    const nm = next.mode ?? mode;
+    if (nm !== "keyword") sp.set("mode", nm);
     (next.types ?? types).forEach((t) => sp.append("type", t));
     if ((next.page ?? 1) > 1) sp.set("page", String(next.page));
     router.replace(`${pathname}?${sp.toString()}`, { scroll: false });
   };
 
-  const res = useSearch({ q, item_type: types.length ? types : undefined, page });
+  const res = useSearch({ q, item_type: types.length ? types : undefined, page, mode });
 
   return (
     <section aria-label="Search results">
       <form
-        className="relative mb-3"
+        className="relative mb-3 flex gap-2"
         role="search"
         onSubmit={(e) => {
           e.preventDefault();
           go({ q: draft.trim(), page: 1 });
         }}
       >
+        <div className="relative flex-1">
         <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           value={draft}
@@ -78,6 +85,12 @@ export function SearchView() {
           aria-label="Search query"
           className="h-10 pl-9"
         />
+        </div>
+        <NativeSelect aria-label="Search mode" className="w-40" value={mode} onChange={(e) => go({ mode: e.target.value, page: 1 })}>
+          <option value="keyword">Keyword</option>
+          <option value="semantic" disabled={!caps.data?.semantic}>Semantic{caps.data?.semantic ? "" : " (unavailable)"}</option>
+          <option value="hybrid" disabled={!caps.data?.hybrid}>Hybrid{caps.data?.hybrid ? "" : " (unavailable)"}</option>
+        </NativeSelect>
       </form>
       <div className="mb-5 flex flex-wrap gap-1.5" role="group" aria-label="Filter by type">
         {TYPES.map((t) => {

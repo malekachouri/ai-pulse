@@ -7,7 +7,10 @@ import { api, ApiError, errorMessage } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import type {
   AIModel,
+  AIStatus,
   Article,
+  ArticleAnalysis,
+  AskResponse,
   ArticleFilters,
   Bookmark,
   Briefing,
@@ -20,6 +23,11 @@ import type {
   Notification,
   Page,
   Preferences,
+  RadarIncident,
+  RadarSummary,
+  SoftwareBug,
+  Vulnerability,
+  SearchCapabilities,
   SearchResponse,
   SecurityStats,
   SourceBrief,
@@ -209,7 +217,7 @@ export function useModels() {
   });
 }
 
-export function useSearch(params: { q: string; item_type?: string[]; page: number }) {
+export function useSearch(params: { q: string; item_type?: string[]; page: number; mode?: string }) {
   return useQuery({
     queryKey: ["search", params],
     queryFn: () => api.get<SearchResponse>("/search", { ...params, page_size: 20 }),
@@ -257,4 +265,62 @@ export function useIngestionActions() {
     onError: (err) => toast.error(errorMessage(err)),
   });
   return { run, retry, update };
+}
+
+
+// ---- AI engine ----
+export function useArticleAnalysis(id: string | null) {
+  return useQuery({
+    queryKey: ["analysis", id],
+    queryFn: () => api.get<ArticleAnalysis>(`/news/${id}/analysis`),
+    enabled: !!id,
+  });
+}
+
+export function useSearchCapabilities() {
+  return useQuery({ queryKey: ["search", "caps"], queryFn: () => api.get<SearchCapabilities>("/search/capabilities"), staleTime: 300_000 });
+}
+
+export function useAsk() {
+  return useMutation({
+    mutationFn: (question: string) => api.post<AskResponse>("/search/ask", { question }),
+    onError: (err) => toast.error(errorMessage(err)),
+  });
+}
+
+export function useGenerateBriefing() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post<Briefing>("/briefings/generate"),
+    onSuccess: (b) => {
+      qc.setQueryData(keys.briefingLatest, b);
+      qc.invalidateQueries({ queryKey: keys.briefings });
+      toast.success("Briefing generated");
+    },
+    onError: (err) => toast.error(errorMessage(err)),
+  });
+}
+
+export function useAIStatus(enabled: boolean) {
+  return useQuery({ queryKey: ["admin", "ai"], queryFn: () => api.get<AIStatus>("/admin/ai/status"), enabled, refetchInterval: 60_000 });
+}
+
+
+// ---- Bugs & Failures Radar ----
+type Params = Record<string, string | number | boolean | string[] | undefined>;
+
+export function useRadar(days = 30) {
+  return useQuery({ queryKey: ["radar", days], queryFn: () => api.get<RadarSummary>("/radar/summary", { days }), refetchInterval: 120_000 });
+}
+
+export function useBugList(params: Params) {
+  return useQuery({ queryKey: ["bugs", params], queryFn: () => api.get<Page<SoftwareBug>>("/bugs", params), placeholderData: keepPreviousData });
+}
+
+export function useIncidentList(params: Params) {
+  return useQuery({ queryKey: ["incidents", "list", params], queryFn: () => api.get<Page<RadarIncident>>("/incidents", params), placeholderData: keepPreviousData });
+}
+
+export function useVulnList(params: Params) {
+  return useQuery({ queryKey: ["vulns", params], queryFn: () => api.get<Page<Vulnerability>>("/security/vulnerabilities", params), placeholderData: keepPreviousData });
 }

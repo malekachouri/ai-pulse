@@ -87,6 +87,16 @@ class BugKind(StrEnum):
     OTHER = "other"
 
 
+class BugResolution(StrEnum):
+    """Why a bug is closed, as reported by the source (GitHub `state_reason`)."""
+
+    FIXED = "fixed"  # closed AND a merged pull request / closing commit is linked
+    COMPLETED = "completed"  # closed as completed by maintainers, no linked fix found
+    NOT_PLANNED = "not_planned"
+    DUPLICATE = "duplicate"
+    UNKNOWN = "unknown"
+
+
 class JobStatus(StrEnum):
     PENDING = "pending"
     RUNNING = "running"

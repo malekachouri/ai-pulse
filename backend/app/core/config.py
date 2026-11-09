@@ -43,14 +43,26 @@ class Settings(BaseSettings):
     # Only for local development without an email server: return reset tokens in the API response.
     expose_reset_token: bool = False
 
-    # AI (used from phase 5 onwards)
+    # AI engine. No model names are hardcoded: set LLM_MODEL / EMBEDDING_MODEL for your provider.
     llm_provider: Literal["openai", "ollama", "anthropic", "none"] = "none"
     llm_model: str | None = None
+    # Anthropic has no embeddings API: use openai or ollama ("auto" = same as the LLM when it can embed).
+    embedding_provider: Literal["auto", "openai", "ollama", "none"] = "auto"
     embedding_model: str | None = None
-    embedding_dim: int = 768
+    embedding_dim: int = 768  # fixed by the pgvector column; OpenAI text-embedding-3-* is asked for 768 dims
     openai_api_key: SecretStr | None = None
+    openai_base_url: str = "https://api.openai.com/v1"  # any OpenAI-compatible endpoint
     anthropic_api_key: SecretStr | None = None
+    anthropic_api_url: str = "https://api.anthropic.com"
     ollama_base_url: str = "http://localhost:11434"
+    llm_timeout_seconds: float = 90.0
+    llm_max_output_tokens: int = 1800
+    llm_temperature: float = 0.2
+    # Optional pricing (USD per million tokens) for cost tracking - prices change, so they are configuration.
+    llm_price_input_per_mtok: float | None = None
+    llm_price_output_per_mtok: float | None = None
+    ai_batch_size: int = 20  # articles analysed per scheduled run
+    ai_daily_token_budget: int | None = None  # stop LLM analysis for the day once reached (None = unlimited)
 
     # Ingestion
     ingestion_max_attempts: int = 3  # job-level attempts (each HTTP request also retries with backoff)

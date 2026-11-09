@@ -11,6 +11,7 @@ from app.ingestion.connectors.github import (
     GitHubReleasesConnector,
     GitHubTrendingConnector,
 )
+from app.ingestion.connectors.github_advisories import GitHubAdvisoriesConnector
 from app.ingestion.connectors.huggingface import HFDailyPapersConnector, HFModelsConnector
 from app.ingestion.connectors.kubernetes_cve import KubernetesCveConnector
 from app.ingestion.connectors.nvd import NvdConnector
@@ -27,6 +28,7 @@ REGISTRY: dict[str, type[Connector]] = {
         GitHubReleasesConnector,
         GitHubTrendingConnector,
         GitHubIssuesConnector,
+        GitHubAdvisoriesConnector,
         NvdConnector,
         CisaKevConnector,
         KubernetesCveConnector,

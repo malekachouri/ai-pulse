@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { NativeSelect } from "@/components/ui/native-select";
 import { Tooltip } from "@/components/ui/tooltip";
 import { useAuth } from "@/lib/auth";
-import { useIngestionActions, useIngestionStatus } from "@/lib/queries";
+import { useAIStatus, useIngestionActions, useIngestionStatus } from "@/lib/queries";
 import type { SourceHealth, SourceStatus } from "@/lib/types";
 import { cn, formatCount, formatDateTime, safeUrl, timeAgo } from "@/lib/utils";
 
@@ -77,6 +77,7 @@ export default function IngestionPage() {
   const { user, status } = useAuth();
   const staff = !!user && (user.role === "admin" || user.role === "analyst");
   const q = useIngestionStatus(staff);
+  const ai = useAIStatus(staff);
   const { run, retry, update } = useIngestionActions();
   const [filter, setFilter] = useState<SourceHealth | "all">("all");
   const sources = useMemo(
@@ -110,6 +111,45 @@ export default function IngestionPage() {
             <StatCard label="Failing" value={d.by_health.failing ?? 0} hint="3+ consecutive failures" icon={ShieldAlert} tone={d.by_health.failing ? "critical" : "default"} />
             <StatCard label="Collected, last 24h" value={d.totals.items_24h} hint={`${formatCount(d.totals.items)} items in total`} icon={Clock} />
           </div>
+
+          {ai.data && (
+            <Card>
+              <CardHeader>
+                <div>
+                  <CardTitle>AI engine</CardTitle>
+                  <CardDescription>
+                    LLM: {ai.data.llm_provider ? `${ai.data.llm_provider} / ${ai.data.llm_model}` : "not configured"} ·
+                    Embeddings: {ai.data.embedding_provider ? `${ai.data.embedding_provider} / ${ai.data.embedding_model}` : "not configured"}
+                  </CardDescription>
+                </div>
+              </CardHeader>
+              <CardContent className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-5">
+                <div>
+                  <p className="text-xs text-muted-foreground">Rule-based analysis</p>
+                  <p className="tabular font-semibold">{formatCount(ai.data.items_with_rules_analysis)} / {formatCount(ai.data.items_total)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">AI summaries</p>
+                  <p className="tabular font-semibold">{formatCount(ai.data.items_with_ai_summary)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Embedded</p>
+                  <p className="tabular font-semibold">{formatCount(ai.data.items_with_embedding)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Tokens today</p>
+                  <p className="tabular font-semibold">{formatCount(ai.data.tokens_today)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Cost today</p>
+                  <p className="tabular font-semibold">{ai.data.cost_today_usd != null ? `$${ai.data.cost_today_usd.toFixed(4)}` : "—"}</p>
+                </div>
+                {ai.data.problems.length > 0 && (
+                  <p className="col-span-full text-xs text-amber-700 dark:text-amber-300">Configuration: {ai.data.problems.join(" · ")}</p>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardHeader>

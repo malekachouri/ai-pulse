@@ -7,11 +7,11 @@ Filter models are bound as query parameters (`Annotated[XFilters, Query()]`). Ev
 import re
 import uuid
 from datetime import date, datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.models.enums import BugKind, IncidentStatus, IssueState, Severity
+from app.models.enums import BugKind, BugResolution, IncidentStatus, IssueState, Severity
 from app.schemas.common import ORMModel, PageParams
 
 CVE_RE = re.compile(r"^CVE-\d{4}-\d{4,}$")
@@ -219,6 +219,8 @@ class BugFilters(ListParams):
     severity: list[Severity] | None = None
     status: IssueState | None = None
     has_fix: bool | None = None
+    resolution: list[BugResolution] | None = None
+    reported_within_days: int | None = Field(None, ge=1, le=365, description="Newly reported bugs")
 
     _q = field_validator("q")(_strip)
 
@@ -233,8 +235,11 @@ class SoftwareBugOut(ORMModel):
     status: IssueState
     affected_versions: list[str]
     fixed_in_version: str | None
-    fix_url: str | None
+    fix_url: str | None = Field(None, description="Merged pull request or closing commit, if linked")
+    fix_merged_at: datetime | None = None
+    resolution: BugResolution | None = None
     source_url: str
+    last_verified_at: datetime | None = None
     issue_number: int | None = None
     repository: str | None = None
     labels: list[str] = []
@@ -272,15 +277,17 @@ class VulnerabilityOut(ORMModel):
     kev_date_added: date | None
     kev_due_date: date | None
     patch_available: bool | None
+    remediation: str | None = Field(None, description="Mitigation from official sources only (CISA, vendor)")
+    references: list[dict[str, Any]] = []
     published_at: datetime | None
     last_modified_at: datetime | None
+    last_verified_at: datetime | None = None
     article_id: uuid.UUID | None
     updated_at: datetime
 
 
 class VulnerabilityDetail(VulnerabilityOut):
-    remediation: str | None = Field(None, description="Only from official sources (NVD, CISA, vendor)")
-    references: list[dict[str, Any]]
+    pass
 
 
 class SecurityStats(BaseModel):
@@ -300,6 +307,23 @@ class IncidentFilters(ListParams, DateRangeMixin):
         False,
         description="Unresolved per the provider's status page AND verified within the freshness window",
     )
+    state: Literal["current", "historical", "unverified"] | None = Field(
+        None, description="current = active and recently verified; historical = resolved; unverified = stale"
+    )
+    category: (
+        list[
+            Literal[
+                "ai_provider",
+                "cloud",
+                "api",
+                "database",
+                "kubernetes_docker",
+                "infrastructure",
+                "developer_platform",
+            ]
+        ]
+        | None
+    ) = None
 
     _q = field_validator("q")(_strip)
 
@@ -322,6 +346,9 @@ class IncidentOut(ORMModel):
     status_is_stale: bool = Field(
         False, description="Unresolved, but not re-verified recently; do not treat as live"
     )
+    state: str = "unverified"
+    categories: list[str] = []
+    duration_minutes: int | None = None
 
 
 class IncidentDetail(IncidentOut):
@@ -333,3 +360,47 @@ def validate_cve(cve_id: str) -> str:
     if not CVE_RE.match(cve):
         raise ValueError("Invalid CVE identifier (expected CVE-YYYY-NNNN)")
     return cve
+
+
+class CountRow(BaseModel):
+    key: str
+    count: int
+
+
+class AffectedTechnology(BaseModel):
+    name: str
+    vulnerabilities: int
+    bugs: int
+    incidents: int
+    total: int
+
+
+class IncidentDay(BaseModel):
+    day: date
+    total: int
+    by_provider: dict[str, int]
+
+
+class WeeklyStats(BaseModel):
+    week_start: date
+    incidents: int
+    outage_minutes: int
+    critical_high_cves: int
+    kev_added: int
+    bugs_reported: int
+    bugs_fixed: int
+
+
+class RadarSummary(BaseModel):
+    generated_at: datetime
+    window_days: int
+    critical_bugs: list[SoftwareBugOut]
+    new_vulnerabilities: list[VulnerabilityOut]
+    newly_exploited: list[VulnerabilityOut]
+    active_incidents: list[IncidentOut]
+    resolved_incidents: list[IncidentOut]
+    unverified_incidents: int
+    severity_chart: list[CountRow]
+    most_affected: list[AffectedTechnology]
+    incident_history: list[IncidentDay]
+    weekly: list[WeeklyStats]

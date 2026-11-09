@@ -4,11 +4,13 @@ from datetime import datetime
 from fastapi import APIRouter, Query, status
 from pydantic import ValidationError
 
-from app.api.deps import CurrentUser, OptionalUser, SessionDep
+from app.api.deps import AIDep, CurrentUser, OptionalUser, SessionDep
 from app.core.errors import AppError
 from app.models.enums import ItemType, Severity, VerificationStatus
+from app.schemas.ai import ArticleAnalysisOut
 from app.schemas.article import ArticleDetail, ArticleFilters, ArticleOut, SortOrder
 from app.schemas.common import ErrorResponse, Page, PageParams
+from app.services.ai import AIService
 from app.services.articles import ArticleService
 
 router = APIRouter(prefix="/news", tags=["news"])
@@ -93,3 +95,15 @@ async def mark_read(article_id: uuid.UUID, session: SessionDep, user: CurrentUse
 @router.delete("/{article_id}/read", status_code=status.HTTP_204_NO_CONTENT)
 async def mark_unread(article_id: uuid.UUID, session: SessionDep, user: CurrentUser) -> None:
     await ArticleService(session).set_read(article_id, user, False)
+
+
+@router.get(
+    "/{article_id}/analysis",
+    response_model=ArticleAnalysisOut,
+    summary="AI analysis (labelled AI-generated) and the explainable importance breakdown",
+    responses={404: {"model": ErrorResponse}},
+)
+async def get_analysis(
+    article_id: uuid.UUID, session: SessionDep, user: OptionalUser, ai: AIDep
+) -> ArticleAnalysisOut:
+    return await AIService(session, ai).analysis(article_id, user)

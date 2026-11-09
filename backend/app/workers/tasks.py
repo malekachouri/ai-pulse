@@ -60,6 +60,10 @@ def ingest_source(self: Any, source_id: str, trigger: str = "schedule", attempt:
         return {"status": job.status.value, "job_id": str(job.id), "created": job.items_created}
 
     result = _run(body)
+    if result.get("created"):
+        ai_analyze.delay()  # analyse new items promptly instead of waiting for the next tick
+    if result.get("status") in ("succeeded", "partial"):
+        evaluate_alerts.delay()
     if result.get("status") == JobStatus.FAILED.value and attempt < settings.ingestion_max_attempts:
         countdown = 60 * (2 ** (attempt - 1))  # 1 min, 2 min, 4 min …
         ingest_source.apply_async(
@@ -88,5 +92,92 @@ def recover_stale() -> int:
             n = await recover_stale_jobs(s, datetime.now(UTC))
             await s.commit()
             return n
+
+    return _run(body)
+
+
+@celery_app.task(name="aipulse.ai_analyze")
+def ai_analyze() -> dict[str, Any]:
+    """Deterministic analysis for every new item; embeddings and LLM analysis when configured (budgeted)."""
+    from app.ai.pipeline import AnalysisPipeline
+    from app.ai.providers import build_providers
+
+    settings = get_settings()
+
+    async def body(factory: async_sessionmaker[AsyncSession]) -> dict[str, Any]:
+        providers = build_providers(settings)
+        try:
+            async with factory() as s:
+                stats = await AnalysisPipeline(s, providers, daily_budget=settings.ai_daily_token_budget).run(
+                    llm_limit=settings.ai_batch_size
+                )
+                await s.commit()
+        finally:
+            await providers.aclose()
+        return {k: v for k, v in stats.__dict__.items() if k != "errors"} | {"errors": len(stats.errors)}
+
+    return _run(body)
+
+
+@celery_app.task(name="aipulse.ai_rescore")
+def ai_rescore() -> int:
+    """Recompute importance for the last 14 days (recency decays; KEV/incident status changes)."""
+    from datetime import timedelta
+
+    from sqlalchemy import select
+
+    from app.ai.pipeline import AnalysisPipeline
+    from app.ai.providers import AIProviders
+    from app.models import Article
+
+    async def body(factory: async_sessionmaker[AsyncSession]) -> int:
+        async with factory() as s:
+            pipe = AnalysisPipeline(s, AIProviders(None, None))
+            since = datetime.now(UTC) - timedelta(days=14)
+            n = 0
+            for a in (await s.scalars(select(Article).where(Article.collected_at >= since))).unique():
+                await pipe.score(a)
+                n += 1
+            await s.commit()
+            return n
+
+    return _run(body)
+
+
+@celery_app.task(name="aipulse.generate_due_briefings")
+def generate_due_briefings() -> int:
+    from app.ai.briefing import BriefingGenerator, due_briefings
+    from app.ai.providers import build_providers
+    from app.models import User
+
+    settings = get_settings()
+
+    async def body(factory: async_sessionmaker[AsyncSession]) -> int:
+        providers = build_providers(settings)
+        n = 0
+        try:
+            async with factory() as s:
+                now = datetime.now(UTC)
+                for uid in await due_briefings(s, now):
+                    user = await s.get(User, uid) if uid else None
+                    await BriefingGenerator(s, providers, now).generate(user)
+                    await s.commit()
+                    n += 1
+        finally:
+            await providers.aclose()
+        return n
+
+    return _run(body)
+
+
+@celery_app.task(name="aipulse.evaluate_alerts")
+def evaluate_alerts() -> dict[str, Any]:
+    from app.alerts.engine import AlertEngine
+
+    async def body(factory: async_sessionmaker[AsyncSession]) -> dict[str, Any]:
+        async with factory() as s:
+            stats = await AlertEngine(s).run()
+            await s.commit()
+            return {"created": stats.created, "by_rule": stats.by_rule}
 
     return _run(body)

@@ -13,6 +13,8 @@ class QueueUnavailableError(AppError):
 class TaskQueue(Protocol):
     def enqueue_ingest(self, source_id: str, trigger: str) -> str: ...
 
+    def enqueue(self, task: str, kwargs: dict) -> str: ...
+
 
 class CeleryTaskQueue:
     def enqueue_ingest(self, source_id: str, trigger: str) -> str:
@@ -27,3 +29,11 @@ class CeleryTaskQueue:
                 "The ingestion queue (Redis) is unavailable; try again shortly"
             ) from exc
         return str(result.id)
+
+    def enqueue(self, task: str, kwargs: dict) -> str:
+        from app.workers.celery_app import celery_app
+
+        try:
+            return str(celery_app.send_task(task, kwargs=kwargs, retry=False).id)
+        except Exception as exc:
+            raise QueueUnavailableError("The task queue (Redis) is unavailable; try again shortly") from exc

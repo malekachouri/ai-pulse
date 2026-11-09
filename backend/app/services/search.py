@@ -3,6 +3,8 @@
 from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ai.providers import Embedder, ProviderError
+from app.ai.search import Retriever
 from app.core.errors import AppError
 from app.models import Article, User
 from app.repositories.articles import ArticleRepository
@@ -24,14 +26,51 @@ class SemanticSearchUnavailable(AppError):
 
 
 class SearchService:
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(self, session: AsyncSession, embedder: Embedder | None = None) -> None:
         self.s = session
+        self.embedder = embedder
+
+    async def _vector_search(self, p: SearchParams, user: User | None) -> SearchResponse:
+        filters = ArticleFilters(
+            item_type=p.item_type,
+            category=p.category,
+            severity=p.severity,
+            date_from=p.date_from,
+            date_to=p.date_to,
+        )
+        retriever = Retriever(self.s, self.embedder)
+        try:
+            if p.mode == SearchMode.SEMANTIC:
+                hits = await retriever.semantic(p.q, filters)
+            else:
+                hits = await retriever.hybrid(p.q, filters, natural=False)
+        except ProviderError as exc:
+            raise SemanticSearchUnavailable(f"The embedding provider failed: {exc}") from exc
+        page = hits[p.paging.offset : p.paging.offset + p.page_size]
+        articles = await ArticleService(self.s).to_out([h.article for h in page], user)
+        items = [
+            SearchHit(
+                article=a,
+                rank=round(h.score, 6),
+                snippet=a.description[:300] if a.description else None,
+                scores=h.scores,
+            )
+            for a, h in zip(articles, page, strict=True)
+        ]
+        total = len(hits)
+        pages = (total + p.page_size - 1) // p.page_size if total else 0
+        return SearchResponse(
+            query=p.q, mode=p.mode, items=items, total=total, page=p.page, page_size=p.page_size, pages=pages
+        )
 
     async def search(self, p: SearchParams, user: User | None) -> SearchResponse:
         if p.mode != SearchMode.KEYWORD:
-            raise SemanticSearchUnavailable(
-                f"'{p.mode}' search needs embeddings, which are not generated yet. Use mode=keyword."
-            )
+            if self.embedder is None:
+                raise SemanticSearchUnavailable(
+                    f"'{p.mode}' search needs an embedding provider "
+                    "(set EMBEDDING_PROVIDER/EMBEDDING_MODEL). Use mode=keyword."
+                )
+            return await self._vector_search(p, user)
         filters = ArticleFilters(
             q=p.q, item_type=p.item_type, category=p.category, severity=p.severity,
             date_from=p.date_from, date_to=p.date_to, sort=SortOrder.RELEVANCE,

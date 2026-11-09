@@ -4,8 +4,8 @@
 GitHub activity, software bugs and outages, CVEs, and cloud/DevOps changes, with original sources,
 timestamps and verification status on every item.
 
-> Status: **Phases 1–4 of 9 complete** — architecture, database, auth, the full REST API, the web
-> interface and automated collection from 27 official sources. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design and roadmap.
+> Status: **Phases 1–5 of 9 complete** — architecture, database, auth, the full REST API, the web
+> interface, automated collection from 27 official sources and the AI intelligence engine. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design and roadmap.
 > Data starts flowing as soon as the worker and Beat containers run (see [docs/INGESTION.md](docs/INGESTION.md)).
 > AI Pulse never presents demo content as real data — see *Demo mode* below.
 
@@ -138,3 +138,33 @@ npm run lint && npm run typecheck && npm test && npm run build
 - Admin → Ingestion dashboard: health, last runs, failures, enable/disable, interval, run now, retry.
 - Verified against the live sources: 19 of them collected ~2,800 real items with zero invalid records;
   a second run created no duplicates. Tests use recorded real responses (46 new tests).
+
+**Phase 5 — AI intelligence engine** (see [docs/AI.md](docs/AI.md))
+- Provider abstraction for OpenAI, Anthropic and Ollama, selected by environment variables only; structured
+  JSON output validated with Pydantic, one corrective retry, token/cost tracking, daily token budget.
+- 10-step pipeline: cleaning, language, categories, keywords, entities, duplicates and importance run without
+  any LLM for every item; summaries, impact, actions and learning topics for the most important items.
+- Grounding checks remove unsupported numbers/versions/ids and any remediation not backed by an official
+  source; links to learning resources only come from a curated catalog.
+- Explainable importance score (factor-by-factor, clearly not CVSS) with personalisation.
+- Keyword, semantic (pgvector) and hybrid (BM25 + RRF) search; "Ask AI Pulse" answers only from collected
+  items with numbered citations, and says when information is insufficient.
+- Personalised daily briefings (sections from real items, AI executive summary), generated on demand or on
+  each user's schedule. UI: Explain panel, Ask panel, search modes, Generate now, AI status for admins.
+
+**Phase 6 — Bugs & Failures Radar** (see [docs/RADAR.md](docs/RADAR.md))
+- Radar page with overview, bugs, incidents and vulnerabilities tabs:
+  - KPIs, active and resolved incidents, critical bugs, newly disclosed and newly exploited CVEs.
+  - Severity chart, most affected technologies, incident history and weekly stats.
+- Bugs are enriched from the GitHub timeline:
+  - The fix PR or commit and its merge date.
+  - A resolution (fixed only when a merged fix exists).
+  - Affected versions and the last verification time.
+- Incidents report a state (current, historical or unverified; active only when re-verified within 2 h), categories and a duration.
+- New GitHub Security Advisories connector (15 connectors in total).
+  - Vulnerabilities expose remediation from official sources, references and the verification time.
+- Configurable alerts:
+  - Critical CVEs (minimum CVSS), newly exploited CVEs, critical bugs (per repository), outages (minimum impact, providers) and followed technologies.
+  - Evaluated every 5 minutes and after each ingestion, and deduplicated per user.
+- Migration 0005.
+

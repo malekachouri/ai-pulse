@@ -1,8 +1,9 @@
 import uuid
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
-from sqlalchemy.dialects.postgresql import ARRAY, UUID
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
@@ -60,6 +61,8 @@ class UserPreference(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     briefing_hour: Mapped[int] = mapped_column(Integer, default=7, server_default="7")
     timezone: Mapped[str] = mapped_column(String(64), default="UTC", server_default="UTC")
     theme: Mapped[str] = mapped_column(String(16), default="dark", server_default="dark")
+    # Alert rules and thresholds (see app/alerts). Empty = defaults.
+    alert_settings: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, server_default="{}")
 
     user: Mapped[User] = relationship(back_populates="preference")
 

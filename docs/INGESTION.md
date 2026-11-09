@@ -60,8 +60,9 @@ Live-checked on 2026-11-09 against the real endpoints unless noted.
 | Research | Hugging Face daily papers | `hf_daily_papers` | linked to the arXiv record as a duplicate |
 | GitHub | Rising AI / DevOps repositories | `github_trending` | **GitHub has no trending API** — Search API ranked by stars, plus AI Pulse's daily star snapshots → `stars_delta_7d` (null until 7 days of history exist) |
 | GitHub | AI framework & cloud-native releases | `github_releases` | Kubernetes, Moby, containerd, Helm, Prometheus, Argo CD, Istio, Cilium, vLLM, Transformers, LangChain, Ollama, LlamaIndex, pgvector; *not live-checked here* |
-| GitHub | Bug & security issues | `github_issues` | open + closed; severity only from labels (basis recorded), else `unknown`; unverified until a maintainer label confirms; *not live-checked here* |
+| GitHub | Bug & security issues | `github_issues` | open + closed; closed issues enriched from the timeline (merged fix PR or closing commit → resolution `fixed`); affected versions from the body; severity only from labels (basis recorded), else `unknown`; unverified until a maintainer label confirms; *not live-checked here* |
 | Security | NVD CVE API 2.0 | `nvd` | 120-day windows, pagination, NVD "Primary" score preferred, Rejected CVEs skipped |
+| Security | GitHub Security Advisories (reviewed) | `github_advisories` | pip/npm/go/maven; checkpoint on `updated_at`; withdrawn skipped; GHSA severity + CVSS as basis; patched versions as remediation; *not live-checked here* |
 | Security | CISA KEV | `cisa_kev` | articles for entries added in the last 30 days; all entries flag their CVE |
 | Security | Kubernetes official CVE feed | `kubernetes_cve_feed` | vendor advisories; CVSS only from the SRC's own rating line |
 | Status | Google Cloud Service Health | `gcp_status` | `end` present → resolved, otherwise investigating |

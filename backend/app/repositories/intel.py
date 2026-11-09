@@ -2,7 +2,7 @@
 
 import uuid
 from collections.abc import Sequence
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import ColumnElement, String, and_, case, cast, func, or_, select
@@ -253,6 +253,12 @@ class IntelRepository:
             stmt = stmt.where(SoftwareBug.severity.in_(f.severity))
         if f.status:
             stmt = stmt.where(SoftwareBug.status == f.status)
+        if f.resolution:
+            stmt = stmt.where(SoftwareBug.resolution.in_(f.resolution))
+        if f.reported_within_days:
+            since = datetime.now(UTC) - timedelta(days=f.reported_within_days)
+            reported = func.coalesce(GitHubIssue.opened_at, Article.published_at, SoftwareBug.created_at)
+            stmt = stmt.where(reported >= since)
         if f.has_fix is not None:
             has = or_(SoftwareBug.fix_url.is_not(None), SoftwareBug.fixed_in_version.is_not(None))
             stmt = stmt.where(has if f.has_fix else ~has)
@@ -322,6 +328,14 @@ class IntelRepository:
             stmt = stmt.where(Incident.status.in_(f.status))
         if f.active_only:
             stmt = stmt.where(incident_is_active(now))
+        if f.state:
+            from app.services.radar import incident_state_filter
+
+            stmt = stmt.where(incident_state_filter(f.state, now))
+        if f.category:
+            from app.services.radar import incident_category_filter
+
+            stmt = stmt.where(incident_category_filter(list(f.category)))
         stmt = _date_range(stmt, Incident.started_at, f)
         return await paginate(self.s, stmt, INCIDENT_SORT.order_by(f.sort), f.paging.offset, f.page_size)
 

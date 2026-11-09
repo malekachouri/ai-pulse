@@ -106,6 +106,26 @@ async def _sync_sources() -> None:
     await engine.dispose()
 
 
+async def _ai_analyze(limit: int, llm_limit: int) -> None:
+    """Run the AI pipeline once in-process (deterministic stages always; LLM/embeddings if configured)."""
+    from app.ai.pipeline import AnalysisPipeline
+    from app.ai.providers import build_providers
+
+    settings = get_settings()
+    engine = create_engine(settings)
+    providers = build_providers(settings)
+    for problem in providers.problems:
+        print(f"note: {problem}")
+    async with create_session_factory(engine)() as s:
+        stats = await AnalysisPipeline(s, providers, daily_budget=settings.ai_daily_token_budget).run(
+            stage_a_limit=limit, llm_limit=llm_limit
+        )
+        await s.commit()
+    await providers.aclose()
+    await engine.dispose()
+    print({k: v for k, v in stats.__dict__.items() if k != "errors"}, "errors:", stats.errors[:3])
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="app.cli")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -116,6 +136,9 @@ def main() -> None:
     p = sub.add_parser("ingest", help="Run one source now (without Celery)")
     p.add_argument("slug")
     sub.add_parser("sync-sources", help="Add catalog sources missing from the database")
+    p = sub.add_parser("ai-analyze", help="Run the AI pipeline once")
+    p.add_argument("--limit", type=int, default=5000)
+    p.add_argument("--llm-limit", type=int, default=20)
     args = parser.parse_args()
     if args.cmd == "create-admin":
         asyncio.run(_create_admin(args.email, args.full_name))
@@ -125,6 +148,8 @@ def main() -> None:
         raise SystemExit(asyncio.run(_ingest(args.slug)))
     elif args.cmd == "sync-sources":
         asyncio.run(_sync_sources())
+    elif args.cmd == "ai-analyze":
+        asyncio.run(_ai_analyze(args.limit, args.llm_limit))
 
 
 if __name__ == "__main__":

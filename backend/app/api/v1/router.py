@@ -14,6 +14,7 @@ from app.api.v1 import (
     news,
     notifications,
     preferences,
+    radar,
     research,
     search,
     security,
@@ -23,6 +24,6 @@ from app.api.v1 import (
 api_router = APIRouter()
 for module in (
     auth, dashboard, news, models, tools, research, github, bugs, security, incidents,
-    search, briefings, bookmarks, notifications, preferences, catalog, admin,
+    radar, search, briefings, bookmarks, notifications, preferences, catalog, admin,
 ):  # fmt: skip
     api_router.include_router(module.router)

@@ -58,7 +58,7 @@ flowchart LR
 | Models | `app/models` | ORM entities, constraints, indexes. |
 | Core | `app/core` | Config, security, logging, errors, metrics. |
 | Ingestion ✅ | `app/ingestion` | Connector contract, normalized format, HTTP client (retries, rate limits), writer, runner, scheduling, catalog. |
-| AI 🚧 | `app/ai` | Provider abstraction, prompts, pipeline, embeddings, RAG. |
+| AI ✅ | `app/ai` | Providers, text/NLP, claims checks, scoring, pipeline, search (BM25/semantic/RRF), RAG, briefings. |
 | Workers ✅ | `app/workers` | Celery app, Beat schedule, tasks (ingest, dispatch, stale-job recovery). |
 
 Dependencies point inwards only (API → services → repositories → models). Services receive the DB
@@ -75,7 +75,7 @@ ai-pulse/
 ├── backend/
 │   ├── Dockerfile              multi-stage, non-root, healthcheck
 │   ├── alembic/                migrations (0001 schema + seeds, 0002 filter indexes,
-│   │                           0003 canonical_key + 27 official sources)
+│   │                           0003 canonical_key + 27 official sources, 0004 pg_trgm + ai_usage)
 │   ├── app/
 │   │   ├── main.py             app factory, middleware, routers
 │   │   ├── cli.py              `python -m app.cli create-admin`
@@ -90,7 +90,8 @@ ai-pulse/
 │   │   │                       notifications, preferences, catalog, dashboard, admin, health)
 │   │   ├── ingestion/          base, normalized, http, ratelimit, writer, runner, scheduling,
 │   │   │                       catalog, connectors/* (14)
-│   │   ├── ai/          🚧     providers/*, pipeline, prompts, rag
+│   │   ├── ai/                 providers/*, text, claims, scoring, learning, prompts, pipeline,
+│   │   │                       search, rag, briefing
 │   │   └── workers/            celery_app (Beat schedule), tasks
 │   └── tests/                  integration tests against real Postgres + migrations
 ├── frontend/                   Next.js 16 App Router + Tailwind 4 + shadcn/ui
@@ -201,8 +202,12 @@ matches (`%`/`_` are escaped).
 | security | `GET /security/vulnerabilities` (q, severity, min_cvss, known_exploited, patch_available, product, cwe, date range), `GET /security/vulnerabilities/{CVE-ID}` (adds remediation + references), `GET /security/stats` | optional | ✅ |
 | incidents | `GET /incidents` (q, provider, status, active_only, date range; computed `is_active` and `status_is_stale`), `GET /incidents/{id}` (update log) | optional | ✅ |
 | search | `GET /search` keyword mode: FTS ranking + `[[highlighted]]` plain-text snippets, type/category/severity/date filters | optional | ✅ |
-| search | `mode=semantic|hybrid` (returns 501 until embeddings exist) and `POST /search/ask` RAG with citations | optional | 🚧 P5 |
-| briefings | `POST /briefings/generate` and scheduled generation | user | 🚧 P7 |
+| search | `mode=semantic|hybrid`, `GET /search/capabilities`, `POST /search/ask` (RAG with citations) | optional | ✅ |
+| news | `GET /news/{id}/analysis` (AI analysis + explainable importance, personalised when signed in) | optional | ✅ |
+| admin | `GET /admin/ai/status`, `POST /admin/ai/run` | staff | ✅ |
+| briefings | `POST /briefings/generate` + scheduled per-user generation (timezone, frequency) | user | ✅ |
+| radar | `GET /radar/summary?days=` (KPIs, severity chart, most affected, incident history, weekly stats); `/bugs` adds `resolution`, `reported_within_days`; `/incidents` adds `state=current\|historical\|unverified`, `category` — see [RADAR.md](RADAR.md) | optional | ✅ |
+| admin | `POST /admin/alerts/run` (evaluate alert rules now, audited) | staff | ✅ |
 
 **Auth model.** Access token: HS256 JWT, 15 min, sent as `Authorization: Bearer`, kept in memory by
 the frontend. Refresh token: opaque 384-bit random value, stored only as SHA-256, delivered as an
@@ -221,24 +226,13 @@ checkpoint and job/health stats in a single transaction. 14 connectors cover 27 
 sources (RSS/Atom, arXiv, Hugging Face, GitHub, NVD, CISA KEV, Kubernetes CVE feed, Google Cloud /
 AWS / Azure status, Statuspage). Per-host rate limits are shared across workers through Redis.
 
-## 7. AI processing workflow 🚧 (Phase 5)
+## 7. AI processing workflow ✅ (Phase 5)
 
-`LLMProvider` protocol (`complete_json(schema, messages)`, `embed(texts)`) with OpenAI, Ollama and
-Anthropic implementations selected by `LLM_PROVIDER`; model names come from env only.
-
-Pipeline per item: clean → detect language → classify (multi-label, 15 categories) → extract
-keywords/entities → near-duplicate check → importance score → summary & impact analysis → embed.
-Outputs are validated against Pydantic schemas; invalid JSON is retried once then stored with
-`valid=false`. Every claim in generated text must reference source fields; vulnerability
-remediation is only produced when present in NVD/KEV/vendor data.
-
-**Importance score (0–100, explainable)** = weighted sum of source reliability, severity (from
-official basis), recency decay, KEV/exploitation flag, technical impact, and user-interest match;
-the per-factor breakdown is stored in `ai_analyses(kind=importance)`.
-
-**Search/RAG:** keyword (FTS `ts_rank_cd`), semantic (pgvector cosine), hybrid (reciprocal rank
-fusion) with metadata filters. RAG answers cite article IDs/URLs and reply "insufficient
-information" when retrieval confidence is low.
+See **[AI.md](AI.md)**. Provider abstraction (OpenAI, Anthropic, Ollama; env-configured), a 10-step pipeline
+(steps 1–7 deterministic for every item, 8–10 LLM for the most important items, token-budgeted), grounding
+checks that remove unsupported claims and invented remediation, an explainable importance score (not CVSS),
+keyword / semantic / hybrid (BM25 + RRF) search, cited RAG answers with an "insufficient information" gate,
+and personalised daily briefings. Usage and cost per call in `ai_usage`.
 
 ## 8. Security architecture
 
@@ -264,8 +258,8 @@ information" when retrieval confidence is low.
 | 2 | Next.js UI: layout, sidebar, dashboard, feed, filters, all pages, auth flows (+ bookmarks/notifications/preferences/briefings read API) | ✅ |
 | 3 | Typed API modules (models, tools, research, github, bugs, security, incidents), keyword search with snippets, admin users/roles/jobs/audit, filter indexes (migration 0002), frontend panels | ✅ |
 | 4 | Ingestion engine: 14 connectors / 27 official sources, Celery + Beat, retries, rate limits, checkpoints, dedup, failed-job tracking, source health, admin ingestion dashboard | ✅ |
-| 5 | AI engine: providers, pipeline, scoring, embeddings, hybrid search, RAG with citations | 📋 |
-| 6 | Bugs & Failures radar + alerting thresholds | 📋 |
+| 5 | AI engine: providers, 10-step pipeline with grounding checks, explainable scoring, embeddings, hybrid search, RAG with citations, personalised briefings | ✅ |
+| 6 | Bugs & Failures radar (bugs/incidents/vulnerabilities, state & categories, GitHub advisories) + configurable alerts, migration 0005 | ✅ |
 | 7 | Personalised briefings + notifications + scheduling | 📋 |
 | 8 | Production: worker/beat/web images, Prometheus/Grafana, rate limiting, scanning, docs | 📋 |
 | 9 | Full audit & hardening | 📋 |
