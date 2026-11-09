@@ -13,7 +13,7 @@ class ArticleRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.s = session
 
-    def _filtered(self, f: ArticleFilters) -> tuple[Select, object | None]:
+    def filtered(self, f: ArticleFilters) -> tuple[Select, object | None]:
         stmt = select(Article)
         ts_query = None
         if f.q:
@@ -49,7 +49,7 @@ class ArticleRepository:
         return stmt, ts_query
 
     async def search(self, f: ArticleFilters, offset: int, limit: int) -> tuple[Sequence[Article], int]:
-        stmt, ts_query = self._filtered(f)
+        stmt, ts_query = self.filtered(f)
         total = await self.s.scalar(select(func.count()).select_from(stmt.order_by(None).subquery())) or 0
         when = func.coalesce(Article.published_at, Article.collected_at)
         if f.sort == SortOrder.RELEVANCE and ts_query is not None:

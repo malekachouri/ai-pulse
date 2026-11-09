@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { api, ApiError, errorMessage } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import type {
+  AIModel,
   Article,
   ArticleFilters,
   Bookmark,
@@ -13,9 +14,14 @@ import type {
   BriefingListItem,
   Category,
   DashboardSummary,
+  GitHubRepository,
+  Incident,
+  IngestionOverview,
   Notification,
   Page,
   Preferences,
+  SearchResponse,
+  SecurityStats,
   SourceBrief,
 } from "@/lib/types";
 
@@ -173,4 +179,82 @@ export function useLatestBriefing() {
 
 export function useBriefings() {
   return useQuery({ queryKey: keys.briefings, queryFn: () => api.get<BriefingListItem[]>("/briefings") });
+}
+
+// ---- Typed intelligence modules ----
+
+export function useIncidents(params: { active_only?: boolean; page_size?: number; sort?: string }) {
+  return useQuery({
+    queryKey: ["incidents", params],
+    queryFn: () => api.get<Page<Incident>>("/incidents", params),
+    refetchInterval: 120_000,
+  });
+}
+
+export function useSecurityStats() {
+  return useQuery({ queryKey: ["security", "stats"], queryFn: () => api.get<SecurityStats>("/security/stats") });
+}
+
+export function useRisingRepos() {
+  return useQuery({
+    queryKey: ["github", "rising"],
+    queryFn: () => api.get<Page<GitHubRepository>>("/github/repositories", { sort: "-stars_delta_7d", page_size: 6 }),
+  });
+}
+
+export function useModels() {
+  return useQuery({
+    queryKey: ["models", "recent"],
+    queryFn: () => api.get<Page<AIModel>>("/models", { sort: "-updated_at", page_size: 6 }),
+  });
+}
+
+export function useSearch(params: { q: string; item_type?: string[]; page: number }) {
+  return useQuery({
+    queryKey: ["search", params],
+    queryFn: () => api.get<SearchResponse>("/search", { ...params, page_size: 20 }),
+    enabled: params.q.trim().length >= 2,
+    placeholderData: keepPreviousData,
+  });
+}
+
+// ---- Ingestion admin ----
+export function useIngestionStatus(enabled: boolean) {
+  return useQuery({
+    queryKey: ["admin", "ingestion"],
+    queryFn: () => api.get<IngestionOverview>("/admin/ingestion/status"),
+    enabled,
+    refetchInterval: 30_000,
+  });
+}
+
+export function useIngestionActions() {
+  const qc = useQueryClient();
+  const refresh = () => qc.invalidateQueries({ queryKey: ["admin", "ingestion"] });
+  const run = useMutation({
+    mutationFn: (sourceId: string) => api.post<{ task_id: string }>(`/admin/sources/${sourceId}/run`),
+    onSuccess: () => {
+      toast.success("Run queued — results appear here within a minute");
+      setTimeout(refresh, 4000);
+    },
+    onError: (err) => toast.error(errorMessage(err)),
+  });
+  const retry = useMutation({
+    mutationFn: (jobId: string) => api.post<{ task_id: string }>(`/admin/jobs/${jobId}/retry`),
+    onSuccess: () => {
+      toast.success("Retry queued");
+      setTimeout(refresh, 4000);
+    },
+    onError: (err) => toast.error(errorMessage(err)),
+  });
+  const update = useMutation({
+    mutationFn: ({ id, patch }: { id: string; patch: { enabled?: boolean; poll_interval_minutes?: number } }) =>
+      api.patch(`/admin/sources/${id}`, patch),
+    onSuccess: () => {
+      toast.success("Source updated");
+      refresh();
+    },
+    onError: (err) => toast.error(errorMessage(err)),
+  });
+  return { run, retry, update };
 }

@@ -12,8 +12,9 @@ from app.models import (
     User,
     article_categories,
 )
-from app.models.enums import IncidentStatus, ItemType, Severity
+from app.models.enums import ItemType, Severity
 from app.repositories.articles import ArticleRepository
+from app.repositories.intel import incident_is_active
 from app.schemas.article import ArticleFilters, SortOrder
 from app.schemas.dashboard import CountByKey, DailyCount, DashboardSummary
 from app.services.articles import ArticleService
@@ -55,13 +56,7 @@ class DashboardService:
             )
         )
         # Active = not resolved per the provider's own status data, verified within the last 2 hours.
-        active = await self._count(
-            select(func.count(Incident.id)).where(
-                Incident.status != IncidentStatus.RESOLVED,
-                Incident.status != IncidentStatus.UNKNOWN,
-                Incident.last_verified_at >= now - timedelta(hours=2),
-            )
-        )
+        active = await self._count(select(func.count(Incident.id)).where(incident_is_active(now)))
         enabled = await self._count(select(func.count(Source.id)).where(Source.enabled.is_(True)))
         failing = await self._count(
             select(func.count(Source.id)).where(Source.enabled.is_(True), Source.consecutive_failures >= 3)

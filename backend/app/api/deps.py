@@ -12,6 +12,7 @@ from app.core.config import Settings
 from app.core.errors import AuthenticationError, PermissionDeniedError
 from app.core.security import decode_access_token
 from app.db.session import session_scope
+from app.ingestion.queue import CeleryTaskQueue, TaskQueue
 from app.models import User
 from app.models.enums import RoleName
 from app.services.email import ConsoleEmailSender, EmailSender
@@ -32,7 +33,12 @@ def get_email_sender(request: Request) -> EmailSender:
     return getattr(request.app.state, "email_sender", None) or ConsoleEmailSender()
 
 
+def get_task_queue(request: Request) -> TaskQueue:
+    return getattr(request.app.state, "task_queue", None) or CeleryTaskQueue()
+
+
 SettingsDep = Annotated[Settings, Depends(get_settings_dep)]
+QueueDep = Annotated[TaskQueue, Depends(get_task_queue)]
 # scope="function": commit/rollback happens before the response is sent, so commit errors surface as 5xx.
 SessionDep = Annotated[AsyncSession, Depends(get_session, scope="function")]
 EmailDep = Annotated[EmailSender, Depends(get_email_sender)]
@@ -76,3 +82,4 @@ def require_roles(*roles: RoleName) -> Callable[..., Coroutine[Any, Any, User]]:
 
 
 AdminUser = Annotated[User, Depends(require_roles(RoleName.ADMIN))]
+StaffUser = Annotated[User, Depends(require_roles(RoleName.ADMIN, RoleName.ANALYST))]

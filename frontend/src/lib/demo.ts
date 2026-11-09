@@ -11,13 +11,17 @@ import type {
   Briefing,
   BriefingListItem,
   Category,
+  AIModel,
   DashboardSummary,
+  GitHubRepository,
+  Incident,
   ItemType,
   Notification,
   Page,
   Preferences,
   Severity,
   SourceBrief,
+  SourceStatus,
   User,
 } from "@/lib/types";
 
@@ -279,6 +283,48 @@ export async function demoFetch<T>(
     if (method === "PUT") prefs = { ...prefs, ...json } as Preferences;
     return r(prefs);
   }
+  if (path === "/incidents") {
+    const items: Incident[] = [
+      { id: "demo-inc-1", provider: "Demo Cloud", external_id: "demo-1", title: "[DEMO] Elevated API error rates in region demo-east-1", affected_services: ["Object storage API"], regions: ["demo-east-1"], status: "investigating", impact: "major", started_at: iso(2), resolved_at: null, status_page_url: "https://example.com/demo/status/1", last_verified_at: iso(0.1), article_id: "demo-4", is_active: true, status_is_stale: false },
+    ];
+    return r(page(q.active_only ? items.filter((i) => i.is_active) : items));
+  }
+  if (path === "/security/stats") return r({ total: 4, by_severity: { critical: 1, high: 1, medium: 1, low: 1 }, known_exploited: 0, published_last_7d: 2, critical_last_7d: 1 });
+  if (path === "/github/repositories") {
+    const repos: GitHubRepository[] = [
+      { id: "demo-repo-1", full_name: "demo-org/agent-kit", description: "[DEMO] Fictional agent toolkit", html_url: "https://example.com/demo/repo/1", language: "Python", topics: ["agents"], stars: 18200, forks: 900, open_issues: 120, stars_delta_7d: 4100, latest_release: "v0.9.0", latest_release_at: iso(48), pushed_at: iso(3), tracked: true, updated_at: iso(1) },
+      { id: "demo-repo-2", full_name: "demo-org/kube-gpt", description: "[DEMO] Fictional Kubernetes assistant", html_url: "https://example.com/demo/repo/2", language: "Go", topics: ["kubernetes"], stars: 6400, forks: 310, open_issues: 45, stars_delta_7d: 1250, latest_release: "v1.2.0", latest_release_at: iso(120), pushed_at: iso(10), tracked: true, updated_at: iso(2) },
+    ];
+    return r(page(repos));
+  }
+  if (path === "/models") {
+    const models: AIModel[] = [
+      { id: "demo-model-1", provider: "Example Labs (demo)", name: "Nimbus-7B", family: "Nimbus", modality: ["text"], is_open_weights: true, homepage_url: null, created_at: iso(500), updated_at: iso(3), latest_release: { id: "demo-rel-1", version: "1.0", released_at: iso(3), context_window: 131072, notes: null, source_url: "https://example.com/demo/1", article_id: "demo-1" }, release_count: 1 },
+      { id: "demo-model-2", provider: "Fictional Corp (demo)", name: "Quill-Code 2", family: "Quill", modality: ["text", "code"], is_open_weights: false, homepage_url: null, created_at: iso(900), updated_at: iso(52), latest_release: { id: "demo-rel-2", version: "2", released_at: iso(52), context_window: null, notes: null, source_url: "https://example.com/demo/13", article_id: "demo-13" }, release_count: 2 },
+    ];
+    return r(page(models));
+  }
+  if (path === "/search") {
+    const hits = filterArticles({ ...q, sort: "latest", item_type: q.item_type }).map((a) => ({ article: a, rank: 0.5, snippet: a.description ? `[[${a.description.split(" ")[0]}]] ${a.description.split(" ").slice(1).join(" ")}` : null }));
+    const res = page(hits, Number(q.page ?? 1), 20);
+    return r({ ...res, query: String(q.q ?? ""), mode: "keyword" });
+  }
+  if (path === "/admin/ingestion/status") {
+    const mk = (i: number, name: string, connector: string, health: SourceStatus["health"], err: string | null = null): SourceStatus => ({
+      id: `demo-src-${i}`, slug: `demo-${i}`, name: `[DEMO] ${name}`, connector, source_type: "api", url: "https://example.com/demo/feed",
+      enabled: health !== "disabled", is_official: true, poll_interval_minutes: 60, health,
+      health_reason: health === "failing" ? "3 consecutive failed runs" : health === "disabled" ? "Disabled by an administrator" : "Collecting normally",
+      consecutive_failures: health === "failing" ? 3 : 0, last_success_at: health === "failing" ? iso(30) : iso(0.5), last_error_at: err ? iso(0.2) : null,
+      last_error: err, next_run_at: health === "disabled" ? null : iso(-0.5),
+      last_job: { id: `demo-job-${i}`, source_id: `demo-src-${i}`, status: err ? "failed" : "succeeded", trigger: "schedule", started_at: iso(0.5),
+        finished_at: iso(0.49), duration_seconds: 2.4, items_fetched: 40, items_created: err ? 0 : 6, items_updated: 1, items_skipped: 33, attempt: 1, error: err, errors: [] },
+      items_total: 400 + i * 37, items_24h: err ? 0 : 6 + i,
+    });
+    const sources = [mk(1, "Vendor blog", "rss", "healthy"), mk(2, "Advisory API", "nvd", "healthy"), mk(3, "Status page", "statuspage", "failing", "FetchError: HTTP 503 from example.com after 4 attempts"), mk(4, "Paused feed", "rss", "disabled")];
+    return r({ generated_at: iso(0), totals: { sources: 4, enabled: 3, items: 1600, items_24h: 21 }, by_health: { healthy: 2, failing: 1, disabled: 1 },
+      sources, recent_failures: sources.filter((x) => x.last_job?.status === "failed").map((x) => x.last_job!) });
+  }
+  if (path.startsWith("/admin/")) return r({ task_id: "demo-task", message: "Demo mode: no changes were made." });
   if (path === "/briefings/latest") return r(BRIEFING);
   if (path === "/briefings") {
     const list: BriefingListItem[] = [{ id: BRIEFING.id, briefing_date: BRIEFING.briefing_date, executive_summary: BRIEFING.executive_summary, generated_at: BRIEFING.generated_at, personalized: true }];

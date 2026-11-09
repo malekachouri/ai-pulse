@@ -52,6 +52,9 @@ class Settings(BaseSettings):
     anthropic_api_key: SecretStr | None = None
     ollama_base_url: str = "http://localhost:11434"
 
+    # Ingestion
+    ingestion_max_attempts: int = 3  # job-level attempts (each HTTP request also retries with backoff)
+    ingestion_dispatch_seconds: int = 60  # how often the scheduler looks for due sources
     # Ingestion credentials (optional; connectors degrade gracefully without them)
     github_token: SecretStr | None = None
     nvd_api_key: SecretStr | None = None

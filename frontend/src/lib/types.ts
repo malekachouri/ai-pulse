@@ -177,3 +177,142 @@ export interface ArticleFilters {
   page?: number;
   page_size?: number;
 }
+
+// ---- Typed intelligence modules (Phase 3) ----
+
+export type IncidentStatus = "investigating" | "identified" | "monitoring" | "resolved" | "unknown";
+
+export interface Incident {
+  id: string;
+  provider: string;
+  external_id: string;
+  title: string;
+  affected_services: string[];
+  regions: string[];
+  status: IncidentStatus;
+  impact: string | null;
+  started_at: string | null;
+  resolved_at: string | null;
+  status_page_url: string;
+  last_verified_at: string;
+  article_id: string | null;
+  is_active: boolean;
+  status_is_stale: boolean;
+}
+
+export interface SecurityStats {
+  total: number;
+  by_severity: Record<string, number>;
+  known_exploited: number;
+  published_last_7d: number;
+  critical_last_7d: number;
+}
+
+export interface GitHubRepository {
+  id: string;
+  full_name: string;
+  description: string | null;
+  html_url: string;
+  language: string | null;
+  topics: string[];
+  stars: number;
+  forks: number;
+  open_issues: number;
+  stars_delta_7d: number | null;
+  latest_release: string | null;
+  latest_release_at: string | null;
+  pushed_at: string | null;
+  tracked: boolean;
+  updated_at: string;
+}
+
+export interface ModelRelease {
+  id: string;
+  version: string | null;
+  released_at: string | null;
+  context_window: number | null;
+  notes: string | null;
+  source_url: string;
+  article_id: string | null;
+}
+
+export interface AIModel {
+  id: string;
+  provider: string;
+  name: string;
+  family: string | null;
+  modality: string[];
+  is_open_weights: boolean | null;
+  homepage_url: string | null;
+  created_at: string;
+  updated_at: string;
+  latest_release: ModelRelease | null;
+  release_count: number;
+}
+
+export interface SearchHit {
+  article: Article;
+  rank: number;
+  snippet: string | null;
+}
+
+export interface SearchResponse {
+  query: string;
+  mode: "keyword" | "semantic" | "hybrid";
+  items: SearchHit[];
+  total: number;
+  page: number;
+  page_size: number;
+  pages: number;
+}
+
+// ---- Ingestion (Phase 4) ----
+export type SourceHealth = "disabled" | "never_run" | "healthy" | "degraded" | "failing" | "stale";
+export type JobStatus = "pending" | "running" | "succeeded" | "failed" | "partial";
+
+export interface CollectionJob {
+  id: string;
+  source_id: string;
+  status: JobStatus;
+  trigger: string;
+  started_at: string;
+  finished_at: string | null;
+  duration_seconds: number | null;
+  items_fetched: number;
+  items_created: number;
+  items_updated: number;
+  items_skipped: number;
+  attempt: number;
+  error: string | null;
+  errors: { stage?: string; error?: string; ref?: string | null }[];
+}
+
+export interface SourceStatus {
+  id: string;
+  slug: string;
+  name: string;
+  connector: string;
+  source_type: string;
+  url: string;
+  enabled: boolean;
+  is_official: boolean;
+  poll_interval_minutes: number;
+  health: SourceHealth;
+  health_reason: string;
+  consecutive_failures: number;
+  last_success_at: string | null;
+  last_error_at: string | null;
+  last_error: string | null;
+  last_job: CollectionJob | null;
+  next_run_at: string | null;
+  items_total: number;
+  items_24h: number;
+}
+
+export interface IngestionOverview {
+  generated_at: string;
+  totals: { sources: number; enabled: number; items: number; items_24h: number };
+  by_health: Partial<Record<SourceHealth, number>>;
+  sources: SourceStatus[];
+  recent_failures: CollectionJob[];
+}

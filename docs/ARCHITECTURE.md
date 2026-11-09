@@ -57,9 +57,9 @@ flowchart LR
 | Repositories | `app/repositories` | All SQLAlchemy queries. |
 | Models | `app/models` | ORM entities, constraints, indexes. |
 | Core | `app/core` | Config, security, logging, errors, metrics. |
-| Connectors 🚧 | `app/ingestion/connectors` | One class per source implementing the connector contract. |
+| Ingestion ✅ | `app/ingestion` | Connector contract, normalized format, HTTP client (retries, rate limits), writer, runner, scheduling, catalog. |
 | AI 🚧 | `app/ai` | Provider abstraction, prompts, pipeline, embeddings, RAG. |
-| Workers 🚧 | `app/workers` | Celery app, beat schedule, task wrappers. |
+| Workers ✅ | `app/workers` | Celery app, Beat schedule, tasks (ingest, dispatch, stale-job recovery). |
 
 Dependencies point inwards only (API → services → repositories → models). Services receive the DB
 session and collaborators (settings, email sender, LLM provider) via FastAPI dependency injection,
@@ -69,12 +69,13 @@ which is what the tests override.
 
 ```
 ai-pulse/
-├── docker-compose.yml          postgres(pgvector) · redis · migrate · api  (+ worker/beat/web/monitoring later)
+├── docker-compose.yml          postgres(pgvector) · redis · migrate · api · worker · beat · web
 ├── .env.example
 ├── docs/ARCHITECTURE.md
 ├── backend/
 │   ├── Dockerfile              multi-stage, non-root, healthcheck
-│   ├── alembic/                migrations (0001 = full schema + seed roles/categories)
+│   ├── alembic/                migrations (0001 schema + seeds, 0002 filter indexes,
+│   │                           0003 canonical_key + 27 official sources)
 │   ├── app/
 │   │   ├── main.py             app factory, middleware, routers
 │   │   ├── cli.py              `python -m app.cli create-admin`
@@ -82,12 +83,15 @@ ai-pulse/
 │   │   ├── db/                 declarative base, engine/session factory
 │   │   ├── models/             enums · user · content · intel · ops
 │   │   ├── schemas/            auth · article · source · dashboard · common
-│   │   ├── repositories/       users · articles · sources
-│   │   ├── services/           auth · articles · dashboard · email
-│   │   ├── api/v1/             auth · news · dashboard · admin · health
-│   │   ├── ingestion/   🚧     base connector, normalized item, connectors/*
+│   │   ├── repositories/       base (sort/paginate) · users · articles · sources · intel · admin
+│   │   ├── services/           auth · articles · dashboard · intel · search · admin · email
+│   │   ├── api/v1/             one router per module (auth, news, models, tools, research, github,
+│   │   │                       bugs, security, incidents, search, briefings, bookmarks,
+│   │   │                       notifications, preferences, catalog, dashboard, admin, health)
+│   │   ├── ingestion/          base, normalized, http, ratelimit, writer, runner, scheduling,
+│   │   │                       catalog, connectors/* (14)
 │   │   ├── ai/          🚧     providers/*, pipeline, prompts, rag
-│   │   └── workers/     🚧     celery_app, schedules, tasks
+│   │   └── workers/            celery_app (Beat schedule), tasks
 │   └── tests/                  integration tests against real Postgres + migrations
 ├── frontend/                   Next.js 16 App Router + Tailwind 4 + shadcn/ui
 │   ├── Dockerfile              standalone output, non-root, BACKEND_URL build arg
@@ -167,6 +171,13 @@ erDiagram
 Interactive docs: `GET /docs` · schema: `GET /api/v1/openapi.json`. Errors always use
 `{"error": {"code", "message", "details"}}`. Lists return `{items, total, page, page_size, pages}`.
 
+**List conventions (typed modules).** Query parameters are bound to strict Pydantic models — unknown
+parameters are rejected (422). `page` ≥ 1, `page_size` 1–100. `sort=field` ascending or `sort=-field`
+descending against a per-endpoint whitelist; an invalid value returns 400 with the allowed list.
+Descending sorts put NULLs last (e.g. a CVE with no published CVSS never outranks a scored one).
+Severity sorts by rank (critical → info), not alphabetically. Text filters are literal substring
+matches (`%`/`_` are escaped).
+
 | Module | Endpoints | Auth | Status |
 |---|---|---|---|
 | health | `GET /health/live`, `GET /health/ready` (DB + pgvector), `GET /metrics` | – | ✅ |
@@ -179,9 +190,18 @@ Interactive docs: `GET /docs` · schema: `GET /api/v1/openapi.json`. Errors alwa
 | preferences | `GET/PUT /preferences`, `GET /preferences/options` (validated interests, `owner/name` repos, IANA timezones) | user | ✅ |
 | briefings | `GET /briefings`, `GET /briefings/latest`, `GET /briefings/{date}` (global + own personalised) | optional | ✅ read |
 | admin | `GET/POST /admin/sources`, `PATCH/DELETE /admin/sources/{id}` (audited) | admin | ✅ |
-| admin | users, roles, jobs, failed tasks, AI config, usage, audit log | admin | 🚧 P3/P8 |
-| models · tools · research · github · bugs · security · incidents | typed lists + detail with module-specific filters | optional | 🚧 P3 |
-| search | `GET /search` keyword · semantic · hybrid; `POST /search/ask` RAG with citations | optional | 🚧 P5 |
+| admin | `GET /admin/users`, `GET/PATCH /admin/users/{id}` (role, active; audited; self-lockout and last-admin protection; deactivation revokes sessions), `GET /admin/roles`, `GET /admin/audit-logs` | admin | ✅ |
+| admin | `GET /admin/jobs` (ingestion history, duration, errors) | admin, analyst | ✅ |
+| admin | failed-task retry, AI provider config, usage statistics | admin | 📋 P8 |
+| models | `GET /models` (q, provider, open_weights, modality; latest release + count), `GET /models/releases` (provider, model_id, date range), `GET /models/{id}` | optional | ✅ |
+| tools | `GET /tools` (q, category, license), `GET /tools/{id}` | optional | ✅ |
+| research | `GET /research` (q, primary_category, author, date range), `GET /research/{uuid or arXiv id}` | optional | ✅ |
+| github | `GET /github/repositories` (q, language, topic, min_stars, tracked; sort `-stars_delta_7d`), `GET /github/repositories/{id}`, `GET /github/repositories/by-name/{owner}/{name}`, `GET /github/issues` (repository, state, label, is_pull_request, date range) | optional | ✅ |
+| bugs | `GET /bugs` (q, project, kind, severity, status, has_fix; title/labels resolved from the linked issue or article), `GET /bugs/{id}` | optional | ✅ |
+| security | `GET /security/vulnerabilities` (q, severity, min_cvss, known_exploited, patch_available, product, cwe, date range), `GET /security/vulnerabilities/{CVE-ID}` (adds remediation + references), `GET /security/stats` | optional | ✅ |
+| incidents | `GET /incidents` (q, provider, status, active_only, date range; computed `is_active` and `status_is_stale`), `GET /incidents/{id}` (update log) | optional | ✅ |
+| search | `GET /search` keyword mode: FTS ranking + `[[highlighted]]` plain-text snippets, type/category/severity/date filters | optional | ✅ |
+| search | `mode=semantic|hybrid` (returns 501 until embeddings exist) and `POST /search/ask` RAG with citations | optional | 🚧 P5 |
 | briefings | `POST /briefings/generate` and scheduled generation | user | 🚧 P7 |
 
 **Auth model.** Access token: HS256 JWT, 15 min, sent as `Authorization: Bearer`, kept in memory by
@@ -191,29 +211,15 @@ already-rotated token revokes the whole token family (theft detection). Password
 revokes every session. Login uses a dummy hash for unknown emails to avoid user enumeration by
 timing; reset requests return the same response whether or not the account exists.
 
-## 6. Ingestion workflow 🚧 (Phase 4)
+## 6. Ingestion workflow ✅ (Phase 4)
 
-```
-Celery Beat ──(every N min per source)──▶ ingest_source(source_id)
-  1. lock source (Redis SET NX) → skip if already running
-  2. create collection_jobs row (running)
-  3. connector.fetch(checkpoint)   rate-limited, retries w/ exponential backoff + jitter, honours Retry-After
-  4. connector.normalize(raw)      → NormalizedItem (url, external_id, title, published_at, …)
-  5. connector.validate(item)      drop items without URL/title; never fill missing fields
-  6. deduplicate                   exact: (source, external_id) + content_hash; near: canonical URL,
-                                   title similarity, later embedding cosine ≥ 0.92 → duplicate_of_id
-  7. save                          INSERT … ON CONFLICT (source_id, external_id) DO UPDATE
-  8. update checkpoint, source health, job counts; enqueue AI analysis for new/changed items
-  on failure: job=failed, source.consecutive_failures++, error stored; retried by policy
-```
-
-Planned connectors (only official/authoritative endpoints, respecting terms and rate limits):
-vendor RSS/Atom feeds (OpenAI, Google DeepMind, Hugging Face, Kubernetes, Docker, AWS What's New…),
-arXiv API (≥3 s between requests per arXiv policy), GitHub REST (search-based "trending" proxy —
-GitHub has **no** trending API; we rank by stars gained between our own snapshots), NVD CVE API 2.0
-(`lastModStartDate` windows, API key raises limit), CISA KEV JSON, cloud status pages / feeds.
-Sources whose official channel has no machine-readable feed are not scraped silently; they are
-documented as unsupported until a compliant integration exists.
+See **[INGESTION.md](INGESTION.md)** for the full design, the source catalog and operations. In short:
+Celery Beat ticks every minute → `dispatch_due_sources` reads the schedule from Postgres (interval ×
+2^failures backoff) → `ingest_source` takes a per-source advisory lock and runs
+`fetch → normalize → validate → deduplicate → save → reconcile`, committing items, typed rows,
+checkpoint and job/health stats in a single transaction. 14 connectors cover 27 seeded official
+sources (RSS/Atom, arXiv, Hugging Face, GitHub, NVD, CISA KEV, Kubernetes CVE feed, Google Cloud /
+AWS / Azure status, Statuspage). Per-host rate limits are shared across workers through Redis.
 
 ## 7. AI processing workflow 🚧 (Phase 5)
 
@@ -256,8 +262,8 @@ information" when retrieval confidence is low.
 |---|---|---|
 | 1 | Architecture, full schema + migration, auth, news/dashboard/admin-sources API, tests, Docker, CI | ✅ |
 | 2 | Next.js UI: layout, sidebar, dashboard, feed, filters, all pages, auth flows (+ bookmarks/notifications/preferences/briefings read API) | ✅ |
-| 3 | Remaining typed API modules (models, tools, research, github, bugs, security, incidents, admin users) | 📋 |
-| 4 | Ingestion engine: connector framework, Celery/Beat, real connectors, job tracking, ingestion dashboard | 📋 |
+| 3 | Typed API modules (models, tools, research, github, bugs, security, incidents), keyword search with snippets, admin users/roles/jobs/audit, filter indexes (migration 0002), frontend panels | ✅ |
+| 4 | Ingestion engine: 14 connectors / 27 official sources, Celery + Beat, retries, rate limits, checkpoints, dedup, failed-job tracking, source health, admin ingestion dashboard | ✅ |
 | 5 | AI engine: providers, pipeline, scoring, embeddings, hybrid search, RAG with citations | 📋 |
 | 6 | Bugs & Failures radar + alerting thresholds | 📋 |
 | 7 | Personalised briefings + notifications + scheduling | 📋 |

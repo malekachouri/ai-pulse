@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?><rss xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:atom="http://www.w3.org/2005/Atom" version="2.0">
+    <channel>
+        <title><![CDATA[OpenAI News]]></title>
+        <description><![CDATA[The OpenAI blog]]></description>
+        <link>https://openai.com/news</link>
+        <image>
+            <url>https://openai.com/apple-icon.png</url>
+            <title>OpenAI News</title>
+            <link>https://openai.com/news</link>
+        </image>
+        <generator>OpenAI</generator>
+        <lastBuildDate>Mon, 09 Nov 2026 13:41:23 GMT</lastBuildDate>
+        <atom:link href="https://openai.com/news/rss.xml" rel="self" type="application/rss+xml"/>
+        <language><![CDATA[en-US]]></language>
+        <item>
+            <title><![CDATA[Partnering with Hacktron to find vulnerabilities in OpenAI’s systems]]></title>
+            <description><![CDATA[OpenAI is partnering with Hacktron to find vulnerabilities, test connections with third-party services, and strengthen defenses with frontier AI.]]></description>
+            <link>https://openai.com/index/partnering-with-hacktron</link>
+            <guid isPermaLink="true">https://openai.com/index/partnering-with-hacktron</guid>
+            <category><![CDATA[Security]]></category>
+            <pubDate>Fri, 06 Nov 2026 08:00:00 GMT</pubDate>
+        </item><item>
+            <title><![CDATA[Measuring how AI agents handle everyday wet-lab science]]></title>
+            <description><![CDATA[OpenAI introduces BioBasicsBench, a 100-task benchmark measuring how well AI agents interpret raw experimental data and handle everyday wet-lab science.]]></description>
+            <link>https://openai.com/index/measuring-how-ai-agents-handle-wet-lab-science</link>
+            <guid isPermaLink="true">https://openai.com/index/measuring-how-ai-agents-handle-wet-lab-science</guid>
+            <category><![CDATA[Publication]]></category>
+            <pubDate>Fri, 06 Nov 2026 00:00:00 GMT</pubDate>
+        </item><item>
+            <title><![CDATA[Australian universities are creating AI-native graduates]]></title>
+            <description><![CDATA[Australian universities are expanding access to ChatGPT and bringing AI into teaching and learning to prepare students for an AI-enabled workforce.]]></description>
+            <link>https://openai.com/index/australian-universities-ai-native-graduates</link>
+            <guid isPermaLink="true">https://openai.com/index/australian-universities-ai-native-graduates</guid>
+            <category><![CDATA[Company]]></category>
+            <pubDate>Thu, 05 Nov 2026 17:00:00 GMT</pubDate>
+        </item>
+    </channel>
+</rss>

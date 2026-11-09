@@ -35,6 +35,7 @@ class SourceUpdate(BaseModel):
     enabled: bool | None = None
     poll_interval_minutes: int | None = Field(None, ge=5, le=10080)
     config: dict[str, Any] | None = None
+    reset_checkpoint: bool = Field(False, description="Forget incremental progress; next run starts fresh")
 
 
 class SourceOut(ORMModel):
@@ -55,4 +56,5 @@ class SourceOut(ORMModel):
     last_error_at: datetime | None
     last_error: str | None
     consecutive_failures: int
+    checkpoint: dict[str, Any]
     created_at: datetime

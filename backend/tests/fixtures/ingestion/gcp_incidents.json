@@ -1,0 +1,120 @@
+[
+ {
+  "id": "Xs2XTHzAVC9YnafnPyzj",
+  "number": "7057439711403861453",
+  "begin": "2026-10-20T06:00:00+00:00",
+  "created": "2026-10-20T08:35:37+00:00",
+  "end": "2026-10-20T12:08:00+00:00",
+  "modified": "2026-11-05T06:17:42+00:00",
+  "external_desc": "Multiple services were experiencing issues in the europe-west2 region.",
+  "updates": [
+   {
+    "created": "2026-11-04T21:15:26+00:00",
+    "modified": "2026-11-05T06:17:42+00:00",
+    "when": "2026-11-04T21:15:26+00:00",
+    "text": "# Incident Report\n## Summary\nOn Monday, 19 Oct 2026 at 22:53 US/Pacific (Tuesday, 20 Oct 2026, 06:53 BST), a data center facility that hosts europe-west2-b, a zone within the europe-west2 cloud region, experienced an external electrical power disruption. This resulted in service unavailability for workloads located in this zone. The subsequent failover of these workloads to unaffected zones and alternate regions caused transient latency and elevated error rates across the broader europe-west2 region.\nThe resolution of the main impact was completed within 6 hours and 8 minutes.\n## Root Cause\n**Facility architecture and background:**\nThe data center facility in the UK region hosts Cloud clusters serving the europe-west2-b zone, which form part of the multi-zonal europe-west2 Cloud region. Th",
+    "status": "AVAILABLE",
+    "affected_locations": []
+   },
+   {
+    "created": "2026-10-27T15:13:38+00:00",
+    "modified": "2026-11-04T21:15:26+00:00",
+    "when": "2026-10-27T15:13:38+00:00",
+    "text": "## Incident Report\n### **Summary**\nOn Monday, 19 Oct 2026 (Tuesday, 20 Oct BST), a data center facility that hosts europe-west2-b, experienced an external electrical power disruption. This resulted in service unavailability for workloads located in this zone. As traffic was redirected to alternative cloud regions or unaffected zones within europe-west2 cloud region, these workloads experienced transient latency and elevated errors affecting services across europe-west2.\u00a0\nThe primary impact was mitigated after 6 hours 8 minutes.\n### **Root Cause**\n**Facility architecture and background:**\nThe data center facility in the UK region hosts Cloud clusters serving the europe-west2-b zone, which form part of the multi-zonal europe-west2 Cloud region. The site relies on a 2N utility power architect",
+    "status": "AVAILABLE",
+    "affected_locations": []
+   }
+  ],
+  "most_recent_update": {
+   "created": "2026-11-04T21:15:26+00:00",
+   "modified": "2026-11-05T06:17:42+00:00",
+   "when": "2026-11-04T21:15:26+00:00",
+   "text": "# Incident Report\n## Summary\nOn Monday, 19 Oct 2026 at 22:53 US/Pacific (Tuesday, 20 Oct 2026, 06:53 BST), a data center facility that hosts europe-west2-b, a zone within the europe-west2 cloud region, experienced an external electrical power disruption. This resulted in service unavailability for workloads located in this zone. The subsequent failover of these workloads to unaffected zones and alternate regions caused transient latency and elevated error rates across the broader europe-west2 region.\nThe resolution of the main impact was completed within 6 hours and 8 minutes.\n## Root Cause\n**Facility architecture and background:**\nThe data center facility in the UK region hosts Cloud clusters serving the europe-west2-b zone, which form part of the multi-zonal europe-west2 Cloud region. Th",
+   "status": "AVAILABLE",
+   "affected_locations": []
+  },
+  "status_impact": "SERVICE_DISRUPTION",
+  "severity": "medium",
+  "service_key": "zall",
+  "service_name": "Multiple Products",
+  "affected_products": [
+   {
+    "title": "AlloyDB for PostgreSQL",
+    "id": "fPovtKbaWN9UTepMm3kJ",
+    "current_title": "AlloyDB for PostgreSQL"
+   },
+   {
+    "title": "Apigee",
+    "id": "9Y13BNFy4fJydvjdsN3X",
+    "current_title": "Apigee"
+   },
+   {
+    "title": "BigQuery Data Transfer Service",
+    "id": "UdjkJSWTHMj2b11ftW6E",
+    "current_title": "BigQuery Data Transfer Service"
+   }
+  ],
+  "uri": "incidents/Xs2XTHzAVC9YnafnPyzj",
+  "currently_affected_locations": [],
+  "previously_affected_locations": [
+   {
+    "title": "London (europe-west2)",
+    "id": "europe-west2"
+   }
+  ]
+ },
+ {
+  "id": "mSFVt6PiP557bjRyYsut",
+  "number": "2779651412601232975",
+  "begin": "2026-10-08T11:00:00+00:00",
+  "created": "2026-10-08T18:24:18+00:00",
+  "end": "2026-10-09T16:46:00+00:00",
+  "modified": "2026-10-14T07:24:12+00:00",
+  "external_desc": "Google Cloud Storage (GCS) customers experienced elevated latencies and error rates when performing upload or write operations.",
+  "updates": [
+   {
+    "created": "2026-10-14T07:15:32+00:00",
+    "modified": "2026-10-14T07:17:30+00:00",
+    "when": "2026-10-14T07:15:32+00:00",
+    "text": "## Incident Report\n## Date/Time of the Issue (All time US/Pacific)\n**Incident First Occurrence**\nIncident Start: 08 October 2026 04:00\nIncident End: 08 October 2026 16:30\nDuration: 12 hours, 30 minutes\n**Incident Recurrence**\nRecurrence Start: 09 October 2026 04:05\nRecurrence End: 09 October 2026 09:46\nDuration: 5 hours, 41 minutes\n**Total Duration:** 18 hours, 11 minutes\n## Summary\nOn Thursday, 08 October 2026, Google Cloud Storage experienced elevated write latency and write error rates while performing upload or write operations in the us-central1 region for a duration of 12 hours, 30 minutes. This was followed by a recurrence on Friday, 09 October 2026 in the us-central1-b zone for a duration of 5 hours, 41 minutes. We are taking immediate steps to ensure this doesn\u2019t happen again.\n## ",
+    "status": "AVAILABLE",
+    "affected_locations": []
+   },
+   {
+    "created": "2026-10-09T16:44:56+00:00",
+    "modified": "2026-10-14T07:15:32+00:00",
+    "when": "2026-10-09T16:44:56+00:00",
+    "text": "## Preliminary Incident Report\nWe sincerely apologize for the disruption this incident caused to your business. We know how much you rely on Google Cloud, and we regret the impact on your productivity. We are working to address the root cause and prevent this from occurring in the future.\nPlease note, this information is based on our best knowledge at the time of posting and is subject to change as our investigation continues. A final Incident Report with preventative actions will be posted once our investigation is complete.\nIf you have experienced impact outside of what is listed below, please reach out to Google Cloud Support using [https\\://cloud.google.com/support](https://cloud.google.com/support)\n## Date/Time of the Issue (All time US/Pacific)\nIncident Start: 08 October 2026 04:00\nI",
+    "status": "AVAILABLE",
+    "affected_locations": []
+   }
+  ],
+  "most_recent_update": {
+   "created": "2026-10-14T07:15:32+00:00",
+   "modified": "2026-10-14T07:17:30+00:00",
+   "when": "2026-10-14T07:15:32+00:00",
+   "text": "## Incident Report\n## Date/Time of the Issue (All time US/Pacific)\n**Incident First Occurrence**\nIncident Start: 08 October 2026 04:00\nIncident End: 08 October 2026 16:30\nDuration: 12 hours, 30 minutes\n**Incident Recurrence**\nRecurrence Start: 09 October 2026 04:05\nRecurrence End: 09 October 2026 09:46\nDuration: 5 hours, 41 minutes\n**Total Duration:** 18 hours, 11 minutes\n## Summary\nOn Thursday, 08 October 2026, Google Cloud Storage experienced elevated write latency and write error rates while performing upload or write operations in the us-central1 region for a duration of 12 hours, 30 minutes. This was followed by a recurrence on Friday, 09 October 2026 in the us-central1-b zone for a duration of 5 hours, 41 minutes. We are taking immediate steps to ensure this doesn\u2019t happen again.\n## ",
+   "status": "AVAILABLE",
+   "affected_locations": []
+  },
+  "status_impact": "SERVICE_DISRUPTION",
+  "severity": "medium",
+  "service_key": "UwaYoXQ5bHYHG6EdiPB8",
+  "service_name": "Google Cloud Storage",
+  "affected_products": [
+   {
+    "title": "Google Cloud Storage",
+    "id": "UwaYoXQ5bHYHG6EdiPB8",
+    "current_title": "Google Cloud Storage"
+   }
+  ],
+  "uri": "incidents/mSFVt6PiP557bjRyYsut",
+  "currently_affected_locations": [],
+  "previously_affected_locations": [
+   {
+    "title": "Iowa (us-central1)",
+    "id": "us-central1"
+   }
+  ]
+ }
+]

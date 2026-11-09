@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { Tooltip } from "@/components/ui/tooltip";
+import { useAuth } from "@/lib/auth";
 import { BrandIcon, NAV, type NavItem } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 
@@ -58,7 +59,9 @@ function NavLink({ item, collapsed, onNavigate }: { item: NavItem; collapsed: bo
 }
 
 export function SidebarNav({ collapsed = false, onNavigate }: { collapsed?: boolean; onNavigate?: () => void }) {
-  const groups = ["Intelligence", "Radar", "You"] as const;
+  const { user } = useAuth();
+  const visible = NAV.filter((n) => !n.roles || (user && n.roles.includes(user.role)));
+  const groups = (["Intelligence", "Radar", "You", "Admin"] as const).filter((g) => visible.some((n) => n.group === g));
   return (
     <nav aria-label="Main" className="flex-1 space-y-5 overflow-y-auto px-3 py-4">
       {groups.map((g) => (
@@ -67,7 +70,7 @@ export function SidebarNav({ collapsed = false, onNavigate }: { collapsed?: bool
             <p className="mb-1.5 px-2.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground/80">{g}</p>
           )}
           <div className="space-y-0.5">
-            {NAV.filter((n) => n.group === g).map((item) => (
+            {visible.filter((n) => n.group === g).map((item) => (
               <NavLink key={item.href} item={item} collapsed={collapsed} onNavigate={onNavigate} />
             ))}
           </div>

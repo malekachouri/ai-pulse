@@ -9,11 +9,13 @@ export function FeedPage({
   title,
   description,
   icon,
+  panel,
   ...feed
-}: FeedViewProps & { title: string; description: string; icon: LucideIcon }) {
+}: FeedViewProps & { title: string; description: string; icon: LucideIcon; panel?: React.ReactNode }) {
   return (
     <>
       <PageHeader title={title} description={description} icon={icon} />
+      {panel}
       <Suspense fallback={<ListSkeleton />}>
         <FeedView {...feed} />
       </Suspense>

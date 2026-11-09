@@ -1,0 +1,18 @@
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Kubernetes Blog</title><link>https://kubernetes.io/</link><description>The Kubernetes blog is used by the project to communicate new features, community reports, and any news that might be relevant to the Kubernetes community.</description><generator>Hugo -- gohugo.io</generator><language>en</language><image><url>https://raw.githubusercontent.com/kubernetes/kubernetes/master/logo/logo.png</url><title>The Kubernetes project logo</title><link>https://kubernetes.io/</link></image><atom:link href="https://kubernetes.io/feed.xml" rel="self" type="application/rss+xml"/><item><title>From Working Group to SIG Architecture: spotlight on AI Conformance</title><link>https://kubernetes.io/blog/2026/10/29/sig-arch-ai-conformance-2026/</link><pubDate>Thu, 29 Oct 2026 05:00:00 +0000</pubDate><guid>https://kubernetes.io/blog/2026/10/29/sig-arch-ai-conformance-2026/</guid><description>
+&lt;p>In this SIG Architecture spotlight we talked with &lt;a href="https://github.com/janetkuo">Janet Kuo&lt;/a> (Google)
+and &lt;a href="https://github.com/terrytangyuan">Yuan Tang&lt;/a> (TensorScale AI) about the journey of AI Conformance in
+Kubernetes, from the initial &lt;a href="https://github.com/kubernetes/community/blob/main/governance.md#working-groups">Working
+Group&lt;/a> to the
+integration &lt;a href="https://www.kubernetes.dev/community/community-groups/sigs/architecture/">SIG Architecture&lt;/a>
+as a subproject.&lt;/p>
+&lt;h2 id="introductions">Introductions&lt;a </description></item><item><title>Announcing the Workload Conformance Working Group</title><link>https://kubernetes.io/blog/2026/10/27/announcing-workload-conformance-wg/</link><pubDate>Tue, 27 Oct 2026 04:30:00 +0000</pubDate><guid>https://kubernetes.io/blog/2026/10/27/announcing-workload-conformance-wg/</guid><description>
+&lt;p>We are excited to announce that the Kubernetes community now has a &lt;a href="https://www.kubernetes.dev/community/community-groups/wg/workload-conformance/">Workload Conformance Working Group&lt;/a>.
+The working group is writing a shared standard for how &lt;a href="https://kubernetes.io/docs/concepts/workloads/">workloads&lt;/a> behave at runtime on Kubernetes.
+To get it right, we need input from the people who build those workloads and from the people who run the clusters they're deployed on.&lt;/p>
+&lt;h2 id="why-workloads-need-a-shared-standard">Why workloads need a s</description></item><item><title>Why Is My Kubernetes Job Still Pending? Tracing Kueue Admission with Headlamp</title><link>https://kubernetes.io/blog/2026/10/14/tracing-kueue-admission-with-headlamp/</link><pubDate>Wed, 14 Oct 2026 10:35:00 -0800</pubDate><guid>https://kubernetes.io/blog/2026/10/14/tracing-kueue-admission-with-headlamp/</guid><description>
+&lt;p>You submit a &lt;a href="https://kubernetes.io/docs/concepts/workloads/controllers/job/">Kubernetes Job&lt;/a> and
+wait for its Pods to appear. A minute passes. Then another. The Job is still suspended, there are no
+application logs, and there may not even be a Pod to inspect.&lt;/p>
+&lt;p>In a cluster managed by &lt;a href="https://kueue.sigs.k8s.io/">Kueue&lt;/a>, this can be completely normal. Kueue
+may still be deciding whether the Job can use the requested resources. The useful question is not
+only “Why is the Pod pending?” It is first “Has Kueue admitted the Workload?</description></item></channel></rss>
