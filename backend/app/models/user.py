@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -36,6 +36,10 @@ class User(Base, UUIDPrimaryKeyMixin, TimestampMixin):
 
 class UserPreference(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     __tablename__ = "user_preferences"
+    __table_args__ = (
+        CheckConstraint("briefing_hour BETWEEN 0 AND 23", name="ck_user_preferences_briefing_hour"),
+        CheckConstraint("briefing_weekday BETWEEN 0 AND 6", name="ck_user_preferences_briefing_weekday"),
+    )
 
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), unique=True
@@ -59,6 +63,7 @@ class UserPreference(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         server_default=BriefingFrequency.DAILY.value,
     )
     briefing_hour: Mapped[int] = mapped_column(Integer, default=7, server_default="7")
+    briefing_weekday: Mapped[int] = mapped_column(Integer, default=0, server_default="0")  # weekly: 0=Monday
     timezone: Mapped[str] = mapped_column(String(64), default="UTC", server_default="UTC")
     theme: Mapped[str] = mapped_column(String(16), default="dark", server_default="dark")
     # Alert rules and thresholds (see app/alerts). Empty = defaults.

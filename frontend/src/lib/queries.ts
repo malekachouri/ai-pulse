@@ -3,7 +3,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { api, ApiError, errorMessage } from "@/lib/api";
+import { api, ApiError, buildQuery, errorMessage } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import type {
   AIModel,
@@ -20,7 +20,9 @@ import type {
   GitHubRepository,
   Incident,
   IngestionOverview,
+  FollowType,
   Notification,
+  NotificationKind,
   Page,
   Preferences,
   RadarIncident,
@@ -31,6 +33,7 @@ import type {
   SearchResponse,
   SecurityStats,
   SourceBrief,
+  UnreadCount,
 } from "@/lib/types";
 
 export const keys = {
@@ -43,6 +46,7 @@ export const keys = {
   unread: ["notifications", "unread"] as const,
   preferences: ["preferences"] as const,
   briefingLatest: ["briefings", "latest"] as const,
+  briefingByDate: (d: string) => ["briefings", "date", d] as const,
   briefings: ["briefings"] as const,
 };
 
@@ -125,7 +129,7 @@ export function useUnreadCount() {
   const { status } = useAuth();
   return useQuery({
     queryKey: keys.unread,
-    queryFn: () => api.get<{ unread: number }>("/notifications/unread-count"),
+    queryFn: () => api.get<UnreadCount>("/notifications/unread-count"),
     enabled: status === "authenticated",
     refetchInterval: 60_000,
   });
@@ -146,6 +150,56 @@ export function useMarkNotificationRead() {
     mutationFn: (id: string | "all") =>
       id === "all" ? api.post("/notifications/read-all") : api.post(`/notifications/${id}/read`),
     onSettled: () => qc.invalidateQueries({ queryKey: keys.notifications }),
+    onError: (err) => toast.error(errorMessage(err)),
+  });
+}
+
+export interface NotificationQuery {
+  kind?: NotificationKind[];
+  unread_only?: boolean;
+  page: number;
+  page_size?: number;
+}
+
+export function useNotificationList(q: NotificationQuery) {
+  const { status } = useAuth();
+  return useQuery({
+    queryKey: [...keys.notifications, "list", q],
+    queryFn: () => api.get<Page<Notification>>("/notifications", { page_size: 20, ...q, unread_only: q.unread_only || undefined }),
+    enabled: status === "authenticated",
+    placeholderData: keepPreviousData,
+  });
+}
+
+type NotificationAction =
+  | { type: "read" | "unread" | "delete"; id: string }
+  | { type: "read-all"; kind?: NotificationKind[] };
+
+export function useNotificationAction() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (a: NotificationAction) => {
+      if (a.type === "read-all") return api.post(`/notifications/read-all${buildQuery({ kind: a.kind })}`);
+      if (a.type === "delete") return api.delete(`/notifications/${a.id}`);
+      return api.post(`/notifications/${a.id}/${a.type}`);
+    },
+    onSuccess: (_d, a) => {
+      if (a.type === "delete") toast.success("Notification deleted");
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: keys.notifications }),
+    onError: (err) => toast.error(errorMessage(err)),
+  });
+}
+
+export function useFollow() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ type, value, follow }: { type: FollowType; value: string; follow: boolean }) =>
+      api.post<Preferences>(`/preferences/${follow ? "follow" : "unfollow"}`, { type, value }),
+    onSuccess: (data, v) => {
+      qc.setQueryData(keys.preferences, data);
+      toast.success(v.follow ? `Following ${v.value}` : `Unfollowed ${v.value}`);
+    },
     onError: (err) => toast.error(errorMessage(err)),
   });
 }
@@ -171,9 +225,17 @@ export function useUpdatePreferences() {
   });
 }
 
+/** Briefings depend on who is signed in (personalised vs general), so wait for the session and key by user. */
+function useViewer() {
+  const { status, user } = useAuth();
+  return { ready: status !== "loading", viewer: user?.id ?? "anonymous" };
+}
+
 export function useLatestBriefing() {
+  const { ready, viewer } = useViewer();
   return useQuery({
-    queryKey: keys.briefingLatest,
+    queryKey: [...keys.briefingLatest, viewer],
+    enabled: ready,
     queryFn: async () => {
       try {
         return await api.get<Briefing>("/briefings/latest");
@@ -185,8 +247,22 @@ export function useLatestBriefing() {
   });
 }
 
+export function useBriefingByDate(date: string | null) {
+  const { ready, viewer } = useViewer();
+  return useQuery({
+    queryKey: [...keys.briefingByDate(date ?? ""), viewer],
+    queryFn: () => api.get<Briefing>(`/briefings/${date}`),
+    enabled: ready && Boolean(date),
+  });
+}
+
 export function useBriefings() {
-  return useQuery({ queryKey: keys.briefings, queryFn: () => api.get<BriefingListItem[]>("/briefings") });
+  const { ready, viewer } = useViewer();
+  return useQuery({
+    queryKey: [...keys.briefings, "list", viewer],
+    queryFn: () => api.get<BriefingListItem[]>("/briefings"),
+    enabled: ready,
+  });
 }
 
 // ---- Typed intelligence modules ----
@@ -292,8 +368,7 @@ export function useGenerateBriefing() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () => api.post<Briefing>("/briefings/generate"),
-    onSuccess: (b) => {
-      qc.setQueryData(keys.briefingLatest, b);
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: keys.briefings });
       toast.success("Briefing generated");
     },

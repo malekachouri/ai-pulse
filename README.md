@@ -168,3 +168,19 @@ npm run lint && npm run typecheck && npm test && npm run build
   - Evaluated every 5 minutes and after each ingestion, and deduplicated per user.
 - Migration 0005.
 
+**Phase 7 — Daily briefings & notifications** (see [docs/NOTIFICATIONS.md](docs/NOTIFICATIONS.md))
+- Personalised briefings with every required section:
+  - Executive summary, AI news, model releases, tools, papers, bugs, vulnerabilities, cloud & infrastructure incidents.
+  - "What changed" is computed, not generated: new items, incidents now resolved, CVEs newly added to CISA KEV, followed mentions.
+  - Recommended learning.
+- Scheduling per user:
+  - Daily, weekdays, or weekly on a chosen day; delivery time in the user's own timezone; missed hours caught up the same day.
+  - One Celery task per user, with retries and backoff.
+  - Advisory lock and a unique key, so a briefing is never generated twice.
+- In-app notifications:
+  - Kinds: critical alerts, model releases, bugs, vulnerabilities, incidents and "briefing ready".
+  - Each kind has its own preferences, and each event is notified only once (deleting a notification doesn't bring it back).
+- Notification center page with tabs, unread counts, read/unread, delete and mark-as-read per kind.
+- One-click Follow for repositories, AI providers and technologies.
+- Migration 0006.
+

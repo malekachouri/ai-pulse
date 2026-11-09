@@ -187,8 +187,8 @@ matches (`%`/`_` are escaped).
 | dashboard | `GET /dashboard/summary` (KPIs, by type/category/severity, trending tags, 14-day activity, latest lists) | optional | ✅ |
 | catalog | `GET /categories`, `GET /sources` (enabled sources, for filters) | – | ✅ |
 | bookmarks | `GET /bookmarks`, `PUT/DELETE /bookmarks/{article_id}` (idempotent, optional note) | user | ✅ |
-| notifications | `GET /notifications`, `GET /notifications/unread-count`, `POST /notifications/{id}/read`, `POST /notifications/read-all` | user | ✅ |
-| preferences | `GET/PUT /preferences`, `GET /preferences/options` (validated interests, `owner/name` repos, IANA timezones) | user | ✅ |
+| notifications | `GET /notifications` (kind[], severity[], unread_only), `GET /notifications/unread-count` (+ by_kind), `POST /notifications/{id}/read\|unread`, `DELETE /notifications/{id}` (soft, dedup kept), `POST /notifications/read-all?kind=` — see [NOTIFICATIONS.md](NOTIFICATIONS.md) | user | ✅ |
+| preferences | `GET/PUT /preferences` (+ `briefing_weekday`, notification rules in `alert_settings`), `POST /preferences/follow\|unfollow`, `GET /preferences/options` (validated interests, `owner/name` repos, IANA timezones) | user | ✅ |
 | briefings | `GET /briefings`, `GET /briefings/latest`, `GET /briefings/{date}` (global + own personalised) | optional | ✅ read |
 | admin | `GET/POST /admin/sources`, `PATCH/DELETE /admin/sources/{id}` (audited) | admin | ✅ |
 | admin | `GET /admin/users`, `GET/PATCH /admin/users/{id}` (role, active; audited; self-lockout and last-admin protection; deactivation revokes sessions), `GET /admin/roles`, `GET /admin/audit-logs` | admin | ✅ |
@@ -260,7 +260,7 @@ and personalised daily briefings. Usage and cost per call in `ai_usage`.
 | 4 | Ingestion engine: 14 connectors / 27 official sources, Celery + Beat, retries, rate limits, checkpoints, dedup, failed-job tracking, source health, admin ingestion dashboard | ✅ |
 | 5 | AI engine: providers, 10-step pipeline with grounding checks, explainable scoring, embeddings, hybrid search, RAG with citations, personalised briefings | ✅ |
 | 6 | Bugs & Failures radar (bugs/incidents/vulnerabilities, state & categories, GitHub advisories) + configurable alerts, migration 0005 | ✅ |
-| 7 | Personalised briefings + notifications + scheduling | 📋 |
+| 7 | Personalised briefings (10 sections, computed changes), per-user scheduling with timezone/weekday, retries & idempotency, notification preferences & center, follow API, migration 0006 | ✅ |
 | 8 | Production: worker/beat/web images, Prometheus/Grafana, rate limiting, scanning, docs | 📋 |
 | 9 | Full audit & hardening | 📋 |
 

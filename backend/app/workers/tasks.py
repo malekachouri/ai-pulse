@@ -146,26 +146,53 @@ def ai_rescore() -> int:
 
 @celery_app.task(name="aipulse.generate_due_briefings")
 def generate_due_briefings() -> int:
-    from app.ai.briefing import BriefingGenerator, due_briefings
+    """Fan out: one `generate_briefing` task per due (user, local date). Re-dispatching the same pair is
+    harmless - generation is idempotent - so a slow worker never causes duplicate briefings."""
+    from app.ai.briefing import due_briefings
+
+    async def body(factory: async_sessionmaker[AsyncSession]) -> int:
+        async with factory() as s:
+            due = await due_briefings(s, datetime.now(UTC))
+        for d in due:
+            generate_briefing.delay(str(d.user_id) if d.user_id else None, d.local_date.isoformat())
+        return len(due)
+
+    return _run(body)
+
+
+@celery_app.task(
+    name="aipulse.generate_briefing",
+    bind=True,
+    autoretry_for=(Exception,),
+    retry_backoff=60,
+    retry_backoff_max=900,
+    retry_jitter=True,
+    max_retries=get_settings().briefing_max_retries,
+)
+def generate_briefing(self: Any, user_id: str | None, local_date: str) -> dict[str, Any]:
+    from datetime import date
+
+    from app.ai.briefing import run_scheduled_briefing
     from app.ai.providers import build_providers
-    from app.models import User
 
     settings = get_settings()
 
-    async def body(factory: async_sessionmaker[AsyncSession]) -> int:
+    async def body(factory: async_sessionmaker[AsyncSession]) -> dict[str, Any]:
         providers = build_providers(settings)
-        n = 0
         try:
             async with factory() as s:
-                now = datetime.now(UTC)
-                for uid in await due_briefings(s, now):
-                    user = await s.get(User, uid) if uid else None
-                    await BriefingGenerator(s, providers, now).generate(user)
-                    await s.commit()
-                    n += 1
+                b, notified = await run_scheduled_briefing(
+                    s,
+                    providers,
+                    uuid.UUID(user_id) if user_id else None,
+                    date.fromisoformat(local_date),
+                    datetime.now(UTC),
+                )
+                await s.commit()
         finally:
             await providers.aclose()
-        return n
+        bid = str(b.id) if b else None
+        return {"briefing_id": bid, "notified": notified, "attempt": self.request.retries}
 
     return _run(body)
 

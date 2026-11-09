@@ -1,6 +1,7 @@
 import { Hash } from "lucide-react";
 import Link from "next/link";
 
+import { FollowButton } from "@/components/notifications/follow-button";
 import type { CountByKey } from "@/lib/types";
 
 export function TrendingTags({ tags }: { tags: CountByKey[] }) {
@@ -26,6 +27,7 @@ export function TrendingTags({ tags }: { tags: CountByKey[] }) {
             />
           </span>
           <span className="tabular w-6 text-right text-xs text-muted-foreground">{t.count}</span>
+          <FollowButton type="technology" value={t.key} className="h-6 px-1.5" />
         </li>
       ))}
     </ul>

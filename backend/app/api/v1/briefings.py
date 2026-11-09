@@ -1,4 +1,5 @@
-"""Read access to stored briefings. Generation is implemented in phase 7 (Celery)."""
+"""Briefings: global (user_id NULL) and personalised ones. Scheduled generation runs in Celery
+(`aipulse.generate_due_briefings` -> `aipulse.generate_briefing`); users can also generate on demand."""
 
 import uuid
 from datetime import UTC, date, datetime, timedelta
@@ -6,10 +7,10 @@ from datetime import UTC, date, datetime, timedelta
 from fastapi import APIRouter, Query
 from sqlalchemy import or_, select
 
-from app.ai.briefing import BriefingGenerator
+from app.ai.briefing import BriefingGenerator, local_now
 from app.api.deps import AIDep, CurrentUser, OptionalUser, SessionDep
 from app.core.errors import NotFoundError
-from app.models import DailyBriefing
+from app.models import DailyBriefing, UserPreference
 from app.schemas.common import ErrorResponse
 from app.schemas.user_data import BriefingListItem, BriefingOut
 
@@ -63,16 +64,18 @@ async def latest(session: SessionDep, user: OptionalUser) -> BriefingOut:
 )
 async def generate(session: SessionDep, user: CurrentUser, ai: AIDep) -> BriefingOut:
     now = datetime.now(UTC)
+    pref = await session.scalar(select(UserPreference).where(UserPreference.user_id == user.id))
+    today = local_now(pref, now).date()  # the user's calendar day, not UTC's
     recent = await session.scalar(
         select(DailyBriefing).where(
             DailyBriefing.user_id == user.id,
-            DailyBriefing.briefing_date == now.date(),
+            DailyBriefing.briefing_date == today,
             DailyBriefing.generated_at >= now - timedelta(minutes=10),
         )
     )
     if recent is not None:
         return BriefingOut.model_validate(recent)
-    b = await BriefingGenerator(session, ai, now).generate(user)
+    b = await BriefingGenerator(session, ai, now).generate(user, today)
     return BriefingOut.model_validate(b)
 
 

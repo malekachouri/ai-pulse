@@ -75,6 +75,7 @@ class Notification(Base, UUIDPrimaryKeyMixin):
         # Idempotency: the same event never produces two notifications for one user.
         UniqueConstraint("user_id", "dedup_key", name="uq_notifications_user_dedup"),
         Index("ix_notifications_user_unread", "user_id", "read_at"),
+        Index("ix_notifications_user_kind_created", "user_id", "kind", "created_at"),
     )
 
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"))
@@ -89,6 +90,7 @@ class Notification(Base, UUIDPrimaryKeyMixin):
     dedup_key: Mapped[str] = mapped_column(String(200))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    dismissed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # deleted by the user
 
 
 class CollectionJob(Base, UUIDPrimaryKeyMixin):

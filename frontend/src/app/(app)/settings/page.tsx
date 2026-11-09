@@ -17,6 +17,7 @@ import { api, errorMessage } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { INTEREST_LABEL, SEVERITIES, SEVERITY_LABEL } from "@/lib/labels";
 import { usePreferences, useUpdatePreferences } from "@/lib/queries";
+import { scheduleSummary, WEEKDAYS } from "@/lib/schedule";
 import type { AlertSettings, BriefingFrequency, Preferences, Severity } from "@/lib/types";
 
 function TagInput({
@@ -105,6 +106,7 @@ function PreferencesForm({ initial }: { initial: Preferences }) {
           min_notification_severity: p.min_notification_severity,
           briefing_frequency: p.briefing_frequency,
           briefing_hour: p.briefing_hour,
+          briefing_weekday: p.briefing_weekday,
           timezone: p.timezone,
           alert_settings: p.alert_settings,
         });
@@ -150,50 +152,61 @@ function PreferencesForm({ initial }: { initial: Preferences }) {
         </div>
       </div>
 
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="space-y-2">
-          <Label htmlFor="sev">Notify me from severity</Label>
-          <NativeSelect id="sev" value={p.min_notification_severity} onChange={(e) => set("min_notification_severity", e.target.value as Severity)}>
-            {SEVERITIES.map((s) => (
-              <option key={s} value={s}>
-                {SEVERITY_LABEL[s]} and above
-              </option>
-            ))}
-          </NativeSelect>
+      <fieldset className="space-y-4 rounded-xl border p-4">
+        <legend className="px-1 text-sm font-medium">Briefing schedule</legend>
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="space-y-2">
+            <Label htmlFor="freq">Frequency</Label>
+            <NativeSelect id="freq" value={p.briefing_frequency} onChange={(e) => set("briefing_frequency", e.target.value as BriefingFrequency)}>
+              <option value="daily">Daily</option>
+              <option value="weekdays">Weekdays (Mon–Fri)</option>
+              <option value="weekly">Weekly</option>
+              <option value="off">Off (on demand only)</option>
+            </NativeSelect>
+          </div>
+          {p.briefing_frequency === "weekly" && (
+            <div className="space-y-2">
+              <Label htmlFor="weekday">Day</Label>
+              <NativeSelect id="weekday" value={p.briefing_weekday} onChange={(e) => set("briefing_weekday", Number(e.target.value))}>
+                {WEEKDAYS.map((d, i) => (
+                  <option key={d} value={i}>
+                    {d}
+                  </option>
+                ))}
+              </NativeSelect>
+            </div>
+          )}
+          <div className="space-y-2">
+            <Label htmlFor="hour">Delivery time</Label>
+            <NativeSelect id="hour" value={p.briefing_hour} disabled={p.briefing_frequency === "off"} onChange={(e) => set("briefing_hour", Number(e.target.value))}>
+              {Array.from({ length: 24 }, (_, h) => (
+                <option key={h} value={h}>
+                  {String(h).padStart(2, "0")}:00
+                </option>
+              ))}
+            </NativeSelect>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="tz">Timezone</Label>
+            <NativeSelect id="tz" value={p.timezone} onChange={(e) => set("timezone", e.target.value)}>
+              {!timezones.includes(p.timezone) && <option value={p.timezone}>{p.timezone}</option>}
+              {timezones.map((tz) => (
+                <option key={tz} value={tz}>
+                  {tz}
+                </option>
+              ))}
+            </NativeSelect>
+          </div>
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="freq">Briefing frequency</Label>
-          <NativeSelect id="freq" value={p.briefing_frequency} onChange={(e) => set("briefing_frequency", e.target.value as BriefingFrequency)}>
-            <option value="daily">Daily</option>
-            <option value="weekdays">Weekdays</option>
-            <option value="weekly">Weekly</option>
-            <option value="off">Off</option>
-          </NativeSelect>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="hour">Delivery time</Label>
-          <NativeSelect id="hour" value={p.briefing_hour} onChange={(e) => set("briefing_hour", Number(e.target.value))}>
-            {Array.from({ length: 24 }, (_, h) => (
-              <option key={h} value={h}>
-                {String(h).padStart(2, "0")}:00
-              </option>
-            ))}
-          </NativeSelect>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="tz">Timezone</Label>
-          <NativeSelect id="tz" value={p.timezone} onChange={(e) => set("timezone", e.target.value)}>
-            {!timezones.includes(p.timezone) && <option value={p.timezone}>{p.timezone}</option>}
-            {timezones.map((tz) => (
-              <option key={tz} value={tz}>
-                {tz}
-              </option>
-            ))}
-          </NativeSelect>
-        </div>
-      </div>
+        <p className="text-xs text-muted-foreground" aria-live="polite">{scheduleSummary(p)}</p>
+      </fieldset>
 
-      <AlertsFieldset value={p.alert_settings} onChange={(v) => set("alert_settings", v)} />
+      <AlertsFieldset
+        value={p.alert_settings}
+        onChange={(v) => set("alert_settings", v)}
+        severity={p.min_notification_severity}
+        onSeverity={(v) => set("min_notification_severity", v)}
+      />
 
       <Button type="submit" variant="brand" disabled={save.isPending}>
         {save.isPending && <Loader2 className="animate-spin" />} Save preferences
@@ -208,13 +221,25 @@ const ALERT_RULES: { key: keyof AlertSettings; label: string; hint: string }[] =
   { key: "critical_bugs", label: "Critical software bugs", hint: "Labelled critical by the project" },
   { key: "outages", label: "Important service outages", hint: "Only incidents verified active on the provider's status page" },
   { key: "watched_tech", label: "Advisories affecting what I follow", hint: "Uses your followed technologies and providers" },
+  { key: "model_releases", label: "New model releases", hint: "From the providers below, or the providers you follow" },
+  { key: "briefing_ready", label: "Briefing ready", hint: "When your scheduled briefing has been generated" },
 ];
 
-function AlertsFieldset({ value, onChange }: { value: AlertSettings; onChange: (v: AlertSettings) => void }) {
+function AlertsFieldset({
+  value,
+  onChange,
+  severity,
+  onSeverity,
+}: {
+  value: AlertSettings;
+  onChange: (v: AlertSettings) => void;
+  severity: Severity;
+  onSeverity: (s: Severity) => void;
+}) {
   const set = <K extends keyof AlertSettings>(k: K, v: AlertSettings[K]) => onChange({ ...value, [k]: v });
   return (
-    <fieldset className="space-y-4 rounded-xl border p-4">
-      <legend className="px-1 text-sm font-medium">Alerts</legend>
+    <fieldset id="notifications" className="scroll-mt-20 space-y-4 rounded-xl border p-4">
+      <legend className="px-1 text-sm font-medium">In-app notifications</legend>
       <div className="grid gap-2 sm:grid-cols-2">
         {ALERT_RULES.map((r) => (
           <label key={r.key} className="flex cursor-pointer items-start gap-2.5 rounded-lg border px-3 py-2 text-sm hover:bg-accent/50">
@@ -227,6 +252,20 @@ function AlertsFieldset({ value, onChange }: { value: AlertSettings; onChange: (
         ))}
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="sev">Notify me from severity</Label>
+          <NativeSelect id="sev" value={severity} onChange={(e) => onSeverity(e.target.value as Severity)}>
+            {SEVERITIES.map((s) => (
+              <option key={s} value={s}>
+                {SEVERITY_LABEL[s]} and above
+              </option>
+            ))}
+          </NativeSelect>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="mprov">Model release alerts: only these providers</Label>
+          <TagInput id="mprov" value={value.model_providers} onChange={(v) => set("model_providers", v)} placeholder="e.g. Mistral AI (empty = followed, or all)" />
+        </div>
         <div className="space-y-2">
           <Label htmlFor="mincvss">Critical CVE alerts: minimum CVSS</Label>
           <NativeSelect id="mincvss" value={value.min_cvss ?? ""} onChange={(e) => set("min_cvss", e.target.value === "" ? null : Number(e.target.value))}>
@@ -258,7 +297,8 @@ function AlertsFieldset({ value, onChange }: { value: AlertSettings; onChange: (
         </div>
       </div>
       <p className="text-xs text-muted-foreground">
-        Bug and watched-technology alerts also respect “Notify me from severity” above. Each event is notified once.
+        Bug and followed-technology alerts respect the severity threshold; actively exploited CVEs and verified outages are always
+        treated as critical. Each event is notified once, even if you delete the notification.
       </p>
     </fieldset>
   );

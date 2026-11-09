@@ -7,6 +7,9 @@ Rules (each can be switched off and tuned per user in `user_preferences.alert_se
   outages        - incident that is *active* (unresolved per provider AND verified < 2 h ago) with provider impact
                    at or above the chosen level; optional provider filter. Unknown impact only passes "minor".
   watched_tech   - new CVE mentioning a followed technology/provider, at or above the user's severity threshold
+  model_releases - new release (published in the last 7 days) of a model from `model_providers`, or from the
+                   followed providers when that list is empty, or from any tracked provider when both are empty
+  briefing_ready - a scheduled briefing was generated (sent by app.ai.briefing, not by this engine)
 Delivery is idempotent: one notification per (user, dedup_key); a CVE yields at most one "new CVE" alert.
 """
 
@@ -23,6 +26,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
 from app.models import (
+    AIModel,
+    AIModelRelease,
     Article,
     Incident,
     Notification,
@@ -36,6 +41,7 @@ from app.repositories.intel import incident_is_active
 
 log = get_logger(__name__)
 LOOKBACK = timedelta(hours=48)
+RELEASE_MAX_AGE = timedelta(days=7)  # backfilled old releases never notify
 SEVERITY_RANK = {
     Severity.CRITICAL: 5,
     Severity.HIGH: 4,
@@ -66,6 +72,13 @@ class AlertSettings(BaseModel):
         max_length=50,
         description="owner/name; empty = followed repositories, or all if none",
     )
+    model_releases: bool = True
+    model_providers: list[str] = Field(
+        default_factory=list,
+        max_length=30,
+        description="Empty = followed providers, or every tracked provider if none is followed",
+    )
+    briefing_ready: bool = True
 
 
 def settings_for(pref: UserPreference | None) -> AlertSettings:
@@ -105,6 +118,27 @@ class Event:
     facts: dict[str, Any]
 
 
+async def deliver(session: AsyncSession, user_id: uuid.UUID, e: Event, now: datetime) -> bool:
+    """Insert one in-app notification. Returns False when (user, dedup_key) was already notified."""
+    res = await session.execute(
+        insert(Notification)
+        .values(
+            id=uuid.uuid4(),
+            user_id=user_id,
+            kind=e.kind,
+            severity=e.severity,
+            title=e.title[:500],
+            body=e.body,
+            article_id=e.article_id,
+            link=e.link,
+            dedup_key=e.dedup_key[:200],
+            created_at=now,
+        )
+        .on_conflict_do_nothing(constraint="uq_notifications_user_dedup")
+    )
+    return bool(res.rowcount)  # type: ignore[attr-defined]
+
+
 class AlertEngine:
     def __init__(self, session: AsyncSession, now: datetime | None = None) -> None:
         self.s = session
@@ -127,7 +161,7 @@ class AlertEngine:
             )
         ).all()
         arts = await self._articles([v.article_id for v in vulns])
-        out: dict[str, list[Event]] = {"vuln": [], "kev": [], "bug": [], "outage": []}
+        out: dict[str, list[Event]] = {"vuln": [], "kev": [], "bug": [], "outage": [], "model": []}
         for v in vulns:
             a = arts.get(v.article_id) if v.article_id else None
             link = a.url if a else f"https://nvd.nist.gov/vuln/detail/{v.cve_id}"
@@ -213,6 +247,35 @@ class AlertEngine:
                 )
             )
 
+        releases = (
+            await self.s.execute(
+                select(AIModelRelease, AIModel)
+                .join(AIModel, AIModel.id == AIModelRelease.model_id)
+                .where(
+                    AIModelRelease.created_at >= since,
+                    or_(
+                        AIModelRelease.released_at.is_(None),
+                        AIModelRelease.released_at >= self.now - RELEASE_MAX_AGE,
+                    ),
+                )
+            )
+        ).all()
+        for r, m in releases:
+            name = f"{m.name}{f' {r.version}' if r.version and r.version not in m.name else ''}"
+            out["model"].append(
+                Event(
+                    "model_release",
+                    NotificationKind.MODEL_RELEASE,
+                    Severity.INFO,
+                    f"New model release from {m.provider}: {name}"[:480],
+                    (r.notes or "")[:280] or None,
+                    r.source_url,
+                    r.article_id,
+                    f"model:{r.id}",
+                    {"provider": m.provider},
+                )
+            )
+
         incidents = (await self.s.scalars(select(Incident).where(incident_is_active(self.now)))).all()
         for i in incidents:
             impact = incident_impact(i)
@@ -240,6 +303,7 @@ class AlertEngine:
         min_sev: Severity,
         followed: list[str],
         repos: list[str],
+        providers_followed: list[str] | None = None,
     ) -> list[Event]:
         picked: dict[str, Event] = {}
         floor = SEVERITY_RANK[min_sev]
@@ -282,6 +346,12 @@ class AlertEngine:
                 ok = (rank is not None and rank >= threshold) or (rank is None and threshold == 1)
                 if ok and (not providers or e.facts["provider"].lower() in providers):
                     picked[e.dedup_key] = e
+        if s.model_releases:
+            wanted = [p.lower() for p in (s.model_providers or providers_followed or [])]
+            for e in events.get("model", []):
+                prov = e.facts["provider"].lower()
+                if not wanted or any(w in prov or prov in w for w in wanted):
+                    picked[e.dedup_key] = e
         return list(picked.values())
 
     async def run(self) -> AlertStats:
@@ -304,25 +374,10 @@ class AlertEngine:
                 *(pref.followed_providers if pref else []),
             ]
             repos = list(pref.followed_repositories) if pref else []
-            for e in self.for_user(events, s, min_sev, followed, repos):
+            providers = list(pref.followed_providers) if pref else []
+            for e in self.for_user(events, s, min_sev, followed, repos, providers):
                 stats.candidates += 1
-                res = await self.s.execute(
-                    insert(Notification)
-                    .values(
-                        id=uuid.uuid4(),
-                        user_id=user.id,
-                        kind=e.kind,
-                        severity=e.severity,
-                        title=e.title[:500],
-                        body=e.body,
-                        article_id=e.article_id,
-                        link=e.link,
-                        dedup_key=e.dedup_key[:200],
-                        created_at=self.now,
-                    )
-                    .on_conflict_do_nothing(constraint="uq_notifications_user_dedup")
-                )
-                if res.rowcount:
+                if await deliver(self.s, user.id, e, self.now):
                     stats.created += 1
                     stats.by_rule[e.rule] = stats.by_rule.get(e.rule, 0) + 1
         log.info(

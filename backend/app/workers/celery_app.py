@@ -28,7 +28,10 @@ celery_app.conf.update(
         "recover-stale-jobs": {"task": "aipulse.recover_stale_jobs", "schedule": 600.0},
         "ai-analyze": {"task": "aipulse.ai_analyze", "schedule": 120.0},
         "ai-rescore": {"task": "aipulse.ai_rescore", "schedule": 3600.0},
-        "briefings": {"task": "aipulse.generate_due_briefings", "schedule": 900.0},
-        "alerts": {"task": "aipulse.evaluate_alerts", "schedule": 300.0},
+        "briefings": {
+            "task": "aipulse.generate_due_briefings",
+            "schedule": float(settings.briefing_dispatch_seconds),
+        },
+        "alerts": {"task": "aipulse.evaluate_alerts", "schedule": float(settings.alerts_interval_seconds)},
     },
 )

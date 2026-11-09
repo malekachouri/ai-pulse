@@ -69,7 +69,7 @@ async def test_notifications(client, session_factory):
             )
         await s.commit()
 
-    assert (await client.get("/api/v1/notifications/unread-count", headers=h)).json() == {"unread": 3}
+    assert (await client.get("/api/v1/notifications/unread-count", headers=h)).json()["unread"] == 3
     items = (await client.get("/api/v1/notifications", headers=h)).json()["items"]
     assert [n["title"] for n in items] == ["n0", "n1", "n2"]
     nid = items[0]["id"]
@@ -78,7 +78,10 @@ async def test_notifications(client, session_factory):
     r = await client.get("/api/v1/notifications", params={"unread_only": True}, headers=h)
     assert r.json()["total"] == 2
     assert (await client.post("/api/v1/notifications/read-all", headers=h)).status_code == 204
-    assert (await client.get("/api/v1/notifications/unread-count", headers=h)).json() == {"unread": 0}
+    assert (await client.get("/api/v1/notifications/unread-count", headers=h)).json() == {
+        "unread": 0,
+        "by_kind": {},
+    }
 
 
 async def test_preferences(client):
