@@ -1,22 +1,50 @@
+"use client";
+
 import { Bug } from "lucide-react";
-import type { Metadata } from "next";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 
-import { FeedPage } from "@/components/feed/feed-page";
-import { ActiveIncidentsPanel } from "@/components/intel/panels";
+import { PageHeader } from "@/components/layout/page-header";
+import { RadarOverview } from "@/components/radar/overview";
+import { BugsTable, IncidentsTable, VulnsTable } from "@/components/radar/tables";
+import { ListSkeleton } from "@/components/states/states";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-export const metadata: Metadata = { title: "Bugs & Failures" };
+const TABS = ["overview", "bugs", "incidents", "vulnerabilities"] as const;
 
-export default function Page() {
+function Radar() {
+  const params = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const raw = params.get("tab");
+  const tab = (TABS as readonly string[]).includes(raw ?? "") ? (raw as string) : "overview";
   return (
-    <FeedPage
-      panel={<ActiveIncidentsPanel />}
-      title="Bugs & Failures"
-      description="Public bug reports, regressions and service incidents. Incident status always comes from the provider's own status page."
-      icon={Bug}
-      types={["bug", "incident"]}
-      showSeverity={true}
-      emptyTitle="No bugs or incidents collected yet"
-      emptyDescription="No data sources are collecting this yet. Items appear here automatically once ingestion is enabled for matching sources."
-    />
+    <Tabs value={tab} onValueChange={(v) => router.replace(v === "overview" ? pathname : `${pathname}?tab=${v}`, { scroll: false })}>
+      <TabsList className="mb-4 flex h-auto flex-wrap justify-start">
+        <TabsTrigger value="overview">Overview</TabsTrigger>
+        <TabsTrigger value="bugs">Bugs</TabsTrigger>
+        <TabsTrigger value="incidents">Incidents</TabsTrigger>
+        <TabsTrigger value="vulnerabilities">Vulnerabilities</TabsTrigger>
+      </TabsList>
+      <TabsContent value="overview"><RadarOverview /></TabsContent>
+      <TabsContent value="bugs"><BugsTable /></TabsContent>
+      <TabsContent value="incidents"><IncidentsTable /></TabsContent>
+      <TabsContent value="vulnerabilities"><VulnsTable /></TabsContent>
+    </Tabs>
+  );
+}
+
+export default function BugsRadarPage() {
+  return (
+    <>
+      <PageHeader
+        title="Bugs & Failures Radar"
+        description="Public bugs, provider incidents and vulnerabilities from official sources. Severity is only shown with its documented basis; an incident is active only when the provider's own status was verified in the last 2 hours."
+        icon={Bug}
+      />
+      <Suspense fallback={<ListSkeleton />}>
+        <Radar />
+      </Suspense>
+    </>
   );
 }

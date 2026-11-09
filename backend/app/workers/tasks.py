@@ -62,6 +62,8 @@ def ingest_source(self: Any, source_id: str, trigger: str = "schedule", attempt:
     result = _run(body)
     if result.get("created"):
         ai_analyze.delay()  # analyse new items promptly instead of waiting for the next tick
+    if result.get("status") in ("succeeded", "partial"):
+        evaluate_alerts.delay()
     if result.get("status") == JobStatus.FAILED.value and attempt < settings.ingestion_max_attempts:
         countdown = 60 * (2 ** (attempt - 1))  # 1 min, 2 min, 4 min …
         ingest_source.apply_async(
@@ -164,5 +166,18 @@ def generate_due_briefings() -> int:
         finally:
             await providers.aclose()
         return n
+
+    return _run(body)
+
+
+@celery_app.task(name="aipulse.evaluate_alerts")
+def evaluate_alerts() -> dict[str, Any]:
+    from app.alerts.engine import AlertEngine
+
+    async def body(factory: async_sessionmaker[AsyncSession]) -> dict[str, Any]:
+        async with factory() as s:
+            stats = await AlertEngine(s).run()
+            await s.commit()
+            return {"created": stats.created, "by_rule": stats.by_rule}
 
     return _run(body)

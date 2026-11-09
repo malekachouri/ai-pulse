@@ -5,6 +5,7 @@ from zoneinfo import available_timezones
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.alerts.engine import AlertSettings
 from app.models.enums import BriefingFrequency, NotificationKind, Severity
 from app.schemas.article import ArticleOut
 from app.schemas.common import ORMModel
@@ -52,6 +53,12 @@ class PreferencesOut(ORMModel):
     briefing_hour: int
     timezone: str
     theme: str
+    alert_settings: AlertSettings = Field(default_factory=AlertSettings)
+
+    @field_validator("alert_settings", mode="before")
+    @classmethod
+    def _merge_defaults(cls, v: object) -> object:
+        return {**AlertSettings().model_dump(), **(v or {})} if isinstance(v, dict) or v is None else v
 
 
 def _clean_list(v: list[str], max_len: int) -> list[str]:
@@ -77,6 +84,7 @@ class PreferencesUpdate(BaseModel):
     briefing_hour: int | None = Field(None, ge=0, le=23)
     timezone: str | None = None
     theme: str | None = Field(None, pattern="^(dark|light|system)$")
+    alert_settings: AlertSettings | None = None
 
     @field_validator("interests")
     @classmethod

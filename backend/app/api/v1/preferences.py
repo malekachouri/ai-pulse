@@ -29,7 +29,7 @@ async def update_preferences(
     body: PreferencesUpdate, session: SessionDep, user: CurrentUser
 ) -> PreferencesOut:
     pref = await _get_or_create(session, user)
-    for key, value in body.model_dump(exclude_unset=True).items():
+    for key, value in body.model_dump(exclude_unset=True, mode="json").items():
         if value is not None:
             setattr(pref, key, value)
     await session.flush()

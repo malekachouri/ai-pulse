@@ -23,6 +23,10 @@ import type {
   Notification,
   Page,
   Preferences,
+  RadarIncident,
+  RadarSummary,
+  SoftwareBug,
+  Vulnerability,
   SearchCapabilities,
   SearchResponse,
   SecurityStats,
@@ -299,4 +303,24 @@ export function useGenerateBriefing() {
 
 export function useAIStatus(enabled: boolean) {
   return useQuery({ queryKey: ["admin", "ai"], queryFn: () => api.get<AIStatus>("/admin/ai/status"), enabled, refetchInterval: 60_000 });
+}
+
+
+// ---- Bugs & Failures Radar ----
+type Params = Record<string, string | number | boolean | string[] | undefined>;
+
+export function useRadar(days = 30) {
+  return useQuery({ queryKey: ["radar", days], queryFn: () => api.get<RadarSummary>("/radar/summary", { days }), refetchInterval: 120_000 });
+}
+
+export function useBugList(params: Params) {
+  return useQuery({ queryKey: ["bugs", params], queryFn: () => api.get<Page<SoftwareBug>>("/bugs", params), placeholderData: keepPreviousData });
+}
+
+export function useIncidentList(params: Params) {
+  return useQuery({ queryKey: ["incidents", "list", params], queryFn: () => api.get<Page<RadarIncident>>("/incidents", params), placeholderData: keepPreviousData });
+}
+
+export function useVulnList(params: Params) {
+  return useQuery({ queryKey: ["vulns", params], queryFn: () => api.get<Page<Vulnerability>>("/security/vulnerabilities", params), placeholderData: keepPreviousData });
 }

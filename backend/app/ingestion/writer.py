@@ -240,6 +240,7 @@ class ItemWriter:
         v.cwe_ids = list(dict.fromkeys([*(v.cwe_ids or []), *(p.cwe_ids or [])]))
         if v.article_id is None and article_id is not None:
             v.article_id = article_id
+        v.last_verified_at = self.now  # just re-read from an official source
         after = json.dumps(
             [
                 v.cvss_score,
@@ -466,6 +467,8 @@ class ItemWriter:
                     "source_url": b.source_url,
                 },
             )
+            changed |= _set_known(bug, {"resolution": b.resolution, "fix_merged_at": b.fix_merged_at})
+            bug.last_verified_at = self.now
             if b.affected_versions:
                 bug.affected_versions = b.affected_versions
             if bug.article_id is None and article_id is not None:

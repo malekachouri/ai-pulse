@@ -21,7 +21,7 @@ from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
-from app.models.enums import BugKind, IncidentStatus, IssueState, Severity, enum_column
+from app.models.enums import BugKind, BugResolution, IncidentStatus, IssueState, Severity, enum_column
 
 
 def _article_fk(unique: bool = True) -> Mapped[uuid.UUID | None]:
@@ -158,6 +158,9 @@ class SoftwareBug(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     fixed_in_version: Mapped[str | None] = mapped_column(String(64))
     fix_url: Mapped[str | None] = mapped_column(String(2048))
     source_url: Mapped[str] = mapped_column(String(2048))
+    resolution: Mapped[BugResolution | None] = mapped_column(enum_column(BugResolution, "bug_resolution"))
+    fix_merged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     github_issue: Mapped["GitHubIssue | None"] = relationship(lazy="joined")
     article: Mapped["Article | None"] = relationship(lazy="joined")  # noqa: F821 - resolved by registry
@@ -190,6 +193,8 @@ class SecurityVulnerability(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     references: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, default=list, server_default="[]")
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_modified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # When AI Pulse last read this CVE from an official source (NVD, KEV, vendor advisory).
+    last_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Incident(Base, UUIDPrimaryKeyMixin, TimestampMixin):

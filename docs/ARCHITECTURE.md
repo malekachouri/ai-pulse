@@ -206,6 +206,8 @@ matches (`%`/`_` are escaped).
 | news | `GET /news/{id}/analysis` (AI analysis + explainable importance, personalised when signed in) | optional | ✅ |
 | admin | `GET /admin/ai/status`, `POST /admin/ai/run` | staff | ✅ |
 | briefings | `POST /briefings/generate` + scheduled per-user generation (timezone, frequency) | user | ✅ |
+| radar | `GET /radar/summary?days=` (KPIs, severity chart, most affected, incident history, weekly stats); `/bugs` adds `resolution`, `reported_within_days`; `/incidents` adds `state=current\|historical\|unverified`, `category` — see [RADAR.md](RADAR.md) | optional | ✅ |
+| admin | `POST /admin/alerts/run` (evaluate alert rules now, audited) | staff | ✅ |
 
 **Auth model.** Access token: HS256 JWT, 15 min, sent as `Authorization: Bearer`, kept in memory by
 the frontend. Refresh token: opaque 384-bit random value, stored only as SHA-256, delivered as an
@@ -257,7 +259,7 @@ and personalised daily briefings. Usage and cost per call in `ai_usage`.
 | 3 | Typed API modules (models, tools, research, github, bugs, security, incidents), keyword search with snippets, admin users/roles/jobs/audit, filter indexes (migration 0002), frontend panels | ✅ |
 | 4 | Ingestion engine: 14 connectors / 27 official sources, Celery + Beat, retries, rate limits, checkpoints, dedup, failed-job tracking, source health, admin ingestion dashboard | ✅ |
 | 5 | AI engine: providers, 10-step pipeline with grounding checks, explainable scoring, embeddings, hybrid search, RAG with citations, personalised briefings | ✅ |
-| 6 | Bugs & Failures radar + alerting thresholds | 📋 |
+| 6 | Bugs & Failures radar (bugs/incidents/vulnerabilities, state & categories, GitHub advisories) + configurable alerts, migration 0005 | ✅ |
 | 7 | Personalised briefings + notifications + scheduling | 📋 |
 | 8 | Production: worker/beat/web images, Prometheus/Grafana, rate limiting, scanning, docs | 📋 |
 | 9 | Full audit & hardening | 📋 |

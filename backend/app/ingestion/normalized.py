@@ -12,7 +12,15 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from app.models.enums import BugKind, IncidentStatus, IssueState, ItemType, Severity, VerificationStatus
+from app.models.enums import (
+    BugKind,
+    BugResolution,
+    IncidentStatus,
+    IssueState,
+    ItemType,
+    Severity,
+    VerificationStatus,
+)
 
 
 class VulnerabilityPayload(BaseModel):
@@ -119,6 +127,8 @@ class BugPayload(BaseModel):
     affected_versions: list[str] = Field(default_factory=list)
     fixed_in_version: str | None = None
     fix_url: str | None = None
+    fix_merged_at: datetime | None = None
+    resolution: BugResolution | None = None
     source_url: str
 
 

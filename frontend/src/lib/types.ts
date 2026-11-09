@@ -133,6 +133,7 @@ export interface Preferences {
   briefing_hour: number;
   timezone: string;
   theme: string;
+  alert_settings: AlertSettings;
 }
 
 export interface BriefingSectionItem {
@@ -419,4 +420,83 @@ export interface AIStatus {
   cost_today_usd: number | null;
   calls_today: number;
   errors_today: number;
+}
+
+// ---- Bugs & Failures Radar (Phase 6) ----
+export type BugResolution = "fixed" | "completed" | "not_planned" | "duplicate" | "unknown";
+
+export interface SoftwareBug {
+  id: string;
+  title: string;
+  project: string;
+  kind: "bug" | "regression" | "performance" | "compatibility" | "security" | "other";
+  severity: Severity;
+  severity_basis: string | null;
+  status: "open" | "closed";
+  resolution: BugResolution | null;
+  affected_versions: string[];
+  fixed_in_version: string | null;
+  fix_url: string | null;
+  fix_merged_at: string | null;
+  source_url: string;
+  issue_number: number | null;
+  repository: string | null;
+  labels: string[];
+  opened_at: string | null;
+  source_updated_at: string | null;
+  last_verified_at: string | null;
+}
+
+export interface Vulnerability {
+  id: string;
+  cve_id: string;
+  description: string | null;
+  cvss_score: number | null;
+  cvss_version: string | null;
+  cvss_vector: string | null;
+  severity: Severity;
+  cwe_ids: string[];
+  affected_products: { vendor?: string; product?: string; ecosystem?: string; vulnerable_range?: string; patched?: string; version?: string }[];
+  known_exploited: boolean;
+  kev_date_added: string | null;
+  kev_due_date: string | null;
+  patch_available: boolean | null;
+  remediation: string | null;
+  references: { url: string; source?: string; tags?: string[] }[];
+  published_at: string | null;
+  last_modified_at: string | null;
+  last_verified_at: string | null;
+}
+
+export interface RadarIncident extends Incident {
+  state: "current" | "historical" | "unverified";
+  categories: string[];
+  duration_minutes: number | null;
+}
+
+export interface RadarSummary {
+  generated_at: string;
+  window_days: number;
+  critical_bugs: SoftwareBug[];
+  new_vulnerabilities: Vulnerability[];
+  newly_exploited: Vulnerability[];
+  active_incidents: RadarIncident[];
+  resolved_incidents: RadarIncident[];
+  unverified_incidents: number;
+  severity_chart: CountByKey[];
+  most_affected: { name: string; vulnerabilities: number; bugs: number; incidents: number; total: number }[];
+  incident_history: { day: string; total: number; by_provider: Record<string, number> }[];
+  weekly: { week_start: string; incidents: number; outage_minutes: number; critical_high_cves: number; kev_added: number; bugs_reported: number; bugs_fixed: number }[];
+}
+
+export interface AlertSettings {
+  critical_cves: boolean;
+  exploited: boolean;
+  critical_bugs: boolean;
+  outages: boolean;
+  watched_tech: boolean;
+  min_cvss: number | null;
+  outage_min_impact: "minor" | "major" | "critical";
+  outage_providers: string[];
+  bug_projects: string[];
 }

@@ -23,7 +23,7 @@ from app.ingestion.normalized import (
     ToolPayload,
 )
 from app.ingestion.text import parse_dt, truncate
-from app.models.enums import BugKind, IssueState, ItemType, Severity, VerificationStatus
+from app.models.enums import BugKind, BugResolution, IssueState, ItemType, Severity, VerificationStatus
 
 API = "https://api.github.com"
 NEXT_RE = re.compile(r'<([^>]+)>;\s*rel="next"')
@@ -254,6 +254,53 @@ class GitHubIssuesConfig(ConnectorConfig):
     )  # user reports until a maintainer confirms
     initial_days: int = Field(7, ge=1, le=90)
     max_pages: int = Field(3, ge=1, le=20)
+    fix_lookups: int = Field(
+        15, ge=0, le=100, description="Closed bugs per run whose timeline is read to find the merged fix"
+    )
+
+
+# "vLLM Version: 0.6.3", "### Transformers version\n\n4.46.0", "Kubernetes version: v1.31.2"
+VERSION_LINE = re.compile(
+    r"(?im)^[#*\s>-]*[\w .()/-]{0,40}\bversions?\b[^\n:]{0,20}[:\n]+\s*"
+    r"`*v?(\d+\.\d+(?:\.\d+)?(?:[-+.][\w.]+)?)`*"
+)
+
+
+def affected_versions(body: str | None, limit: int = 5) -> list[str]:
+    """Versions the reporter wrote next to a 'version' label. Only literal values; nothing inferred."""
+    if not body:
+        return []
+    return list(dict.fromkeys(VERSION_LINE.findall(body)))[:limit]
+
+
+def resolution_for(issue: dict[str, Any], fix: dict[str, Any] | None) -> BugResolution | None:
+    if issue.get("state") != "closed":
+        return None
+    reason = issue.get("state_reason")
+    if reason == "not_planned":
+        return BugResolution.NOT_PLANNED
+    if reason == "duplicate":
+        return BugResolution.DUPLICATE
+    if fix:
+        return BugResolution.FIXED
+    return BugResolution.COMPLETED if reason == "completed" else BugResolution.UNKNOWN
+
+
+def fix_from_timeline(events: list[dict[str, Any]], repo: str) -> dict[str, Any] | None:
+    """A merged pull request that references the issue, else the commit that closed it."""
+    for e in events:
+        src = (e.get("source") or {}).get("issue") or {}
+        pr = src.get("pull_request") or {}
+        if e.get("event") == "cross-referenced" and pr.get("merged_at"):
+            return {"url": src.get("html_url"), "merged_at": pr.get("merged_at"), "kind": "pull_request"}
+    for e in events:
+        if e.get("event") == "closed" and e.get("commit_id"):
+            return {
+                "url": f"https://github.com/{repo}/commit/{e['commit_id']}",
+                "merged_at": e.get("created_at"),
+                "kind": "commit",
+            }
+    return None
 
 
 class GitHubIssuesConnector(_GitHub):
@@ -294,10 +341,27 @@ class GitHubIssuesConnector(_GitHub):
                 self.record_error("fetch", f"{type(exc).__name__}: {exc}", ref=ir.repo)
                 continue
             cp[ir.repo] = latest
-        return FetchResult(records, checkpoint=cp)
+        # Linked fixes for closed-as-completed bugs (bounded per run; failures don't block the batch).
+        budget = self.config.fix_lookups
+        enriched = []
+        for issue, ir, labels in records:
+            fix = None
+            if budget > 0 and issue.get("state") == "closed" and issue.get("state_reason") == "completed":
+                budget -= 1
+                try:
+                    events, _ = await self.get_json(
+                        f"{API}/repos/{ir.repo}/issues/{issue['number']}/timeline", {"per_page": 100}
+                    )
+                    fix = fix_from_timeline(events if isinstance(events, list) else [], ir.repo)
+                except Exception as exc:  # noqa: BLE001
+                    self.record_error(
+                        "fetch", f"timeline: {type(exc).__name__}: {exc}", ref=f"{ir.repo}#{issue['number']}"
+                    )
+            enriched.append((issue, ir, labels, fix))
+        return FetchResult(enriched, checkpoint=cp)
 
     def normalize(self, record: Any) -> list[NormalizedItem]:
-        issue, ir, labels = record
+        issue, ir, labels, fix = record
         sev, basis = severity_from_labels(labels)
         state = IssueState.CLOSED if issue.get("state") == "closed" else IssueState.OPEN
         verified = any(CONFIRMED.search(label) for label in labels)
@@ -340,6 +404,10 @@ class GitHubIssuesConnector(_GitHub):
                     severity=sev,
                     severity_basis=basis,
                     status=state,
+                    resolution=resolution_for(issue, fix),
+                    affected_versions=affected_versions(body),
+                    fix_url=fix["url"] if fix else None,
+                    fix_merged_at=parse_dt(fix["merged_at"]) if fix else None,
                     source_url=issue["html_url"],
                 ),
             )

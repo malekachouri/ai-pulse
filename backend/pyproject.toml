@@ -26,6 +26,8 @@ ignore = ["B008", "S101"]
 "app/ai/prompts.py" = ["E501"]
 "app/ai/text.py" = ["E501"]
 "app/ai/learning.py" = ["E501"]
+"app/alerts/engine.py" = ["E501"]  # rule table in the docstring
+"app/services/radar.py" = ["E501"]  # raw SQL
 
 [tool.ruff.lint.isort]
 known-first-party = ["app"]

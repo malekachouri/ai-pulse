@@ -14,11 +14,11 @@ import type {
   AIModel,
   DashboardSummary,
   GitHubRepository,
-  Incident,
   ItemType,
   Notification,
   Page,
   Preferences,
+  RadarIncident,
   Severity,
   SourceBrief,
   SourceStatus,
@@ -133,6 +133,10 @@ let prefs: Preferences = {
   briefing_hour: 7,
   timezone: "UTC",
   theme: "dark",
+  alert_settings: {
+    critical_cves: true, exploited: true, critical_bugs: true, outages: true, watched_tech: true,
+    min_cvss: null, outage_min_impact: "major", outage_providers: [], bug_projects: [],
+  },
 };
 
 const NOTIFS: Notification[] = [
@@ -315,9 +319,21 @@ export async function demoFetch<T>(
     if (method === "PUT") prefs = { ...prefs, ...json } as Preferences;
     return r(prefs);
   }
+  if (path === "/radar/summary") {
+    const days = Array.from({ length: 31 }, (_, i) => ({ day: new Date(now - (30 - i) * 86_400_000).toISOString().slice(0, 10), total: (i * 5) % 4, by_provider: {} }));
+    return r({
+      generated_at: iso(0), window_days: 30, critical_bugs: [], new_vulnerabilities: [], newly_exploited: [],
+      active_incidents: [], resolved_incidents: [], unverified_incidents: 0,
+      severity_chart: [{ key: "critical", count: 1 }, { key: "high", count: 1 }, { key: "medium", count: 1 }, { key: "low", count: 1 }],
+      most_affected: [{ name: "[demo] example-http", vulnerabilities: 2, bugs: 1, incidents: 0, total: 3 }],
+      incident_history: days,
+      weekly: Array.from({ length: 8 }, (_, i) => ({ week_start: new Date(now - (7 - i) * 7 * 86_400_000).toISOString().slice(0, 10), incidents: i % 3, outage_minutes: (i % 3) * 45, critical_high_cves: i + 2, kev_added: i % 2, bugs_reported: i, bugs_fixed: i % 2 })),
+    });
+  }
+  if (path === "/bugs" || path === "/security/vulnerabilities") return r(page([]));
   if (path === "/incidents") {
-    const items: Incident[] = [
-      { id: "demo-inc-1", provider: "Demo Cloud", external_id: "demo-1", title: "[DEMO] Elevated API error rates in region demo-east-1", affected_services: ["Object storage API"], regions: ["demo-east-1"], status: "investigating", impact: "major", started_at: iso(2), resolved_at: null, status_page_url: "https://example.com/demo/status/1", last_verified_at: iso(0.1), article_id: "demo-4", is_active: true, status_is_stale: false },
+    const items: RadarIncident[] = [
+      { state: "current", categories: ["cloud"], duration_minutes: null, id: "demo-inc-1", provider: "Demo Cloud", external_id: "demo-1", title: "[DEMO] Elevated API error rates in region demo-east-1", affected_services: ["Object storage API"], regions: ["demo-east-1"], status: "investigating", impact: "major", started_at: iso(2), resolved_at: null, status_page_url: "https://example.com/demo/status/1", last_verified_at: iso(0.1), article_id: "demo-4", is_active: true, status_is_stale: false },
     ];
     return r(page(q.active_only ? items.filter((i) => i.is_active) : items));
   }

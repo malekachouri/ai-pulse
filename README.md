@@ -151,3 +151,20 @@ npm run lint && npm run typecheck && npm test && npm run build
   items with numbered citations, and says when information is insufficient.
 - Personalised daily briefings (sections from real items, AI executive summary), generated on demand or on
   each user's schedule. UI: Explain panel, Ask panel, search modes, Generate now, AI status for admins.
+
+**Phase 6 — Bugs & Failures Radar** (see [docs/RADAR.md](docs/RADAR.md))
+- Radar page with overview, bugs, incidents and vulnerabilities tabs:
+  - KPIs, active and resolved incidents, critical bugs, newly disclosed and newly exploited CVEs.
+  - Severity chart, most affected technologies, incident history and weekly stats.
+- Bugs are enriched from the GitHub timeline:
+  - The fix PR or commit and its merge date.
+  - A resolution (fixed only when a merged fix exists).
+  - Affected versions and the last verification time.
+- Incidents report a state (current, historical or unverified; active only when re-verified within 2 h), categories and a duration.
+- New GitHub Security Advisories connector (15 connectors in total).
+  - Vulnerabilities expose remediation from official sources, references and the verification time.
+- Configurable alerts:
+  - Critical CVEs (minimum CVSS), newly exploited CVEs, critical bugs (per repository), outages (minimum impact, providers) and followed technologies.
+  - Evaluated every 5 minutes and after each ingestion, and deduplicated per user.
+- Migration 0005.
+

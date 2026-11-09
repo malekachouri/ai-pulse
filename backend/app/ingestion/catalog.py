@@ -275,6 +275,20 @@ _src(
     interval=360,
 )
 
+_src(
+    "github-advisories",
+    "GitHub Security Advisories (reviewed: pip, npm, Go, Maven)",
+    "github",
+    "github_advisories",
+    "https://api.github.com/advisories",
+    "vulnerability",
+    homepage="https://github.com/advisories",
+    reliability=0.9,
+    interval=180,
+    live_check=False,
+    ecosystems=["pip", "npm", "go", "maven"],
+)
+
 # --- Cloud & provider status -------------------------------------------------------------------------
 _src(
     "gcp-status",

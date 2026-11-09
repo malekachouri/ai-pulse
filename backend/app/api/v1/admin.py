@@ -262,3 +262,28 @@ async def ai_run(request: Request, session: SessionDep, staff: StaffUser, queue:
         )
     )
     return EnqueueResponse(task_id=task_id, source_id=None)
+
+
+@router.post(
+    "/alerts/run",
+    response_model=EnqueueResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    responses={503: {"model": ErrorResponse}},
+    summary="Evaluate alert rules now",
+)
+async def alerts_run(
+    request: Request, session: SessionDep, staff: StaffUser, queue: QueueDep
+) -> EnqueueResponse:
+    task_id = queue.enqueue("aipulse.evaluate_alerts", {})
+    session.add(
+        AuditLog(
+            actor_id=staff.id,
+            action="alerts.run",
+            target_type="alerts",
+            target_id=None,
+            details={"task_id": task_id},
+            ip_address=request.client.host if request.client else None,
+            created_at=datetime.now(UTC),
+        )
+    )
+    return EnqueueResponse(task_id=task_id, source_id=None)

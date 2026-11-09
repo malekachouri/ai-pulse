@@ -344,8 +344,9 @@ async def test_vulnerabilities(client, intel):
     assert r.status_code == 422
     r = await client.get("/api/v1/security/vulnerabilities", params={"severity": ["critical", "medium"]})
     assert r.json()["total"] == 2
-    # list view omits remediation; detail includes it with references
-    assert "remediation" not in r.json()["items"][0]
+    # mitigation is shown in lists too (official sources only)
+    crit = [v for v in r.json()["items"] if v["cve_id"] == "CVE-2099-0001"][0]
+    assert crit["remediation"].startswith("Upgrade") and "last_verified_at" in crit
 
 
 async def test_vulnerability_detail_and_stats(client, intel):
