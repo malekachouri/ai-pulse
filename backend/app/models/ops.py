@@ -93,7 +93,10 @@ class Notification(Base, UUIDPrimaryKeyMixin):
 
 class CollectionJob(Base, UUIDPrimaryKeyMixin):
     __tablename__ = "collection_jobs"
-    __table_args__ = (Index("ix_collection_jobs_source_started", "source_id", "started_at"),)
+    __table_args__ = (
+        Index("ix_collection_jobs_source_started", "source_id", "started_at"),
+        Index("ix_collection_jobs_status", "status"),
+    )
 
     source_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("sources.id", ondelete="CASCADE")

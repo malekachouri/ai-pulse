@@ -74,7 +74,7 @@ ai-pulse/
 ├── docs/ARCHITECTURE.md
 ├── backend/
 │   ├── Dockerfile              multi-stage, non-root, healthcheck
-│   ├── alembic/                migrations (0001 = full schema + seed roles/categories)
+│   ├── alembic/                migrations (0001 full schema + seeds, 0002 filter indexes)
 │   ├── app/
 │   │   ├── main.py             app factory, middleware, routers
 │   │   ├── cli.py              `python -m app.cli create-admin`
@@ -82,9 +82,11 @@ ai-pulse/
 │   │   ├── db/                 declarative base, engine/session factory
 │   │   ├── models/             enums · user · content · intel · ops
 │   │   ├── schemas/            auth · article · source · dashboard · common
-│   │   ├── repositories/       users · articles · sources
-│   │   ├── services/           auth · articles · dashboard · email
-│   │   ├── api/v1/             auth · news · dashboard · admin · health
+│   │   ├── repositories/       base (sort/paginate) · users · articles · sources · intel · admin
+│   │   ├── services/           auth · articles · dashboard · intel · search · admin · email
+│   │   ├── api/v1/             one router per module (auth, news, models, tools, research, github,
+│   │   │                       bugs, security, incidents, search, briefings, bookmarks,
+│   │   │                       notifications, preferences, catalog, dashboard, admin, health)
 │   │   ├── ingestion/   🚧     base connector, normalized item, connectors/*
 │   │   ├── ai/          🚧     providers/*, pipeline, prompts, rag
 │   │   └── workers/     🚧     celery_app, schedules, tasks
@@ -167,6 +169,13 @@ erDiagram
 Interactive docs: `GET /docs` · schema: `GET /api/v1/openapi.json`. Errors always use
 `{"error": {"code", "message", "details"}}`. Lists return `{items, total, page, page_size, pages}`.
 
+**List conventions (typed modules).** Query parameters are bound to strict Pydantic models — unknown
+parameters are rejected (422). `page` ≥ 1, `page_size` 1–100. `sort=field` ascending or `sort=-field`
+descending against a per-endpoint whitelist; an invalid value returns 400 with the allowed list.
+Descending sorts put NULLs last (e.g. a CVE with no published CVSS never outranks a scored one).
+Severity sorts by rank (critical → info), not alphabetically. Text filters are literal substring
+matches (`%`/`_` are escaped).
+
 | Module | Endpoints | Auth | Status |
 |---|---|---|---|
 | health | `GET /health/live`, `GET /health/ready` (DB + pgvector), `GET /metrics` | – | ✅ |
@@ -179,9 +188,18 @@ Interactive docs: `GET /docs` · schema: `GET /api/v1/openapi.json`. Errors alwa
 | preferences | `GET/PUT /preferences`, `GET /preferences/options` (validated interests, `owner/name` repos, IANA timezones) | user | ✅ |
 | briefings | `GET /briefings`, `GET /briefings/latest`, `GET /briefings/{date}` (global + own personalised) | optional | ✅ read |
 | admin | `GET/POST /admin/sources`, `PATCH/DELETE /admin/sources/{id}` (audited) | admin | ✅ |
-| admin | users, roles, jobs, failed tasks, AI config, usage, audit log | admin | 🚧 P3/P8 |
-| models · tools · research · github · bugs · security · incidents | typed lists + detail with module-specific filters | optional | 🚧 P3 |
-| search | `GET /search` keyword · semantic · hybrid; `POST /search/ask` RAG with citations | optional | 🚧 P5 |
+| admin | `GET /admin/users`, `GET/PATCH /admin/users/{id}` (role, active; audited; self-lockout and last-admin protection; deactivation revokes sessions), `GET /admin/roles`, `GET /admin/audit-logs` | admin | ✅ |
+| admin | `GET /admin/jobs` (ingestion history, duration, errors) | admin, analyst | ✅ |
+| admin | failed-task retry, AI provider config, usage statistics | admin | 📋 P8 |
+| models | `GET /models` (q, provider, open_weights, modality; latest release + count), `GET /models/releases` (provider, model_id, date range), `GET /models/{id}` | optional | ✅ |
+| tools | `GET /tools` (q, category, license), `GET /tools/{id}` | optional | ✅ |
+| research | `GET /research` (q, primary_category, author, date range), `GET /research/{uuid or arXiv id}` | optional | ✅ |
+| github | `GET /github/repositories` (q, language, topic, min_stars, tracked; sort `-stars_delta_7d`), `GET /github/repositories/{id}`, `GET /github/repositories/by-name/{owner}/{name}`, `GET /github/issues` (repository, state, label, is_pull_request, date range) | optional | ✅ |
+| bugs | `GET /bugs` (q, project, kind, severity, status, has_fix; title/labels resolved from the linked issue or article), `GET /bugs/{id}` | optional | ✅ |
+| security | `GET /security/vulnerabilities` (q, severity, min_cvss, known_exploited, patch_available, product, cwe, date range), `GET /security/vulnerabilities/{CVE-ID}` (adds remediation + references), `GET /security/stats` | optional | ✅ |
+| incidents | `GET /incidents` (q, provider, status, active_only, date range; computed `is_active` and `status_is_stale`), `GET /incidents/{id}` (update log) | optional | ✅ |
+| search | `GET /search` keyword mode: FTS ranking + `[[highlighted]]` plain-text snippets, type/category/severity/date filters | optional | ✅ |
+| search | `mode=semantic|hybrid` (returns 501 until embeddings exist) and `POST /search/ask` RAG with citations | optional | 🚧 P5 |
 | briefings | `POST /briefings/generate` and scheduled generation | user | 🚧 P7 |
 
 **Auth model.** Access token: HS256 JWT, 15 min, sent as `Authorization: Bearer`, kept in memory by
@@ -256,7 +274,7 @@ information" when retrieval confidence is low.
 |---|---|---|
 | 1 | Architecture, full schema + migration, auth, news/dashboard/admin-sources API, tests, Docker, CI | ✅ |
 | 2 | Next.js UI: layout, sidebar, dashboard, feed, filters, all pages, auth flows (+ bookmarks/notifications/preferences/briefings read API) | ✅ |
-| 3 | Remaining typed API modules (models, tools, research, github, bugs, security, incidents, admin users) | 📋 |
+| 3 | Typed API modules (models, tools, research, github, bugs, security, incidents), keyword search with snippets, admin users/roles/jobs/audit, filter indexes (migration 0002), frontend panels | ✅ |
 | 4 | Ingestion engine: connector framework, Celery/Beat, real connectors, job tracking, ingestion dashboard | 📋 |
 | 5 | AI engine: providers, pipeline, scoring, embeddings, hybrid search, RAG with citations | 📋 |
 | 6 | Bugs & Failures radar + alerting thresholds | 📋 |

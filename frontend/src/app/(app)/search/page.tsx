@@ -1,20 +1,24 @@
 import { Search } from "lucide-react";
 import type { Metadata } from "next";
+import { Suspense } from "react";
 
-import { FeedPage } from "@/components/feed/feed-page";
+import { SearchView } from "@/components/feed/search-view";
+import { PageHeader } from "@/components/layout/page-header";
+import { ListSkeleton } from "@/components/states/states";
 
 export const metadata: Metadata = { title: "Search" };
 
 export default function Page() {
   return (
-    <FeedPage
-      title="Search"
-      description="Keyword search across every collected item. Semantic search and Q&A with citations arrive with the AI engine."
-      icon={Search}
-      types={[]}
-      showSeverity
-      emptyTitle="Nothing collected yet"
-      emptyDescription="No data sources are collecting this yet. Items appear here automatically once ingestion is enabled for matching sources."
-    />
+    <>
+      <PageHeader
+        title="Search"
+        description="Keyword search across every collected item, ranked by relevance. Semantic search and Q&A with citations arrive with the AI engine."
+        icon={Search}
+      />
+      <Suspense fallback={<ListSkeleton />}>
+        <SearchView />
+      </Suspense>
+    </>
   );
 }

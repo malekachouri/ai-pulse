@@ -1,14 +1,26 @@
 import uuid
 from datetime import UTC, datetime
+from typing import Annotated
 
-from fastapi import APIRouter, Request, status
+from fastapi import APIRouter, Query, Request, status
 
-from app.api.deps import AdminUser, SessionDep
+from app.api.deps import AdminUser, SessionDep, StaffUser
 from app.core.errors import ConflictError, NotFoundError
 from app.models import AuditLog, Source
 from app.repositories.sources import SourceRepository
-from app.schemas.common import ErrorResponse
+from app.schemas.admin import (
+    AdminUserFilters,
+    AdminUserOut,
+    AdminUserUpdate,
+    AuditFilters,
+    AuditLogOut,
+    CollectionJobOut,
+    JobFilters,
+    RoleOut,
+)
+from app.schemas.common import ErrorResponse, Page
 from app.schemas.source import SourceCreate, SourceOut, SourceUpdate
+from app.services.admin import AdminService
 
 router = APIRouter(
     prefix="/admin",
@@ -90,3 +102,50 @@ async def delete_source(
         raise ConflictError("Source has collected items; disable it instead of deleting")
     session.add(_audit(request, admin, "source.delete", source, {"slug": source.slug}))
     await repo.delete(source)
+
+
+def _ip(request: Request) -> str | None:
+    return request.client.host if request.client else None
+
+
+@router.get("/users", response_model=Page[AdminUserOut])
+async def list_users(
+    session: SessionDep, _: AdminUser, f: Annotated[AdminUserFilters, Query()]
+) -> Page[AdminUserOut]:
+    return await AdminService(session).list_users(f)
+
+
+@router.get("/users/{user_id}", response_model=AdminUserOut, responses={404: {"model": ErrorResponse}})
+async def get_user(user_id: uuid.UUID, session: SessionDep, _: AdminUser) -> AdminUserOut:
+    return AdminUserOut.model_validate(await AdminService(session).get_user(user_id))
+
+
+@router.patch(
+    "/users/{user_id}",
+    response_model=AdminUserOut,
+    summary="Change a user's role or active status (audited)",
+    responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}},
+)
+async def update_user(
+    user_id: uuid.UUID, body: AdminUserUpdate, request: Request, session: SessionDep, admin: AdminUser
+) -> AdminUserOut:
+    return await AdminService(session).update_user(admin, user_id, body, _ip(request))
+
+
+@router.get("/roles", response_model=list[RoleOut])
+async def list_roles(session: SessionDep, _: AdminUser) -> list[RoleOut]:
+    return await AdminService(session).roles()
+
+
+@router.get("/jobs", response_model=Page[CollectionJobOut], summary="Ingestion job history (admin, analyst)")
+async def list_jobs(
+    session: SessionDep, _: StaffUser, f: Annotated[JobFilters, Query()]
+) -> Page[CollectionJobOut]:
+    return await AdminService(session).jobs(f)
+
+
+@router.get("/audit-logs", response_model=Page[AuditLogOut])
+async def list_audit_logs(
+    session: SessionDep, _: AdminUser, f: Annotated[AuditFilters, Query()]
+) -> Page[AuditLogOut]:
+    return await AdminService(session).audit_logs(f)

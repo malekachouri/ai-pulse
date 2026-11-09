@@ -4,8 +4,8 @@
 GitHub activity, software bugs and outages, CVEs, and cloud/DevOps changes, with original sources,
 timestamps and verification status on every item.
 
-> Status: **Phases 1–2 of 9 complete** — architecture, database, auth, core API and the full web
-> interface. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design and roadmap.
+> Status: **Phases 1–3 of 9 complete** — architecture, database, auth, the full REST API and the
+> web interface. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design and roadmap.
 > No data sources are connected yet (Phase 4), so a fresh install shows honest empty states.
 > AI Pulse never presents demo content as real data — see *Demo mode* below.
 
@@ -105,3 +105,16 @@ npm run lint && npm run typecheck && npm test && npm run build
   briefing frequency/time/timezone) and briefing endpoints added to the API to back these pages.
 - Loading skeletons, empty states, error states with retry, and sign-in prompts on every page;
   every chart has a data-table view.
+
+**Phase 3 — complete REST API**
+- Typed modules with module-specific filters, whitelisted `sort=-field` sorting and pagination:
+  `/models` (+ releases), `/tools`, `/research`, `/github` (repositories, issues), `/bugs`,
+  `/security` (vulnerabilities, stats), `/incidents`.
+- Incidents are only `is_active` when the provider's status page says unresolved **and** AI Pulse
+  re-verified it within 2 hours; older unresolved ones are flagged `status_is_stale`.
+- `/search`: ranked keyword search with highlighted plain-text snippets (semantic/hybrid return 501
+  until the AI engine generates embeddings).
+- Admin: user list/filter, role and activation changes (audited, no self-lockout, last admin protected,
+  deactivation revokes sessions), roles with counts, ingestion job history, audit log.
+- Migration 0002 adds indexes for the new filters. Frontend: search page with highlights, active
+  incidents (Bugs, DevOps), CVE stats strip (Security), rising repos (GitHub), tracked models (Models).

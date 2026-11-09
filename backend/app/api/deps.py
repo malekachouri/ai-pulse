@@ -76,3 +76,4 @@ def require_roles(*roles: RoleName) -> Callable[..., Coroutine[Any, Any, User]]:
 
 
 AdminUser = Annotated[User, Depends(require_roles(RoleName.ADMIN))]
+StaffUser = Annotated[User, Depends(require_roles(RoleName.ADMIN, RoleName.ANALYST))]

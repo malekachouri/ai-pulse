@@ -48,6 +48,7 @@ class AIModel(Base, UUIDPrimaryKeyMixin, TimestampMixin):
 
 class AIModelRelease(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     __tablename__ = "ai_model_releases"
+    __table_args__ = (Index("ix_ai_model_releases_released_at", "released_at"),)
 
     model_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("ai_models.id", ondelete="CASCADE"), index=True
@@ -76,9 +77,12 @@ class AITool(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     license: Mapped[str | None] = mapped_column(String(100))
     article_id: Mapped[uuid.UUID | None] = _article_fk(unique=False)
 
+    repository: Mapped["GitHubRepository | None"] = relationship(lazy="joined")
+
 
 class ResearchPaper(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     __tablename__ = "research_papers"
+    __table_args__ = (Index("ix_research_papers_published_at", "published_at"),)
 
     article_id: Mapped[uuid.UUID | None] = _article_fk()
     arxiv_id: Mapped[str | None] = mapped_column(String(32), unique=True)
@@ -93,6 +97,7 @@ class ResearchPaper(Base, UUIDPrimaryKeyMixin, TimestampMixin):
 
 class GitHubRepository(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     __tablename__ = "github_repositories"
+    __table_args__ = (Index("ix_github_repositories_stars", "stars"),)
 
     full_name: Mapped[str] = mapped_column(String(200), unique=True)  # owner/name
     github_id: Mapped[int | None] = mapped_column(Integer, unique=True)
@@ -113,7 +118,10 @@ class GitHubRepository(Base, UUIDPrimaryKeyMixin, TimestampMixin):
 
 class GitHubIssue(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     __tablename__ = "github_issues"
-    __table_args__ = (UniqueConstraint("repository_id", "number", name="uq_github_issues_repo_number"),)
+    __table_args__ = (
+        UniqueConstraint("repository_id", "number", name="uq_github_issues_repo_number"),
+        Index("ix_github_issues_state_opened", "state", "opened_at"),
+    )
 
     repository_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("github_repositories.id", ondelete="CASCADE"), index=True
@@ -135,6 +143,7 @@ class GitHubIssue(Base, UUIDPrimaryKeyMixin, TimestampMixin):
 
 class SoftwareBug(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     __tablename__ = "software_bugs"
+    __table_args__ = (Index("ix_software_bugs_severity_created", "severity", "created_at"),)
 
     article_id: Mapped[uuid.UUID | None] = _article_fk()
     github_issue_id: Mapped[uuid.UUID | None] = mapped_column(
@@ -150,12 +159,18 @@ class SoftwareBug(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     fix_url: Mapped[str | None] = mapped_column(String(2048))
     source_url: Mapped[str] = mapped_column(String(2048))
 
+    github_issue: Mapped["GitHubIssue | None"] = relationship(lazy="joined")
+    article: Mapped["Article | None"] = relationship(lazy="joined")  # noqa: F821 - resolved by registry
+
 
 class SecurityVulnerability(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     __tablename__ = "security_vulnerabilities"
     __table_args__ = (
         CheckConstraint("cvss_score IS NULL OR (cvss_score BETWEEN 0 AND 10)", name="cvss_range"),
         Index("ix_security_vulnerabilities_published", "published_at"),
+        Index("ix_security_vulnerabilities_severity", "severity"),
+        Index("ix_security_vulnerabilities_cvss", "cvss_score"),
+        Index("ix_security_vulnerabilities_modified", "last_modified_at"),
     )
 
     article_id: Mapped[uuid.UUID | None] = _article_fk()
@@ -179,7 +194,11 @@ class SecurityVulnerability(Base, UUIDPrimaryKeyMixin, TimestampMixin):
 
 class Incident(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     __tablename__ = "incidents"
-    __table_args__ = (UniqueConstraint("provider", "external_id", name="uq_incidents_provider_external"),)
+    __table_args__ = (
+        UniqueConstraint("provider", "external_id", name="uq_incidents_provider_external"),
+        Index("ix_incidents_status_verified", "status", "last_verified_at"),
+        Index("ix_incidents_started_at", "started_at"),
+    )
 
     article_id: Mapped[uuid.UUID | None] = _article_fk()
     provider: Mapped[str] = mapped_column(String(100), index=True)  # aws, azure, gcp, openai...

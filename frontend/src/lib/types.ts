@@ -177,3 +177,91 @@ export interface ArticleFilters {
   page?: number;
   page_size?: number;
 }
+
+// ---- Typed intelligence modules (Phase 3) ----
+
+export type IncidentStatus = "investigating" | "identified" | "monitoring" | "resolved" | "unknown";
+
+export interface Incident {
+  id: string;
+  provider: string;
+  external_id: string;
+  title: string;
+  affected_services: string[];
+  regions: string[];
+  status: IncidentStatus;
+  impact: string | null;
+  started_at: string | null;
+  resolved_at: string | null;
+  status_page_url: string;
+  last_verified_at: string;
+  article_id: string | null;
+  is_active: boolean;
+  status_is_stale: boolean;
+}
+
+export interface SecurityStats {
+  total: number;
+  by_severity: Record<string, number>;
+  known_exploited: number;
+  published_last_7d: number;
+  critical_last_7d: number;
+}
+
+export interface GitHubRepository {
+  id: string;
+  full_name: string;
+  description: string | null;
+  html_url: string;
+  language: string | null;
+  topics: string[];
+  stars: number;
+  forks: number;
+  open_issues: number;
+  stars_delta_7d: number | null;
+  latest_release: string | null;
+  latest_release_at: string | null;
+  pushed_at: string | null;
+  tracked: boolean;
+  updated_at: string;
+}
+
+export interface ModelRelease {
+  id: string;
+  version: string | null;
+  released_at: string | null;
+  context_window: number | null;
+  notes: string | null;
+  source_url: string;
+  article_id: string | null;
+}
+
+export interface AIModel {
+  id: string;
+  provider: string;
+  name: string;
+  family: string | null;
+  modality: string[];
+  is_open_weights: boolean | null;
+  homepage_url: string | null;
+  created_at: string;
+  updated_at: string;
+  latest_release: ModelRelease | null;
+  release_count: number;
+}
+
+export interface SearchHit {
+  article: Article;
+  rank: number;
+  snippet: string | null;
+}
+
+export interface SearchResponse {
+  query: string;
+  mode: "keyword" | "semantic" | "hybrid";
+  items: SearchHit[];
+  total: number;
+  page: number;
+  page_size: number;
+  pages: number;
+}

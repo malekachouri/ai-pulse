@@ -2,12 +2,14 @@ import { GitPullRequest } from "lucide-react";
 import type { Metadata } from "next";
 
 import { FeedPage } from "@/components/feed/feed-page";
+import { RisingReposPanel } from "@/components/intel/panels";
 
 export const metadata: Metadata = { title: "GitHub Radar" };
 
 export default function Page() {
   return (
     <FeedPage
+      panel={<RisingReposPanel />}
       title="GitHub Radar"
       description="Fast-rising repositories (ranked by stars gained between our own snapshots — GitHub has no trending API) and notable issues."
       icon={GitPullRequest}

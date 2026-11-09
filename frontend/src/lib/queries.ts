@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { api, ApiError, errorMessage } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import type {
+  AIModel,
   Article,
   ArticleFilters,
   Bookmark,
@@ -13,9 +14,13 @@ import type {
   BriefingListItem,
   Category,
   DashboardSummary,
+  GitHubRepository,
+  Incident,
   Notification,
   Page,
   Preferences,
+  SearchResponse,
+  SecurityStats,
   SourceBrief,
 } from "@/lib/types";
 
@@ -173,4 +178,41 @@ export function useLatestBriefing() {
 
 export function useBriefings() {
   return useQuery({ queryKey: keys.briefings, queryFn: () => api.get<BriefingListItem[]>("/briefings") });
+}
+
+// ---- Typed intelligence modules ----
+
+export function useIncidents(params: { active_only?: boolean; page_size?: number; sort?: string }) {
+  return useQuery({
+    queryKey: ["incidents", params],
+    queryFn: () => api.get<Page<Incident>>("/incidents", params),
+    refetchInterval: 120_000,
+  });
+}
+
+export function useSecurityStats() {
+  return useQuery({ queryKey: ["security", "stats"], queryFn: () => api.get<SecurityStats>("/security/stats") });
+}
+
+export function useRisingRepos() {
+  return useQuery({
+    queryKey: ["github", "rising"],
+    queryFn: () => api.get<Page<GitHubRepository>>("/github/repositories", { sort: "-stars_delta_7d", page_size: 6 }),
+  });
+}
+
+export function useModels() {
+  return useQuery({
+    queryKey: ["models", "recent"],
+    queryFn: () => api.get<Page<AIModel>>("/models", { sort: "-updated_at", page_size: 6 }),
+  });
+}
+
+export function useSearch(params: { q: string; item_type?: string[]; page: number }) {
+  return useQuery({
+    queryKey: ["search", params],
+    queryFn: () => api.get<SearchResponse>("/search", { ...params, page_size: 20 }),
+    enabled: params.q.trim().length >= 2,
+    placeholderData: keepPreviousData,
+  });
 }
