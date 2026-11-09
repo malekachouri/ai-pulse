@@ -64,6 +64,8 @@ async def test_dashboard_summary_counts_real_data(client, seeded):
     assert d["total_articles"] == 3
     assert d["articles_last_24h"] == 3
     assert d["active_incidents"] == 0
+    assert d["critical_vulnerabilities_7d"] == 1
+    assert d["model_releases_7d"] == 0
     assert len(d["activity_14d"]) == 14 and d["activity_14d"][-1]["count"] == 3
     assert [a["id"] for a in d["top_security"]] == [str(seeded["a3"])]
 

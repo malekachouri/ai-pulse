@@ -29,6 +29,15 @@ class CategoryOut(ORMModel):
     name: str
 
 
+class AISummary(BaseModel):
+    """AI-generated text. Always rendered with an "AI-generated" label, never as source content."""
+
+    short: str
+    provider: str
+    model: str
+    generated_at: datetime
+
+
 class ArticleOut(ORMModel):
     id: uuid.UUID
     item_type: ItemType
@@ -50,6 +59,7 @@ class ArticleOut(ORMModel):
     duplicate_of_id: uuid.UUID | None
     is_bookmarked: bool = False
     is_read: bool = False
+    ai_summary: AISummary | None = None
 
 
 class ArticleDetail(ArticleOut):

@@ -1,0 +1,42 @@
+import {
+  BarChart3,
+  Bookmark,
+  Boxes,
+  Bug,
+  Cloud,
+  Cpu,
+  FileText,
+  GitPullRequest,
+  LayoutDashboard,
+  Newspaper,
+  Settings,
+  ShieldAlert,
+  Sunrise,
+  Wrench,
+  type LucideIcon,
+} from "lucide-react";
+
+export interface NavItem {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  group: "Intelligence" | "Radar" | "You";
+}
+
+export const NAV: NavItem[] = [
+  { href: "/", label: "Overview", icon: LayoutDashboard, group: "Intelligence" },
+  { href: "/news", label: "AI News", icon: Newspaper, group: "Intelligence" },
+  { href: "/models", label: "AI Models", icon: Cpu, group: "Intelligence" },
+  { href: "/tools", label: "AI Tools", icon: Wrench, group: "Intelligence" },
+  { href: "/research", label: "Research Papers", icon: FileText, group: "Intelligence" },
+  { href: "/github", label: "GitHub Radar", icon: GitPullRequest, group: "Radar" },
+  { href: "/bugs", label: "Bugs & Failures", icon: Bug, group: "Radar" },
+  { href: "/security", label: "Security & CVEs", icon: ShieldAlert, group: "Radar" },
+  { href: "/devops", label: "DevOps & Cloud", icon: Cloud, group: "Radar" },
+  { href: "/briefing", label: "Daily Briefing", icon: Sunrise, group: "You" },
+  { href: "/bookmarks", label: "Bookmarks", icon: Bookmark, group: "You" },
+  { href: "/analytics", label: "Analytics", icon: BarChart3, group: "You" },
+  { href: "/settings", label: "Settings", icon: Settings, group: "You" },
+];
+
+export const BrandIcon: LucideIcon = Boxes;

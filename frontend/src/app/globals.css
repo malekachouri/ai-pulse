@@ -1,0 +1,154 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Design tokens. Light is the base; `.dark` (set by next-themes, default) is the premium navy theme.
+ * Chart colours follow the data-viz rules: one blue for every single-series chart, and the reserved
+ * status colours for severity only. Violet is a brand accent and is never used to encode data.
+ */
+:root {
+  --radius: 0.75rem;
+  --background: #f6f7fb;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+  --secondary: #eef1f7;
+  --secondary-foreground: #1e293b;
+  --muted: #eef1f7;
+  --muted-foreground: #5b6478;
+  --accent: #eef0fd;
+  --accent-foreground: #3730a3;
+  --destructive: #d03b3b;
+  --border: #e2e6ef;
+  --input: #d9deea;
+  --ring: #6366f1;
+  --brand-violet: #7c3aed;
+  --brand-blue: #2563eb;
+
+  --sidebar: #ffffff;
+  --sidebar-foreground: #334155;
+  --sidebar-active: #eef2ff;
+  --sidebar-active-foreground: #3730a3;
+
+  /* data viz (validated against #ffffff) */
+  --chart-series: #2a78d6;
+  --chart-grid: #e6e9f0;
+  --chart-axis: #64748b;
+
+  /* status (reserved; always paired with a text label) */
+  --sev-critical: #d03b3b;
+  --sev-high: #ec835a;
+  --sev-medium: #fab219;
+  --sev-low: #0ca30c;
+  --sev-info: #64748b;
+}
+
+.dark {
+  --background: #0a1020;
+  --foreground: #e6eaf3;
+  --card: #111a2e;
+  --card-foreground: #e6eaf3;
+  --popover: #121c32;
+  --popover-foreground: #e6eaf3;
+  --primary: #3b82f6;
+  --primary-foreground: #ffffff;
+  --secondary: #1a2540;
+  --secondary-foreground: #dbe2f0;
+  --muted: #17213a;
+  --muted-foreground: #93a0bb;
+  --accent: #1f2547;
+  --accent-foreground: #c7c9ff;
+  --destructive: #e05555;
+  --border: #1f2b47;
+  --input: #263355;
+  --ring: #8b5cf6;
+  --brand-violet: #8b5cf6;
+  --brand-blue: #3b82f6;
+
+  --sidebar: #0c1426;
+  --sidebar-foreground: #a8b3cc;
+  --sidebar-active: #1b2448;
+  --sidebar-active-foreground: #e0e3ff;
+
+  /* data viz (validated against #111a2e) */
+  --chart-series: #3987e5;
+  --chart-grid: #1c2742;
+  --chart-axis: #8391ad;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-active: var(--sidebar-active);
+  --color-sidebar-active-foreground: var(--sidebar-active-foreground);
+  --color-brand-violet: var(--brand-violet);
+  --color-brand-blue: var(--brand-blue);
+  --color-sev-critical: var(--sev-critical);
+  --color-sev-high: var(--sev-high);
+  --color-sev-medium: var(--sev-medium);
+  --color-sev-low: var(--sev-low);
+  --color-sev-info: var(--sev-info);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv11", "ss01";
+  }
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Subtle brand glow behind page headers in dark mode */
+.dark .brand-glow {
+  background-image: radial-gradient(60rem 18rem at 10% -20%, rgb(59 130 246 / 0.12), transparent 60%),
+    radial-gradient(40rem 16rem at 90% -30%, rgb(139 92 246 / 0.12), transparent 60%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

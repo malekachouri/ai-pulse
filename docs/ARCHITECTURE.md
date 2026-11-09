@@ -89,7 +89,17 @@ ai-pulse/
 │   │   ├── ai/          🚧     providers/*, pipeline, prompts, rag
 │   │   └── workers/     🚧     celery_app, schedules, tasks
 │   └── tests/                  integration tests against real Postgres + migrations
-├── frontend/            🚧     Next.js App Router + Tailwind + shadcn/ui
+├── frontend/                   Next.js 16 App Router + Tailwind 4 + shadcn/ui
+│   ├── Dockerfile              standalone output, non-root, BACKEND_URL build arg
+│   └── src/
+│       ├── app/(app)/          overview, news, models, tools, research, github, bugs, security,
+│       │                       devops, briefing, bookmarks, analytics, settings, search
+│       ├── app/(auth)/         login, register, forgot-password, reset-password
+│       ├── components/ui/      shadcn-style primitives on Radix
+│       ├── components/layout/  app shell, sidebar, global search, notifications, user menu, theme
+│       ├── components/feed/    article card, badges, URL-synced filters, pagination, feed view
+│       ├── components/{dashboard,charts,states}/
+│       └── lib/                api client (silent refresh), auth context, query hooks, types, demo
 └── monitoring/          📋     prometheus.yml, grafana dashboards, alert rules
 ```
 
@@ -162,13 +172,17 @@ Interactive docs: `GET /docs` · schema: `GET /api/v1/openapi.json`. Errors alwa
 | health | `GET /health/live`, `GET /health/ready` (DB + pgvector), `GET /metrics` | – | ✅ |
 | auth | `POST register, login, refresh, logout, change-password, password-reset/request, password-reset/confirm` · `GET/PATCH me` | mixed | ✅ |
 | news | `GET /news` (q, item_type[], category[], source[], severity[], min_importance, verification[], date_from, date_to, include_duplicates, sort=latest\|importance\|relevance, page, page_size) · `GET /news/{id}` · `PUT/DELETE /news/{id}/read` | optional | ✅ |
-| dashboard | `GET /dashboard/summary` | – | ✅ |
+| dashboard | `GET /dashboard/summary` (KPIs, by type/category/severity, trending tags, 14-day activity, latest lists) | optional | ✅ |
+| catalog | `GET /categories`, `GET /sources` (enabled sources, for filters) | – | ✅ |
+| bookmarks | `GET /bookmarks`, `PUT/DELETE /bookmarks/{article_id}` (idempotent, optional note) | user | ✅ |
+| notifications | `GET /notifications`, `GET /notifications/unread-count`, `POST /notifications/{id}/read`, `POST /notifications/read-all` | user | ✅ |
+| preferences | `GET/PUT /preferences`, `GET /preferences/options` (validated interests, `owner/name` repos, IANA timezones) | user | ✅ |
+| briefings | `GET /briefings`, `GET /briefings/latest`, `GET /briefings/{date}` (global + own personalised) | optional | ✅ read |
 | admin | `GET/POST /admin/sources`, `PATCH/DELETE /admin/sources/{id}` (audited) | admin | ✅ |
 | admin | users, roles, jobs, failed tasks, AI config, usage, audit log | admin | 🚧 P3/P8 |
 | models · tools · research · github · bugs · security · incidents | typed lists + detail with module-specific filters | optional | 🚧 P3 |
-| bookmarks · preferences · notifications | CRUD for the current user | user | 🚧 P3/P7 |
 | search | `GET /search` keyword · semantic · hybrid; `POST /search/ask` RAG with citations | optional | 🚧 P5 |
-| briefings | `GET /briefings/latest`, `GET /briefings/{date}`, `POST /briefings/generate` | user | 🚧 P7 |
+| briefings | `POST /briefings/generate` and scheduled generation | user | 🚧 P7 |
 
 **Auth model.** Access token: HS256 JWT, 15 min, sent as `Authorization: Bearer`, kept in memory by
 the frontend. Refresh token: opaque 384-bit random value, stored only as SHA-256, delivered as an
@@ -241,11 +255,31 @@ information" when retrieval confidence is low.
 | Phase | Scope | Status |
 |---|---|---|
 | 1 | Architecture, full schema + migration, auth, news/dashboard/admin-sources API, tests, Docker, CI | ✅ |
-| 2 | Next.js UI: layout, sidebar, dashboard, feed, filters, all pages, auth flows | 🚧 |
-| 3 | Remaining typed API modules (models, tools, research, github, bugs, security, incidents, bookmarks, preferences, notifications, admin users) | 📋 |
+| 2 | Next.js UI: layout, sidebar, dashboard, feed, filters, all pages, auth flows (+ bookmarks/notifications/preferences/briefings read API) | ✅ |
+| 3 | Remaining typed API modules (models, tools, research, github, bugs, security, incidents, admin users) | 📋 |
 | 4 | Ingestion engine: connector framework, Celery/Beat, real connectors, job tracking, ingestion dashboard | 📋 |
 | 5 | AI engine: providers, pipeline, scoring, embeddings, hybrid search, RAG with citations | 📋 |
 | 6 | Bugs & Failures radar + alerting thresholds | 📋 |
 | 7 | Personalised briefings + notifications + scheduling | 📋 |
 | 8 | Production: worker/beat/web images, Prometheus/Grafana, rate limiting, scanning, docs | 📋 |
 | 9 | Full audit & hardening | 📋 |
+
+## 10. Frontend architecture
+
+- **Same-origin API.** The browser calls `/api/v1/*` on the Next.js origin; Next rewrites it to
+  FastAPI (`BACKEND_URL`, resolved at build time). The refresh cookie therefore stays first-party
+  (`SameSite=Strict`) and no backend address or secret reaches the client bundle.
+- **Auth.** Access token kept in memory only. On load, `POST /auth/refresh` restores the session from
+  the httpOnly cookie; any 401 triggers one de-duplicated silent refresh and retry.
+- **Data.** TanStack Query per resource; bookmark/read toggles update every cached copy optimistically
+  and roll back on error. Feed filters live in the URL (shareable, back/forward-safe) and are parsed
+  through a whitelist (`lib/feed-params.ts`).
+- **Trust cues.** Source + verification badge, published vs collected timestamps, severity always shown
+  with its text label and documented basis, importance score labelled "not CVSS", AI text in a
+  separately styled block labelled *AI-generated* with provider/model. Only `http(s)` URLs are rendered
+  as links.
+- **Charts.** Single-series charts use one validated blue; severity uses reserved status colours with
+  text labels; violet is decorative only (blue/violet failed the colour-vision separation check, so they
+  never encode two series). Each chart has a table view.
+- **Demo mode** (`NEXT_PUBLIC_DEMO_MODE=true`) swaps the API client for in-memory fictional fixtures,
+  all prefixed `[DEMO]` with `example.com` links and a permanent banner. Off by default.

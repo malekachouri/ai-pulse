@@ -1,0 +1,7 @@
+import { cn } from "@/lib/utils";
+
+function Separator({ className, vertical = false }: { className?: string; vertical?: boolean }) {
+  return <div role="separator" className={cn("shrink-0 bg-border", vertical ? "h-full w-px" : "h-px w-full", className)} />;
+}
+
+export { Separator };

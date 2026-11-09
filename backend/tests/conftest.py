@@ -166,6 +166,7 @@ async def seeded(session_factory: async_sessionmaker[AsyncSession]) -> dict[str,
             "a1",
             "Retrieval augmented generation benchmark released",
             description="A new RAG evaluation suite",
+            tags=["rag", "evaluation"],
             importance_score=80,
         )
         a2 = art("a2", "Kubernetes 1.99 patch release", item_type=ItemType.DEVOPS, importance_score=40)

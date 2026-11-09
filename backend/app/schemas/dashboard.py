@@ -27,6 +27,10 @@ class DashboardSummary(BaseModel):
     sources_failing: int
     by_item_type: list[CountByKey]
     by_category: list[CountByKey]
+    by_severity: list[CountByKey]
+    trending_tags: list[CountByKey]
     activity_14d: list[DailyCount]
     latest: list[ArticleOut]
+    latest_ai: list[ArticleOut]
     top_security: list[ArticleOut]
+    recent_failures: list[ArticleOut]
