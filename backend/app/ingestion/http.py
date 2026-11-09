@@ -96,6 +96,36 @@ class HttpClient:
         rate_limit: RateLimit | None = None,
         allow_not_modified: bool = False,
     ) -> httpx.Response:
+        return await self.request(
+            "GET",
+            url,
+            params=params,
+            headers=headers,
+            rate_limit=rate_limit,
+            allow_not_modified=allow_not_modified,
+        )
+
+    async def post(
+        self,
+        url: str,
+        *,
+        json: Any,
+        headers: dict[str, str] | None = None,
+        rate_limit: RateLimit | None = None,
+    ) -> httpx.Response:
+        return await self.request("POST", url, json=json, headers=headers, rate_limit=rate_limit)
+
+    async def request(
+        self,
+        method: str,
+        url: str,
+        *,
+        params: dict[str, Any] | None = None,
+        json: Any = None,
+        headers: dict[str, str] | None = None,
+        rate_limit: RateLimit | None = None,
+        allow_not_modified: bool = False,
+    ) -> httpx.Response:
         host = urlparse(url).hostname or url
         rl = rate_limit or self.limits.get(host, FALLBACK_LIMIT)
         last_error: str = ""
@@ -104,9 +134,8 @@ class HttpClient:
             await self.limiter.acquire(host, rl.limit, rl.period)
             self.requests += 1
             try:
-                resp = await self._client.get(
-                    url, params=params, headers={"User-Agent": USER_AGENT, **(headers or {})}
-                )
+                hdrs = {"User-Agent": USER_AGENT, **(headers or {})}
+                resp = await self._client.request(method, url, params=params, json=json, headers=hdrs)
             except (httpx.TransportError, httpx.TimeoutException) as exc:
                 last_error, status = f"{type(exc).__name__}: {exc}", None
                 wait = self.backoff(attempt)

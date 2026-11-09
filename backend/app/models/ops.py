@@ -151,3 +151,22 @@ class AuditLog(Base, UUIDPrimaryKeyMixin):
     details: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, server_default="{}")
     ip_address: Mapped[str | None] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
+class AIUsage(Base, UUIDPrimaryKeyMixin):
+    """One LLM/embedding call: who/what/how much. Feeds cost tracking and the daily token budget."""
+
+    __tablename__ = "ai_usage"
+    __table_args__ = (Index("ix_ai_usage_created", "created_at"),)
+
+    purpose: Mapped[str] = mapped_column(String(32))  # analysis | embedding | rag | briefing
+    provider: Mapped[str] = mapped_column(String(32))
+    model: Mapped[str] = mapped_column(String(100))
+    input_tokens: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    output_tokens: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    cost_usd: Mapped[float | None] = mapped_column(Float)
+    ok: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    error: Mapped[str | None] = mapped_column(Text)
+    article_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

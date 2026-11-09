@@ -24,8 +24,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         engine = create_engine(settings)
         app.state.engine = engine
         app.state.session_factory = create_session_factory(engine)
+        if getattr(app.state, "ai_providers", None) is None:
+            from app.ai.providers import build_providers
+
+            app.state.ai_providers = build_providers(settings)
+            for problem in app.state.ai_providers.problems:
+                log.warning("ai_provider_config", problem=problem)
         log.info("startup", environment=settings.environment)
         yield
+        await app.state.ai_providers.aclose()
         await engine.dispose()
 
     app = FastAPI(

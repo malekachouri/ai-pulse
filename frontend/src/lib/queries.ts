@@ -7,7 +7,10 @@ import { api, ApiError, errorMessage } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import type {
   AIModel,
+  AIStatus,
   Article,
+  ArticleAnalysis,
+  AskResponse,
   ArticleFilters,
   Bookmark,
   Briefing,
@@ -20,6 +23,7 @@ import type {
   Notification,
   Page,
   Preferences,
+  SearchCapabilities,
   SearchResponse,
   SecurityStats,
   SourceBrief,
@@ -209,7 +213,7 @@ export function useModels() {
   });
 }
 
-export function useSearch(params: { q: string; item_type?: string[]; page: number }) {
+export function useSearch(params: { q: string; item_type?: string[]; page: number; mode?: string }) {
   return useQuery({
     queryKey: ["search", params],
     queryFn: () => api.get<SearchResponse>("/search", { ...params, page_size: 20 }),
@@ -257,4 +261,42 @@ export function useIngestionActions() {
     onError: (err) => toast.error(errorMessage(err)),
   });
   return { run, retry, update };
+}
+
+
+// ---- AI engine ----
+export function useArticleAnalysis(id: string | null) {
+  return useQuery({
+    queryKey: ["analysis", id],
+    queryFn: () => api.get<ArticleAnalysis>(`/news/${id}/analysis`),
+    enabled: !!id,
+  });
+}
+
+export function useSearchCapabilities() {
+  return useQuery({ queryKey: ["search", "caps"], queryFn: () => api.get<SearchCapabilities>("/search/capabilities"), staleTime: 300_000 });
+}
+
+export function useAsk() {
+  return useMutation({
+    mutationFn: (question: string) => api.post<AskResponse>("/search/ask", { question }),
+    onError: (err) => toast.error(errorMessage(err)),
+  });
+}
+
+export function useGenerateBriefing() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post<Briefing>("/briefings/generate"),
+    onSuccess: (b) => {
+      qc.setQueryData(keys.briefingLatest, b);
+      qc.invalidateQueries({ queryKey: keys.briefings });
+      toast.success("Briefing generated");
+    },
+    onError: (err) => toast.error(errorMessage(err)),
+  });
+}
+
+export function useAIStatus(enabled: boolean) {
+  return useQuery({ queryKey: ["admin", "ai"], queryFn: () => api.get<AIStatus>("/admin/ai/status"), enabled, refetchInterval: 60_000 });
 }

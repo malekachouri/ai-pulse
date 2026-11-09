@@ -136,10 +136,16 @@ export interface Preferences {
 }
 
 export interface BriefingSectionItem {
-  article_id?: string;
+  article_id?: string | null;
   title: string;
-  url?: string;
-  summary?: string;
+  url?: string | null;
+  summary?: string | null;
+  source?: string;
+  importance?: number | null;
+  personal_score?: number;
+  why_for_you?: string[];
+  summary_is_ai?: boolean;
+  severity?: string | null;
 }
 
 export interface Briefing {
@@ -315,4 +321,102 @@ export interface IngestionOverview {
   by_health: Partial<Record<SourceHealth, number>>;
   sources: SourceStatus[];
   recent_failures: CollectionJob[];
+}
+
+// ---- AI engine (Phase 5) ----
+export interface ImportanceFactor {
+  name: string;
+  value: number;
+  weight: number;
+  contribution: number;
+  reason: string;
+}
+
+export interface ImportanceBreakdown {
+  score: number;
+  label: string;
+  version: string;
+  factors: ImportanceFactor[];
+  excluded: string[];
+  personal_score: number | null;
+  personal_reasons: string[];
+}
+
+export interface AISummaryFull {
+  short_summary: string;
+  detailed_explanation: string;
+  what_happened: string;
+  why_it_matters: string;
+  who_is_affected: string;
+  technical_impact: { level: string; description: string };
+  recommended_actions: string[];
+  related_technologies: string[];
+  learning_resources: { title: string; url: string | null; source: string }[];
+  source_references: string[];
+  unsupported_claims_removed: string[];
+  actions_removed: string[];
+}
+
+export interface ArticleAnalysis {
+  article_id: string;
+  ai_generated_notice: string;
+  summary: AISummaryFull | null;
+  summary_status: { status: "ready" | "pending" | "failed" | "disabled"; provider: string | null; model: string | null; generated_at: string | null; error: string | null };
+  importance: ImportanceBreakdown | null;
+  language: string | null;
+  keywords: string[];
+  entities: { type: string; value: string }[];
+}
+
+export interface SearchCapabilities {
+  keyword: boolean;
+  semantic: boolean;
+  hybrid: boolean;
+  ask: boolean;
+  ask_mode: "generative" | "sources-only";
+  embedded_items: number;
+  total_items: number;
+}
+
+export interface AskCitation {
+  n: number;
+  article_id: string;
+  title: string;
+  url: string;
+  source: string;
+  item_type: ItemType;
+  published_at: string | null;
+  importance: number | null;
+  relevance: Record<string, number>;
+  ai_summary: string | null;
+}
+
+export interface AskResponse {
+  question: string;
+  answer: string | null;
+  insufficient: boolean;
+  reason: string | null;
+  citations: AskCitation[];
+  sources: AskCitation[];
+  unsupported_claims_removed: string[];
+  retrieval: { mode: string; item_types: string[]; date_from: string | null; terms: string[]; term_coverage?: number };
+  generated_by: { provider: string; model: string } | null;
+  confidence: string | null;
+}
+
+export interface AIStatus {
+  llm_provider: string | null;
+  llm_model: string | null;
+  embedding_provider: string | null;
+  embedding_model: string | null;
+  problems: string[];
+  items_total: number;
+  items_with_rules_analysis: number;
+  items_with_ai_summary: number;
+  items_with_embedding: number;
+  failed_analyses: number;
+  tokens_today: number;
+  cost_today_usd: number | null;
+  calls_today: number;
+  errors_today: number;
 }

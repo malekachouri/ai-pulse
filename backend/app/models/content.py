@@ -88,6 +88,12 @@ class Article(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         Index("ix_articles_item_type_published", "item_type", "published_at"),
         Index("ix_articles_search_vector", "search_vector", postgresql_using="gin"),
         Index(
+            "ix_articles_title_trgm",
+            "title",
+            postgresql_using="gin",
+            postgresql_ops={"title": "gin_trgm_ops"},
+        ),  # near-duplicate titles (pg_trgm)
+        Index(
             "ix_articles_embedding_hnsw",
             "embedding",
             postgresql_using="hnsw",

@@ -1,7 +1,10 @@
 "use client";
 
-import { Bookmark, BookmarkCheck, Circle, CircleCheck, ExternalLink, Sparkles } from "lucide-react";
+import { Bookmark, BookmarkCheck, Circle, CircleCheck, ExternalLink, ScanSearch, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
+
+import { AnalysisSheet } from "@/components/feed/analysis-sheet";
 
 import { ImportanceMeter, ItemTypeBadge, SeverityBadge, VerificationBadge } from "@/components/feed/badges";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +25,7 @@ export function ArticleCard({ article, showType = true }: { article: Article; sh
   const published = article.published_at;
 
   const requireAuth = (fn: () => void) => () => (authed ? fn() : router.push("/login"));
+  const [explain, setExplain] = useState(false);
 
   return (
     <article
@@ -98,6 +102,11 @@ export function ArticleCard({ article, showType = true }: { article: Article; sh
       <div className="mt-3 flex items-center justify-between gap-2 border-t pt-3">
         <ImportanceMeter score={article.importance_score} />
         <div className="flex items-center gap-0.5">
+          <Tooltip content="Importance breakdown and AI analysis">
+            <Button variant="ghost" size="sm" onClick={() => setExplain(true)} aria-label="Explain this item">
+              <ScanSearch /> <span className="hidden sm:inline">Explain</span>
+            </Button>
+          </Tooltip>
           <Tooltip content={article.is_read ? "Mark as unread" : "Mark as read"}>
             <Button
               variant="ghost"
@@ -129,6 +138,7 @@ export function ArticleCard({ article, showType = true }: { article: Article; sh
           )}
         </div>
       </div>
+      {explain && <AnalysisSheet article={article} open={explain} onOpenChange={setExplain} />}
     </article>
   );
 }

@@ -5,7 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Query, Request, status
 from pydantic import ValidationError
 
-from app.api.deps import AdminUser, QueueDep, SessionDep, StaffUser
+from app.api.deps import AdminUser, AIDep, QueueDep, SessionDep, StaffUser
 from app.core.errors import AppError, ConflictError, NotFoundError
 from app.ingestion.connectors import REGISTRY
 from app.models import AuditLog, CollectionJob, Source
@@ -21,10 +21,12 @@ from app.schemas.admin import (
     JobFilters,
     RoleOut,
 )
+from app.schemas.ai import AIStatus
 from app.schemas.common import ErrorResponse, Page
 from app.schemas.ingestion import ConnectorInfo, EnqueueResponse, IngestionOverview
 from app.schemas.source import SourceCreate, SourceOut, SourceUpdate
 from app.services.admin import AdminService
+from app.services.ai import AIService
 from app.services.ingestion import IngestionService
 
 router = APIRouter(
@@ -230,3 +232,33 @@ async def retry_job(
     task_id = queue.enqueue_ingest(str(source.id), "retry")
     session.add(_audit(request, staff, "job.retry", source, {"job_id": str(job.id), "task_id": task_id}))
     return EnqueueResponse(task_id=task_id, source_id=source.id)
+
+
+# ------------------------------------------------------------------ AI engine
+@router.get(
+    "/ai/status", response_model=AIStatus, summary="Provider configuration (no secrets), coverage and usage"
+)
+async def ai_status(session: SessionDep, _: StaffUser, ai: AIDep) -> AIStatus:
+    return await AIService(session, ai).status()
+
+
+@router.post(
+    "/ai/run",
+    response_model=EnqueueResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    responses={503: {"model": ErrorResponse}},
+)
+async def ai_run(request: Request, session: SessionDep, staff: StaffUser, queue: QueueDep) -> EnqueueResponse:
+    task_id = queue.enqueue("aipulse.ai_analyze", {})
+    session.add(
+        AuditLog(
+            actor_id=staff.id,
+            action="ai.run",
+            target_type="ai",
+            target_id=None,
+            details={"task_id": task_id},
+            ip_address=request.client.host if request.client else None,
+            created_at=datetime.now(UTC),
+        )
+    )
+    return EnqueueResponse(task_id=task_id, source_id=None)

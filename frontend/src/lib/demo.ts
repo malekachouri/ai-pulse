@@ -252,6 +252,38 @@ export async function demoFetch<T>(
   if (path === "/categories") return r(CATS);
   if (path === "/sources") return r(SOURCES);
   if (path === "/news") return r(page(filterArticles(q), Number(q.page ?? 1), Number(q.page_size ?? 20)));
+  if (path.endsWith("/analysis") && art) {
+    const a = ARTICLES.find((x) => x.id === art);
+    return r({
+      article_id: art,
+      ai_generated_notice: "Summary, impact and recommendations are AI-generated from the original source.",
+      summary: a?.ai_summary
+        ? {
+            short_summary: a.ai_summary.short, detailed_explanation: "[DEMO] Fictional detailed explanation.",
+            what_happened: `[DEMO] ${a.description}`, why_it_matters: "[DEMO] Shows where the impact explanation appears.",
+            who_is_affected: "[DEMO] Fictional users of the fictional product.",
+            technical_impact: { level: "medium", description: "[DEMO] Fictional impact assessment." },
+            recommended_actions: ["[DEMO] Review the vendor advisory."], related_technologies: a.tags,
+            learning_resources: [{ title: "Kubernetes documentation", url: "https://kubernetes.io/docs/home/", source: "curated" }],
+            source_references: [a.url], unsupported_claims_removed: [], actions_removed: [],
+          }
+        : null,
+      summary_status: a?.ai_summary
+        ? { status: "ready", provider: "demo", model: "demo-model", generated_at: a.ai_summary.generated_at, error: null }
+        : { status: "pending", provider: null, model: null, generated_at: null, error: null },
+      importance: {
+        score: a?.importance_score ?? 50, label: "AI Pulse importance (0-100). Not an official CVSS score.", version: "importance-v1",
+        factors: [
+          { name: "source_reliability", value: 0.9, weight: 0.24, contribution: 21.6, reason: "Source reliability 0.90" },
+          { name: "severity", value: 0.6, weight: 0.29, contribution: 17.4, reason: "[DEMO] Fictional severity" },
+          { name: "recency", value: 0.8, weight: 0.18, contribution: 14.4, reason: "Recently published" },
+          { name: "verification", value: 1, weight: 0.12, contribution: 12, reason: "Verification: official" },
+        ],
+        excluded: ["technical_impact"], personal_score: null, personal_reasons: [],
+      },
+      language: "en", keywords: a?.tags ?? [], entities: [],
+    });
+  }
   if (path.endsWith("/read") && art) {
     const a = ARTICLES.find((x) => x.id === art);
     if (a) a.is_read = method === "PUT";
@@ -324,7 +356,17 @@ export async function demoFetch<T>(
     return r({ generated_at: iso(0), totals: { sources: 4, enabled: 3, items: 1600, items_24h: 21 }, by_health: { healthy: 2, failing: 1, disabled: 1 },
       sources, recent_failures: sources.filter((x) => x.last_job?.status === "failed").map((x) => x.last_job!) });
   }
+  if (path === "/admin/ai/status") return r({ llm_provider: "demo", llm_model: "demo-model", embedding_provider: null, embedding_model: null, problems: ["[DEMO] fictional status"], items_total: ARTICLES.length, items_with_rules_analysis: ARTICLES.length, items_with_ai_summary: 12, items_with_embedding: 0, failed_analyses: 0, tokens_today: 0, cost_today_usd: null, calls_today: 0, errors_today: 0 });
   if (path.startsWith("/admin/")) return r({ task_id: "demo-task", message: "Demo mode: no changes were made." });
+  if (path === "/search/capabilities") return r({ keyword: true, semantic: false, hybrid: false, ask: true, ask_mode: "sources-only", embedded_items: 0, total_items: ARTICLES.length });
+  if (path === "/search/ask") {
+    const sources = ARTICLES.slice(0, 3).map((a, i) => ({ n: i + 1, article_id: a.id, title: a.title, url: a.url, source: a.source.name,
+      item_type: a.item_type, published_at: a.published_at, importance: a.importance_score, relevance: {}, ai_summary: null }));
+    return r({ question: String(json.question ?? ""), answer: "[DEMO] This fictional answer cites its sources [1][2].", insufficient: false,
+      reason: null, citations: sources.slice(0, 2), sources, unsupported_claims_removed: [],
+      retrieval: { mode: "demo", item_types: [], date_from: null, terms: [] }, generated_by: { provider: "demo", model: "demo-model" }, confidence: "low" });
+  }
+  if (path === "/briefings/generate") return r(BRIEFING);
   if (path === "/briefings/latest") return r(BRIEFING);
   if (path === "/briefings") {
     const list: BriefingListItem[] = [{ id: BRIEFING.id, briefing_date: BRIEFING.briefing_date, executive_summary: BRIEFING.executive_summary, generated_at: BRIEFING.generated_at, personalized: true }];
