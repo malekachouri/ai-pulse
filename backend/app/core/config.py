@@ -67,6 +67,10 @@ class Settings(BaseSettings):
     # Ingestion
     ingestion_max_attempts: int = 3  # job-level attempts (each HTTP request also retries with backoff)
     ingestion_dispatch_seconds: int = 60  # how often the scheduler looks for due sources
+    # Scheduling of personal briefings and alert evaluation (Celery Beat)
+    briefing_dispatch_seconds: int = Field(300, ge=60, le=3600)  # how often due briefings are looked up
+    briefing_max_retries: int = Field(3, ge=0, le=10)  # per-user generation retries (exponential backoff)
+    alerts_interval_seconds: int = Field(300, ge=60, le=3600)
     # Ingestion credentials (optional; connectors degrade gracefully without them)
     github_token: SecretStr | None = None
     nvd_api_key: SecretStr | None = None

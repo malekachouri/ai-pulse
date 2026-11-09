@@ -1,5 +1,6 @@
 import {
   BarChart3,
+  Bell,
   Bookmark,
   Boxes,
   Bug,
@@ -39,6 +40,7 @@ export const NAV: NavItem[] = [
   { href: "/security", label: "Security & CVEs", icon: ShieldAlert, group: "Radar" },
   { href: "/devops", label: "DevOps & Cloud", icon: Cloud, group: "Radar" },
   { href: "/briefing", label: "Daily Briefing", icon: Sunrise, group: "You" },
+  { href: "/notifications", label: "Notifications", icon: Bell, group: "You" },
   { href: "/bookmarks", label: "Bookmarks", icon: Bookmark, group: "You" },
   { href: "/analytics", label: "Analytics", icon: BarChart3, group: "You" },
   { href: "/settings", label: "Settings", icon: Settings, group: "You" },

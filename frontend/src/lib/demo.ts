@@ -131,11 +131,13 @@ let prefs: Preferences = {
   min_notification_severity: "high",
   briefing_frequency: "daily",
   briefing_hour: 7,
+  briefing_weekday: 0,
   timezone: "UTC",
   theme: "dark",
   alert_settings: {
     critical_cves: true, exploited: true, critical_bugs: true, outages: true, watched_tech: true,
     min_cvss: null, outage_min_impact: "major", outage_providers: [], bug_projects: [],
+    model_releases: true, model_providers: [], briefing_ready: true,
   },
 };
 
@@ -143,6 +145,8 @@ const NOTIFS: Notification[] = [
   { id: "n1", kind: "vulnerability", severity: "critical", title: "[DEMO] New critical CVE affects a technology you follow", body: "CVE-0000-00001 (fictional)", article_id: "demo-3", link: "https://example.com/demo/3", created_at: iso(5.5), read_at: null },
   { id: "n2", kind: "incident", severity: "high", title: "[DEMO] Demo Cloud reports elevated error rates", body: null, article_id: "demo-4", link: "https://example.com/demo/4", created_at: iso(1.8), read_at: null },
   { id: "n3", kind: "model_release", severity: "info", title: "[DEMO] Nimbus-7B released by Example Labs", body: null, article_id: "demo-1", link: "https://example.com/demo/1", created_at: iso(2.9), read_at: iso(2) },
+  { id: "n4", kind: "critical_alert", severity: "critical", title: "[DEMO] Actively exploited: CVE-0000-00002 added to the (fictional) KEV list", body: "[DEMO] Apply the vendor update.", article_id: "demo-3", link: "https://example.com/demo/3", created_at: iso(0.7), read_at: null },
+  { id: "n5", kind: "briefing", severity: "info", title: "[DEMO] Your daily briefing is ready", body: "[DEMO] 9 highlighted items.", article_id: null, link: `/briefing?date=${new Date(now).toISOString().slice(0, 10)}`, created_at: iso(1), read_at: null },
 ];
 
 const BRIEFING: Briefing = {
@@ -155,11 +159,18 @@ const BRIEFING: Briefing = {
     "[DEMO] Fictional briefing. A critical (fictional) HTTP library flaw and a cloud storage incident lead today, alongside a new open-weights model release and progress in long-context RAG.",
   sections: {
     top_ai: ARTICLES.filter((a) => ["model_release", "news"].includes(a.item_type)).slice(0, 3).map((a) => ({ article_id: a.id, title: a.title, url: a.url })),
+    model_releases: ARTICLES.filter((a) => a.item_type === "model_release").slice(0, 2).map((a) => ({ article_id: a.id, title: a.title, url: a.url, source: a.source.name })),
     new_tools: ARTICLES.filter((a) => a.item_type === "tool").slice(0, 2).map((a) => ({ article_id: a.id, title: a.title, url: a.url })),
     research: ARTICLES.filter((a) => a.item_type === "research").slice(0, 2).map((a) => ({ article_id: a.id, title: a.title, url: a.url })),
     vulnerabilities: ARTICLES.filter((a) => a.item_type === "vulnerability").slice(0, 2).map((a) => ({ article_id: a.id, title: a.title, url: a.url })),
-    incidents: ARTICLES.filter((a) => a.item_type === "incident").slice(0, 1).map((a) => ({ article_id: a.id, title: a.title, url: a.url })),
-    learning: "[DEMO] Review hybrid retrieval (BM25 + vectors) and container runtime hardening.",
+    bugs: ARTICLES.filter((a) => a.item_type === "bug").slice(0, 2).map((a) => ({ article_id: a.id, title: a.title, url: a.url, severity: a.severity, severity_basis: a.severity_basis })),
+    incidents: ARTICLES.filter((a) => a.item_type === "incident").slice(0, 1).map((a) => ({ article_id: a.id, title: a.title, url: a.url, provider: "Demo Cloud", state: "current" as const, last_verified_at: iso(0.1) })),
+    changes: [
+      { kind: "count", title: "[DEMO] Critical vulnerabilities: 1 new since the last briefing", summary: "2 item(s) now vs 1 previously.", url: null },
+      { kind: "followed", title: "[DEMO] Followed: Kubernetes ingress update", summary: "Mentions something you follow.", url: "https://example.com/demo/5" },
+    ],
+    learning: [{ title: "[DEMO] Study: hybrid retrieval (BM25 + vectors)", url: null, summary: "Several of today's items concern rag." }],
+    meta: { interests: ["rag", "kubernetes"], followed_count: 4, frequency: "daily", timezone: "UTC", previous_briefing_date: null },
   },
   cited_article_ids: ["demo-1", "demo-3", "demo-4"],
   llm_provider: "demo",
@@ -303,17 +314,40 @@ export async function demoFetch<T>(
     if (a) a.is_bookmarked = method === "PUT";
     return r(undefined);
   }
-  if (path === "/notifications/unread-count") return r({ unread: NOTIFS.filter((n) => !n.read_at).length });
+  if (path === "/notifications/unread-count") {
+    const unread = NOTIFS.filter((n) => !n.read_at);
+    const by_kind: Record<string, number> = {};
+    unread.forEach((n) => (by_kind[n.kind] = (by_kind[n.kind] ?? 0) + 1));
+    return r({ unread: unread.length, by_kind });
+  }
   if (path === "/notifications/read-all") {
-    NOTIFS.forEach((n) => (n.read_at ??= new Date().toISOString()));
+    const kinds = asList(q.kind);
+    NOTIFS.forEach((n) => {
+      if (!kinds.length || kinds.includes(n.kind)) n.read_at ??= new Date().toISOString();
+    });
     return r(undefined);
   }
   if (path.startsWith("/notifications/")) {
-    const n = NOTIFS.find((x) => path.includes(x.id));
-    if (n) n.read_at ??= new Date().toISOString();
+    const idx = NOTIFS.findIndex((x) => path.split("/")[2] === x.id);
+    const n = NOTIFS[idx];
+    if (n && method === "DELETE") NOTIFS.splice(idx, 1);
+    else if (n && path.endsWith("/unread")) n.read_at = null;
+    else if (n) n.read_at ??= new Date().toISOString();
     return r(undefined);
   }
-  if (path === "/notifications") return r(page(q.unread_only ? NOTIFS.filter((n) => !n.read_at) : NOTIFS));
+  if (path === "/notifications") {
+    const kinds = asList(q.kind);
+    let items = q.unread_only ? NOTIFS.filter((n) => !n.read_at) : NOTIFS;
+    if (kinds.length) items = items.filter((n) => kinds.includes(n.kind));
+    return r(page(items, Number(q.page ?? 1), Number(q.page_size ?? 20)));
+  }
+  if (path === "/preferences/follow" || path === "/preferences/unfollow") {
+    const field = ({ technology: "followed_technologies", repository: "followed_repositories", provider: "followed_providers" } as const)[json.type as "technology" | "repository" | "provider"];
+    const value = String(json.value ?? "").trim();
+    const list = prefs[field].filter((v) => v.toLowerCase() !== value.toLowerCase());
+    prefs = { ...prefs, [field]: path.endsWith("/follow") ? [...list, value] : list };
+    return r(prefs);
+  }
   if (path === "/preferences/options") return r({ interests: ["ai-engineering", "generative-ai", "rag", "ai-agents", "llmops", "devops", "cloud", "kubernetes", "cybersecurity", "software-engineering"] });
   if (path === "/preferences") {
     if (method === "PUT") prefs = { ...prefs, ...json } as Preferences;
@@ -383,7 +417,7 @@ export async function demoFetch<T>(
       retrieval: { mode: "demo", item_types: [], date_from: null, terms: [] }, generated_by: { provider: "demo", model: "demo-model" }, confidence: "low" });
   }
   if (path === "/briefings/generate") return r(BRIEFING);
-  if (path === "/briefings/latest") return r(BRIEFING);
+  if (path === "/briefings/latest" || path === `/briefings/${BRIEFING.briefing_date}`) return r(BRIEFING);
   if (path === "/briefings") {
     const list: BriefingListItem[] = [{ id: BRIEFING.id, briefing_date: BRIEFING.briefing_date, executive_summary: BRIEFING.executive_summary, generated_at: BRIEFING.generated_at, personalized: true }];
     return r(list);

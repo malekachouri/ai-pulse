@@ -109,9 +109,11 @@ export interface Bookmark {
   article: Article;
 }
 
+export type NotificationKind = "critical_alert" | "model_release" | "vulnerability" | "bug" | "incident" | "briefing" | "system";
+
 export interface Notification {
   id: string;
-  kind: string;
+  kind: NotificationKind;
   severity: Severity;
   title: string;
   body: string | null;
@@ -120,6 +122,13 @@ export interface Notification {
   created_at: string;
   read_at: string | null;
 }
+
+export interface UnreadCount {
+  unread: number;
+  by_kind: Partial<Record<NotificationKind, number>>;
+}
+
+export type FollowType = "technology" | "repository" | "provider";
 
 export type BriefingFrequency = "daily" | "weekdays" | "weekly" | "off";
 
@@ -131,6 +140,7 @@ export interface Preferences {
   min_notification_severity: Severity;
   briefing_frequency: BriefingFrequency;
   briefing_hour: number;
+  briefing_weekday: number;
   timezone: string;
   theme: string;
   alert_settings: AlertSettings;
@@ -147,6 +157,28 @@ export interface BriefingSectionItem {
   why_for_you?: string[];
   summary_is_ai?: boolean;
   severity?: string | null;
+  severity_basis?: string | null;
+  item_type?: string;
+  published_at?: string | null;
+  // vulnerabilities
+  cve_id?: string;
+  cvss?: number | null;
+  known_exploited?: boolean;
+  // incidents
+  provider?: string;
+  state?: "current" | "historical" | "unverified";
+  status?: string;
+  last_verified_at?: string;
+  // changes / learning
+  kind?: "count" | "resolved" | "exploited" | "followed";
+}
+
+export interface BriefingMeta {
+  interests: string[];
+  followed_count: number;
+  frequency: BriefingFrequency;
+  timezone: string;
+  previous_briefing_date: string | null;
 }
 
 export interface Briefing {
@@ -156,7 +188,7 @@ export interface Briefing {
   period_start: string;
   period_end: string;
   executive_summary: string | null;
-  sections: Record<string, BriefingSectionItem[] | string>;
+  sections: Record<string, BriefingSectionItem[] | string | BriefingMeta>;
   cited_article_ids: string[];
   llm_provider: string | null;
   llm_model: string | null;
@@ -499,4 +531,7 @@ export interface AlertSettings {
   outage_min_impact: "minor" | "major" | "critical";
   outage_providers: string[];
   bug_projects: string[];
+  model_releases: boolean;
+  model_providers: string[];
+  briefing_ready: boolean;
 }

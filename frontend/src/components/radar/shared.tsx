@@ -33,7 +33,7 @@ export function Sev({ severity, basis }: { severity: Severity; basis?: string | 
   return <SeverityBadge severity={severity} basis={basis ?? undefined} />;
 }
 
-export function StateBadge({ i }: { i: RadarIncident }) {
+export function StateBadge({ i }: { i: Pick<RadarIncident, "state"> }) {
   const map = {
     current: { label: "Active", cls: "border-sev-critical/40 bg-sev-critical/10 text-sev-critical" },
     historical: { label: "Resolved", cls: "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" },

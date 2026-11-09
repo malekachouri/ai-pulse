@@ -402,4 +402,5 @@ async def test_due_briefings_respect_timezone_and_frequency(session_factory):
         await s.commit()
         now = datetime(2026, 11, 9, 12, 5, tzinfo=UTC)  # 13:05 in Paris, 12:05 UTC, a Monday
         due = await due_briefings(s, now)
-        assert users[0] in due and users[1] not in due and users[2] not in due and None in due
+        ids = [d.user_id for d in due]
+        assert users[0] in ids and users[1] not in ids and users[2] not in ids and None in ids

@@ -1,16 +1,17 @@
 "use client";
 
-import { Bell, CheckCheck, ExternalLink } from "lucide-react";
+import { Bell, CheckCheck } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
 import { SeverityBadge } from "@/components/feed/badges";
+import { KIND_META, NotificationLink } from "@/components/notifications/notification-row";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth";
 import { useMarkNotificationRead, useNotifications, useUnreadCount } from "@/lib/queries";
-import { cn, safeUrl, timeAgo } from "@/lib/utils";
+import { cn, timeAgo } from "@/lib/utils";
 
 export function NotificationCenter() {
   const { status } = useAuth();
@@ -67,7 +68,6 @@ export function NotificationCenter() {
           ) : (
             <ul className="divide-y">
               {list.data.items.map((n) => {
-                const href = safeUrl(n.link);
                 return (
                   <li key={n.id} className={cn("flex gap-3 px-4 py-3", !n.read_at && "bg-primary/5")}>
                     <span
@@ -76,21 +76,15 @@ export function NotificationCenter() {
                     />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <SeverityBadge severity={n.severity} />
+                        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          {(KIND_META[n.kind] ?? KIND_META.system).label}
+                        </span>
+                        {n.severity !== "info" && <SeverityBadge severity={n.severity} />}
                         <span className="text-[11px] text-muted-foreground">{timeAgo(n.created_at)}</span>
                       </div>
                       <p className="mt-1 text-sm leading-snug">{n.title}</p>
                       <div className="mt-1.5 flex gap-3 text-xs">
-                        {href && (
-                          <a
-                            href={href}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-primary hover:underline"
-                          >
-                            Source <ExternalLink className="size-3" />
-                          </a>
-                        )}
+                        <NotificationLink link={n.link} />
                         {!n.read_at && (
                           <button className="text-muted-foreground hover:text-foreground" onClick={() => mark.mutate(n.id)}>
                             Mark read
@@ -104,6 +98,13 @@ export function NotificationCenter() {
             </ul>
           )}
         </div>
+        {status === "authenticated" && (
+          <div className="border-t px-4 py-2 text-center">
+            <Link href="/notifications" onClick={() => setOpen(false)} className="text-xs font-medium text-primary hover:underline">
+              View all notifications
+            </Link>
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   );

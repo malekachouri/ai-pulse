@@ -2,6 +2,7 @@
 
 import { ArrowUpRight, Clock, Cpu, ExternalLink, ShieldAlert, Siren, Star, TrendingUp } from "lucide-react";
 
+import { FollowButton } from "@/components/notifications/follow-button";
 import { ErrorState } from "@/components/states/states";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -162,14 +163,17 @@ export function RisingReposPanel() {
           <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {q.data.items.map((r) => (
               <li key={r.id} className="rounded-lg border p-3">
-                <a
-                  href={safeUrl(r.html_url)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-sm font-medium hover:text-primary"
-                >
-                  {r.full_name} <ArrowUpRight className="size-3" />
-                </a>
+                <div className="flex items-start justify-between gap-2">
+                  <a
+                    href={safeUrl(r.html_url)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex min-w-0 items-center gap-1 break-all text-sm font-medium hover:text-primary"
+                  >
+                    {r.full_name} <ArrowUpRight className="size-3 shrink-0" />
+                  </a>
+                  <FollowButton type="repository" value={r.full_name} />
+                </div>
                 {r.description && <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{r.description}</p>}
                 <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
                   <span className="inline-flex items-center gap-1">
@@ -225,7 +229,12 @@ export function ModelsPanel() {
                   return (
                     <tr key={m.id} className="border-b last:border-0">
                       <td className="py-2 font-medium">{m.name}</td>
-                      <td className="py-2 text-muted-foreground">{m.provider}</td>
+                      <td className="py-2 text-muted-foreground">
+                        <span className="inline-flex items-center gap-2">
+                          {m.provider}
+                          <FollowButton type="provider" value={m.provider} />
+                        </span>
+                      </td>
                       <td className="py-2">
                         {m.is_open_weights == null ? "Unknown" : m.is_open_weights ? "Open" : "Closed"}
                       </td>

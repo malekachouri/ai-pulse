@@ -1,9 +1,9 @@
 import uuid
 from datetime import date, datetime
-from typing import Any
+from typing import Any, Literal
 from zoneinfo import available_timezones
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.alerts.engine import AlertSettings
 from app.models.enums import BriefingFrequency, NotificationKind, Severity
@@ -41,6 +41,44 @@ class NotificationOut(ORMModel):
 
 class UnreadCount(BaseModel):
     unread: int
+    by_kind: dict[str, int] = Field(default_factory=dict)
+
+
+class NotificationFilters(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    unread_only: bool = False
+    kind: list[NotificationKind] = Field(default_factory=list)
+    severity: list[Severity] = Field(default_factory=list)
+    page: int = Field(1, ge=1)
+    page_size: int = Field(20, ge=1, le=100)
+
+
+FollowType = Literal["technology", "repository", "provider"]
+FOLLOW_FIELD: dict[str, str] = {
+    "technology": "followed_technologies",
+    "repository": "followed_repositories",
+    "provider": "followed_providers",
+}
+FOLLOW_LIMIT = {"technology": 100, "repository": 100, "provider": 50}
+
+
+class FollowRequest(BaseModel):
+    type: FollowType
+    value: str = Field(min_length=1, max_length=200)
+
+    @model_validator(mode="after")
+    def _check(self) -> "FollowRequest":
+        self.value = self.value.strip()
+        if not self.value:
+            raise ValueError("value must not be blank")
+        if self.type == "repository":
+            parts = self.value.split("/")
+            if len(parts) != 2 or not all(parts):
+                raise ValueError(f"Repository '{self.value}' must be in owner/name form")
+        elif len(self.value) > 100:
+            raise ValueError("Entries must be at most 100 characters")
+        return self
 
 
 class PreferencesOut(ORMModel):
@@ -51,6 +89,7 @@ class PreferencesOut(ORMModel):
     min_notification_severity: Severity
     briefing_frequency: BriefingFrequency
     briefing_hour: int
+    briefing_weekday: int = 0
     timezone: str
     theme: str
     alert_settings: AlertSettings = Field(default_factory=AlertSettings)
@@ -82,6 +121,7 @@ class PreferencesUpdate(BaseModel):
     min_notification_severity: Severity | None = None
     briefing_frequency: BriefingFrequency | None = None
     briefing_hour: int | None = Field(None, ge=0, le=23)
+    briefing_weekday: int | None = Field(None, ge=0, le=6, description="Weekly briefings: 0 = Monday")
     timezone: str | None = None
     theme: str | None = Field(None, pattern="^(dark|light|system)$")
     alert_settings: AlertSettings | None = None
