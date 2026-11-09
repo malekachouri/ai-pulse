@@ -57,9 +57,9 @@ flowchart LR
 | Repositories | `app/repositories` | All SQLAlchemy queries. |
 | Models | `app/models` | ORM entities, constraints, indexes. |
 | Core | `app/core` | Config, security, logging, errors, metrics. |
-| Connectors 🚧 | `app/ingestion/connectors` | One class per source implementing the connector contract. |
+| Ingestion ✅ | `app/ingestion` | Connector contract, normalized format, HTTP client (retries, rate limits), writer, runner, scheduling, catalog. |
 | AI 🚧 | `app/ai` | Provider abstraction, prompts, pipeline, embeddings, RAG. |
-| Workers 🚧 | `app/workers` | Celery app, beat schedule, task wrappers. |
+| Workers ✅ | `app/workers` | Celery app, Beat schedule, tasks (ingest, dispatch, stale-job recovery). |
 
 Dependencies point inwards only (API → services → repositories → models). Services receive the DB
 session and collaborators (settings, email sender, LLM provider) via FastAPI dependency injection,
@@ -69,12 +69,13 @@ which is what the tests override.
 
 ```
 ai-pulse/
-├── docker-compose.yml          postgres(pgvector) · redis · migrate · api  (+ worker/beat/web/monitoring later)
+├── docker-compose.yml          postgres(pgvector) · redis · migrate · api · worker · beat · web
 ├── .env.example
 ├── docs/ARCHITECTURE.md
 ├── backend/
 │   ├── Dockerfile              multi-stage, non-root, healthcheck
-│   ├── alembic/                migrations (0001 full schema + seeds, 0002 filter indexes)
+│   ├── alembic/                migrations (0001 schema + seeds, 0002 filter indexes,
+│   │                           0003 canonical_key + 27 official sources)
 │   ├── app/
 │   │   ├── main.py             app factory, middleware, routers
 │   │   ├── cli.py              `python -m app.cli create-admin`
@@ -87,9 +88,10 @@ ai-pulse/
 │   │   ├── api/v1/             one router per module (auth, news, models, tools, research, github,
 │   │   │                       bugs, security, incidents, search, briefings, bookmarks,
 │   │   │                       notifications, preferences, catalog, dashboard, admin, health)
-│   │   ├── ingestion/   🚧     base connector, normalized item, connectors/*
+│   │   ├── ingestion/          base, normalized, http, ratelimit, writer, runner, scheduling,
+│   │   │                       catalog, connectors/* (14)
 │   │   ├── ai/          🚧     providers/*, pipeline, prompts, rag
-│   │   └── workers/     🚧     celery_app, schedules, tasks
+│   │   └── workers/            celery_app (Beat schedule), tasks
 │   └── tests/                  integration tests against real Postgres + migrations
 ├── frontend/                   Next.js 16 App Router + Tailwind 4 + shadcn/ui
 │   ├── Dockerfile              standalone output, non-root, BACKEND_URL build arg
@@ -209,29 +211,15 @@ already-rotated token revokes the whole token family (theft detection). Password
 revokes every session. Login uses a dummy hash for unknown emails to avoid user enumeration by
 timing; reset requests return the same response whether or not the account exists.
 
-## 6. Ingestion workflow 🚧 (Phase 4)
+## 6. Ingestion workflow ✅ (Phase 4)
 
-```
-Celery Beat ──(every N min per source)──▶ ingest_source(source_id)
-  1. lock source (Redis SET NX) → skip if already running
-  2. create collection_jobs row (running)
-  3. connector.fetch(checkpoint)   rate-limited, retries w/ exponential backoff + jitter, honours Retry-After
-  4. connector.normalize(raw)      → NormalizedItem (url, external_id, title, published_at, …)
-  5. connector.validate(item)      drop items without URL/title; never fill missing fields
-  6. deduplicate                   exact: (source, external_id) + content_hash; near: canonical URL,
-                                   title similarity, later embedding cosine ≥ 0.92 → duplicate_of_id
-  7. save                          INSERT … ON CONFLICT (source_id, external_id) DO UPDATE
-  8. update checkpoint, source health, job counts; enqueue AI analysis for new/changed items
-  on failure: job=failed, source.consecutive_failures++, error stored; retried by policy
-```
-
-Planned connectors (only official/authoritative endpoints, respecting terms and rate limits):
-vendor RSS/Atom feeds (OpenAI, Google DeepMind, Hugging Face, Kubernetes, Docker, AWS What's New…),
-arXiv API (≥3 s between requests per arXiv policy), GitHub REST (search-based "trending" proxy —
-GitHub has **no** trending API; we rank by stars gained between our own snapshots), NVD CVE API 2.0
-(`lastModStartDate` windows, API key raises limit), CISA KEV JSON, cloud status pages / feeds.
-Sources whose official channel has no machine-readable feed are not scraped silently; they are
-documented as unsupported until a compliant integration exists.
+See **[INGESTION.md](INGESTION.md)** for the full design, the source catalog and operations. In short:
+Celery Beat ticks every minute → `dispatch_due_sources` reads the schedule from Postgres (interval ×
+2^failures backoff) → `ingest_source` takes a per-source advisory lock and runs
+`fetch → normalize → validate → deduplicate → save → reconcile`, committing items, typed rows,
+checkpoint and job/health stats in a single transaction. 14 connectors cover 27 seeded official
+sources (RSS/Atom, arXiv, Hugging Face, GitHub, NVD, CISA KEV, Kubernetes CVE feed, Google Cloud /
+AWS / Azure status, Statuspage). Per-host rate limits are shared across workers through Redis.
 
 ## 7. AI processing workflow 🚧 (Phase 5)
 
@@ -275,7 +263,7 @@ information" when retrieval confidence is low.
 | 1 | Architecture, full schema + migration, auth, news/dashboard/admin-sources API, tests, Docker, CI | ✅ |
 | 2 | Next.js UI: layout, sidebar, dashboard, feed, filters, all pages, auth flows (+ bookmarks/notifications/preferences/briefings read API) | ✅ |
 | 3 | Typed API modules (models, tools, research, github, bugs, security, incidents), keyword search with snippets, admin users/roles/jobs/audit, filter indexes (migration 0002), frontend panels | ✅ |
-| 4 | Ingestion engine: connector framework, Celery/Beat, real connectors, job tracking, ingestion dashboard | 📋 |
+| 4 | Ingestion engine: 14 connectors / 27 official sources, Celery + Beat, retries, rate limits, checkpoints, dedup, failed-job tracking, source health, admin ingestion dashboard | ✅ |
 | 5 | AI engine: providers, pipeline, scoring, embeddings, hybrid search, RAG with citations | 📋 |
 | 6 | Bugs & Failures radar + alerting thresholds | 📋 |
 | 7 | Personalised briefings + notifications + scheduling | 📋 |

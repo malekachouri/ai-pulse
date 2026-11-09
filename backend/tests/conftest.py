@@ -27,6 +27,7 @@ TEST_DB_URL = os.environ.get(
 )
 BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PASSWORD = "Sup3r-Secret-pass!"
+SEEDED: dict[str, int] = {}
 
 
 class CapturingEmail:
@@ -72,6 +73,14 @@ def migrated_db() -> None:
     command.downgrade(cfg, "base")  # migration round-trip
     command.upgrade(cfg, "head")
 
+    async def _count_seeded() -> None:
+        engine = create_engine(Settings(database_url=TEST_DB_URL))
+        async with engine.connect() as conn:
+            SEEDED["sources"] = (await conn.execute(text("SELECT count(*) FROM sources"))).scalar_one()
+        await engine.dispose()
+
+    asyncio.run(_count_seeded())
+
 
 @pytest.fixture(scope="session")
 async def session_factory(settings: Settings) -> AsyncIterator[async_sessionmaker[AsyncSession]]:
@@ -80,9 +89,7 @@ async def session_factory(settings: Settings) -> AsyncIterator[async_sessionmake
     await engine.dispose()
 
 
-@pytest.fixture(autouse=True)
-async def clean_tables(session_factory: async_sessionmaker[AsyncSession]) -> AsyncIterator[None]:
-    yield
+async def _truncate(session_factory: async_sessionmaker[AsyncSession]) -> None:
     async with session_factory() as s:
         tables = (
             await s.scalars(
@@ -94,6 +101,12 @@ async def clean_tables(session_factory: async_sessionmaker[AsyncSession]) -> Asy
         ).all()
         await s.execute(text(f"TRUNCATE {', '.join(tables)} CASCADE"))
         await s.commit()
+
+
+@pytest.fixture(autouse=True)
+async def clean_tables(session_factory: async_sessionmaker[AsyncSession]) -> AsyncIterator[None]:
+    await _truncate(session_factory)  # also removes the migration-seeded catalog sources
+    yield
 
 
 @pytest.fixture

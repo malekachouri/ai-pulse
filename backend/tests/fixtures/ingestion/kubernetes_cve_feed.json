@@ -1,0 +1,45 @@
+{
+ "_kubernetes_io": {
+  "feed_refresh_job": "https://testgrid.k8s.io/sig-security-cve-feed#auto-refreshing-official-cve-feed",
+  "updated_at": "2026-11-09T10:02:51Z"
+ },
+ "authors": [
+  {
+   "name": "Kubernetes Community",
+   "url": "https://www.kubernetes.dev"
+  }
+ ],
+ "description": "Auto-refreshing official CVE feed for Kubernetes repository",
+ "feed_url": "https://kubernetes.io/docs/reference/issues-security/official-cve-feed/index.json",
+ "home_page_url": "https://kubernetes.io",
+ "items": [
+  {
+   "_kubernetes_io": {
+    "google_group_url": "https://groups.google.com/g/kubernetes-announce/search?q=CVE-2026-116472",
+    "issue_number": 143852
+   },
+   "content_text": "CVSS Rating: **2.7** (LOW) [CVSS:3.1/AV:N/AC:L/PR:H/UI:N/S:U/C:N/I:N/A:L](https://www.first.org/cvss/calculator/3.1#CVSS:3.1/AV:N/AC:L/PR:H/UI:N/S:U/C:N/I:N/A:L)\n\nA security issue was discovered in ingress-nginx where a user with permission to create an Ingress may be able to cause denial of service of the ingress-nginx data plane, or possibly redirect traffic from other Ingresses. Kubernetes clusters are only affected if they are using ingress-nginx.\n\nDue to a missing check, the mirror-target Ingress annotation can be used to target an unauthenticated configuration API within the ingress-nginx controller, allowing write commands to be submitted. Corrupting the data within that configuration API results in all traffic through ingress-nginx being dropped until an Ingress configuration change or a controller restart causes the data to be recreated correctly.\n\nIn principle, this write access could also be used to redirect traffic from other Ingresses controlled by the same ingress-nginx instance. In practice, there is negligible additional risk: such redirection would require privileged information about internal ingress-nginx state, and users can already redirect traffic from other Ingresses controlled by the same ingress-nginx anyway.\n\nKubernetes will not be issuing a fix for this CVE, because ingress-nginx maintenance ended in March 2026.\n\nSUSE has issued a fix for this CVE in version 1.15.2-prime1 of their fork of ingress-nginx.\n\n### Am I vulnerable?\n\nThis issue affects ingress-nginx. If you do not have ingress-nginx installed on your cluster, you are not affected. You can check this by running `kubectl get pods --all-namespaces --selector app.kubernetes.io/name=ingress-nginx`.\n\n### How do I mitigate this vulnerability?\n\nPrior to upgrading, this vulnerability can be mitigated by using an admission controller to reject Ingresses that specify the mirror-target annotation, or by setting the annotations-risk-level configMap parameter to \"Medium\" or \"Low\".\n\n#### How to upgrade?\n\nTo upgrade, consult the documentation provided by your vendor.\n\nNote that the Kubernetes project will not be issuing a fix for this CVE.\n\n### Detection\n\nLocalhost addresses in the mirror-target annotation of an Ingress resource may indicate an attempt to exploit this vulnerability.\n\nIf you find evidence that this vulnerability has been exploited, please contact **security@kubernetes.io**\n\n#### Acknowledgements\n\nThis vulnerability was reported by Victor Pereira.\n\n/area security\n/kind bug\n/committee security-response\n/label official-cve-feed\n/sig network\n/area ingress-nginx\n\n<details>\n<summary>OSV format</summary>\n\n```json osv\n{\n  \"schema_version\": \"1.6.0\",\n  \"id\": \"CVE-2026-116472\",\n  \"modified\": \"2026-11-05T17:21:44Z\",\n  \"summary\": \"ingress-nginx mirror-target self-DOS\",\n  \"details\": \"A security issue was discovered in ingress-nginx where a user with permission to create an Ingress may be able to cause denial of service of the ingress-nginx data plane, or possibly redirect traffic from other Ingresses. Kubernetes clusters are only affected if they are using ingress-nginx.\\n\\nDue to a missing check, the mirror-target Ingress annotation can be used to target an unauthenticated configuration API within the ingress-nginx controller, allowing write commands to be submitted. Corrupting the data within that configuration API results in all traffic through ingress-nginx being dropped until an Ingress configuration change or a controller restart causes the data to be recreated correctly.\\n\\nIn principle, this write access could also be used to redirect traffic from other Ingresses controlled by the same ingress-nginx instance. In practice, there is negligible additional risk: such redirection would require privileged information about internal ingress-nginx state, and users can already redirect traffic from other Ingresses controlled by the same ingress-nginx anyway.\\n\\nKubernetes will not be issuing a fix for this CVE, because ingress-nginx maintenance ended in March 2026.\\n\\nSUSE has issued a fix for this CVE in version 1.15.2-prime1 of their fork of ingress-nginx.\",\n  \"severity\": [\n    {\n      \"type\": \"CVSS_V3\",\n      \"score\": \"CVSS:3.1/AV:N/AC:L/PR:H/UI:N/S:U/C:N/I:N/A:L\"\n    }\n  ],\n  \"references\": [\n    {\n      \"type\": \"ADVISORY\",\n      \"url\": \"https://www.cve.org/cverecord?id=CVE-2026-116472\"\n    },\n    {\n      \"type\": \"ADVISORY\",\n      \"url\": \"https://github.com/kubernetes/kubernetes/issues/143852\"\n    },\n    {\n      \"type\": \"WEB\",\n      \"url\": \"https://www.first.org/cvss/calculator/3.1#CVSS:3.1/AV:N/AC:L/PR:H/UI:N/S:U/C:N/I:N/A:L\"\n    }\n  ],\n  \"credits\": [\n    {\n      \"name\": \"This vulnerability was reported by Victor Pereira.\",\n      \"type\": \"FINDER\"\n    }\n  ]\n}\n```\n\n</details>\n\n<!-- generated by srctl v1.0.1 (go1.26.1) -->",
+   "date_published": "2026-11-05T17:21:19Z",
+   "external_url": "https://www.cve.org/cverecord?id=CVE-2026-116472",
+   "id": "CVE-2026-116472",
+   "status": "fixed",
+   "summary": "ingress-nginx mirror-target self-DOS",
+   "url": "https://github.com/kubernetes/kubernetes/issues/143852"
+  },
+  {
+   "_kubernetes_io": {
+    "google_group_url": "https://groups.google.com/g/kubernetes-announce/search?q=CVE-2026-76654",
+    "issue_number": 142098
+   },
+   "content_text": "CVSS Rating: [CVSS:3.1/AV:N/AC:H/PR:H/UI:N/S:C/C:H/I:N/A:N](https://www.first.org/cvss/calculator/3.1#CVSS:3.1/AV:N/AC:H/PR:H/UI:N/S:C/C:H/I:N/A:N) - Medium (5.8)\n\nAn NTLM coercion vulnerability exists on Windows nodes when the subPath supplied in a pod's volumeMounts is set to a symbolic link that points to an attacker-controlled network share. When a kubelet resolves symlinks, it does not reject a target that resolves to a UNC path. As a result, the kubelet will transparently attempt to authenticate to the share using NTLM. \n\nThis allows an attacker to obtain the NetNTLMv2 hash of the account under which the kubelet is running. An attacker could then attempt to crack the hash to retrieve the corresponding password or relay it to impersonate the node, if the node is domain-joined.\n\n#### Affected Versions\n\nkubelet: <= v1.34.11\nkubelet: <= v1.35.8\nkubelet: <= v1.36.4\nkubelet: = v1.37.0\n\n### How do I mitigate this vulnerability?\n\nThis issue can be mitigated by upgrading to a fixed kubelet version. The fixed versions update kubelet to refuse UNC symlink targets on Windows.\n\n#### Fixed Versions\n\nkubelet: >= v1.34.12\nkubelet: >= v1.35.9\nkubelet: >= v1.36.5\nkubelet: >= v1.37.1\n\nIf you find evidence that this vulnerability has been exploited, please contact [security@kubernetes.io](mailto:security@kubernetes.io)\n\n#### Acknowledgements\n\nThis vulnerability was reported by the Kubernetes Third-Party Security Audit subproject, OSTIF, and Shielder.\n\nThe issue was fixed and coordinated by: \n\nYuanliang Zhang @zylxjtu\nVer\u00f3nica L\u00f3pez @Verolop\nJeremy Rickard @jeremyrickard\nNathan Herz @natherz97",
+   "date_published": "2026-09-14T16:42:26Z",
+   "external_url": "https://www.cve.org/cverecord?id=CVE-2026-76654",
+   "id": "CVE-2026-76654",
+   "status": "fixed",
+   "summary": "Subpath symlinking on Windows nodes permits NTLM coercion",
+   "url": "https://github.com/kubernetes/kubernetes/issues/142098"
+  }
+ ],
+ "title": "Kubernetes Vulnerability Announcements - CVE Feed",
+ "version": "https://jsonfeed.org/version/1.1"
+}

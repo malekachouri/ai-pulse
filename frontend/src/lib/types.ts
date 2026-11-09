@@ -265,3 +265,54 @@ export interface SearchResponse {
   page_size: number;
   pages: number;
 }
+
+// ---- Ingestion (Phase 4) ----
+export type SourceHealth = "disabled" | "never_run" | "healthy" | "degraded" | "failing" | "stale";
+export type JobStatus = "pending" | "running" | "succeeded" | "failed" | "partial";
+
+export interface CollectionJob {
+  id: string;
+  source_id: string;
+  status: JobStatus;
+  trigger: string;
+  started_at: string;
+  finished_at: string | null;
+  duration_seconds: number | null;
+  items_fetched: number;
+  items_created: number;
+  items_updated: number;
+  items_skipped: number;
+  attempt: number;
+  error: string | null;
+  errors: { stage?: string; error?: string; ref?: string | null }[];
+}
+
+export interface SourceStatus {
+  id: string;
+  slug: string;
+  name: string;
+  connector: string;
+  source_type: string;
+  url: string;
+  enabled: boolean;
+  is_official: boolean;
+  poll_interval_minutes: number;
+  health: SourceHealth;
+  health_reason: string;
+  consecutive_failures: number;
+  last_success_at: string | null;
+  last_error_at: string | null;
+  last_error: string | null;
+  last_job: CollectionJob | null;
+  next_run_at: string | null;
+  items_total: number;
+  items_24h: number;
+}
+
+export interface IngestionOverview {
+  generated_at: string;
+  totals: { sources: number; enabled: number; items: number; items_24h: number };
+  by_health: Partial<Record<SourceHealth, number>>;
+  sources: SourceStatus[];
+  recent_failures: CollectionJob[];
+}

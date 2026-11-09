@@ -5,6 +5,7 @@ import {
   Bug,
   Cloud,
   Cpu,
+  DatabaseZap,
   FileText,
   GitPullRequest,
   LayoutDashboard,
@@ -16,11 +17,15 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import type { Role } from "@/lib/types";
+
 export interface NavItem {
   href: string;
   label: string;
   icon: LucideIcon;
-  group: "Intelligence" | "Radar" | "You";
+  group: "Intelligence" | "Radar" | "You" | "Admin";
+  /** Only shown to these roles. */
+  roles?: Role[];
 }
 
 export const NAV: NavItem[] = [
@@ -37,6 +42,7 @@ export const NAV: NavItem[] = [
   { href: "/bookmarks", label: "Bookmarks", icon: Bookmark, group: "You" },
   { href: "/analytics", label: "Analytics", icon: BarChart3, group: "You" },
   { href: "/settings", label: "Settings", icon: Settings, group: "You" },
+  { href: "/admin/ingestion", label: "Ingestion", icon: DatabaseZap, group: "Admin", roles: ["admin", "analyst"] },
 ];
 
 export const BrandIcon: LucideIcon = Boxes;

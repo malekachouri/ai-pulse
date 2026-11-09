@@ -1,0 +1,198 @@
+[
+ {
+  "paper": {
+   "id": "2611.07025",
+   "authors": [
+    {
+     "_id": "6aedb2da0962bbebb014f553",
+     "user": {
+      "_id": "68629a4c9290a16a44ffca31",
+      "avatarUrl": "/avatars/d451a92abe2c22093adb85593197ef5d.svg",
+      "isPro": false,
+      "fullname": "Teresa Delgado de las Heras",
+      "user": "teresadelgadoheras",
+      "type": "user",
+      "name": "teresadelgadoheras"
+     },
+     "name": "Teresa Delgado",
+     "status": "claimed_verified",
+     "statusLastChangedAt": "2026-11-06T15:13:55.760Z",
+     "hidden": false
+    },
+    {
+     "_id": "6aedb2da0962bbebb014f554",
+     "name": "Hugo Hazard",
+     "hidden": false
+    },
+    {
+     "_id": "6aedb2da0962bbebb014f555",
+     "name": "Martin Benfeghoul",
+     "hidden": false
+    },
+    {
+     "_id": "6aedb2da0962bbebb014f556",
+     "name": "Jun Wang",
+     "hidden": false
+    },
+    {
+     "_id": "6aedb2da0962bbebb014f557",
+     "user": {
+      "_id": "671880ff5f1f9948bf2ce2d1",
+      "avatarUrl": "https://cdn-avatars.huggingface.co/v1/production/uploads/noauth/qOQW6D05xIM1HPc-S_adk.png",
+      "isPro": false,
+      "fullname": "Zafeirios Fountas",
+      "user": "zfountas",
+      "type": "user",
+      "name": "zfountas"
+     },
+     "name": "Zafeirios Fountas",
+     "status": "claimed_verified",
+     "statusLastChangedAt": "2026-11-07T16:45:04.942Z",
+     "hidden": false
+    }
+   ],
+   "publishedAt": "2026-11-04T19:00:06.000Z",
+   "submittedOnDailyAt": "2026-11-09T00:00:00.000Z",
+   "title": "LowRAM: Low-Rank Keys and Amortised Values for Composable KV Cache Compression at Test-Time",
+   "submittedOnDailyBy": {
+    "_id": "68629a4c9290a16a44ffca31",
+    "avatarUrl": "/avatars/d451a92abe2c22093adb85593197ef5d.svg",
+    "isPro": false,
+    "fullname": "Teresa Delgado de las Heras",
+    "user": "teresadelgadoheras",
+    "type": "user",
+    "name": "teresadelgadoheras"
+   },
+   "summary": "Autoregressive decoding relies on the KV cache, whose memory footprint grows linearly with context length and caps batch size and throughput. Existing post-training methods exploit redundancy across tokens, layers, and feature dimensions, or lower numerical precision. We identify a complementary axis: within each attention head, values are largely predictable from their corresponding keys. We exploit this with value cache amortisation, which fits a lightweight per-head predictor at test time and stores residuals only for the tokens it reconstructs worst, giving 4times near-lossless value compression. The predictor can be initialised by meta-learning for substantially reduced prefill overhead, or fitted from scratch in settings that allow a one-off cost, such as multi-query inference. We pair value amortisation with cross-layer low-rank key compression to produce LowRAM, an asymmetric compression pipeline that stays close to lossless across three model families. By reconstructing only a selected subset of KV pairs at each decoding step, LowRAM can keep decoding overhead minimal and achieve up to 5times higher peak decode throughput at 4times compression. LowRAM further composes with quantisation and eviction, reaching 26.9times compression at 94.5% of baseline performance on long contexts. These results show that treating keys and values as structurally distinct enables efficient, aggressive, and composable KV cache compression.",
+   "upvotes": 26,
+   "discussionId": "6aedb2da0962bbebb014f558",
+   "projectPage": "https://lowram-model.github.io/",
+   "githubRepo": "https://github.com/lowram-model/lowram",
+   "githubRepoAddedBy": "user",
+   "githubStars": 0
+  },
+  "publishedAt": "2026-11-04T14:00:06.000Z",
+  "title": "LowRAM: Low-Rank Keys and Amortised Values for Composable KV Cache Compression at Test-Time",
+  "summary": "Autoregressive decoding relies on the KV cache, whose memory footprint grows linearly with context length and caps batch size and throughput. Existing post-training methods exploit redundancy across tokens, layers, and feature dimensions, or lower numerical precision. We identify a complementary axis: within each attention head, values are largely predictable from their corresponding keys. We exploit this with value cache amortisation, which fits a lightweight per-head predictor at test time and stores residuals only for the tokens it reconstructs worst, giving 4times near-lossless value compression. The predictor can be initialised by meta-learning for substantially reduced prefill overhead, or fitted from scratch in settings that allow a one-off cost, such as multi-query inference. We pair value amortisation with cross-layer low-rank key compression to produce LowRAM, an asymmetric compression pipeline that stays close to lossless across three model families. By reconstructing only a selected subset of KV pairs at each decoding step, LowRAM can keep decoding overhead minimal and achieve up to 5times higher peak decode throughput at 4times compression. LowRAM further composes with quantisation and eviction, reaching 26.9times compression at 94.5% of baseline performance on long contexts. These results show that treating keys and values as structurally distinct enables efficient, aggressive, and composable KV cache compression.",
+  "thumbnail": "https://cdn-thumbnails.huggingface.co/social-thumbnails/papers/2611.07025.png",
+  "numComments": 2,
+  "submittedBy": {
+   "_id": "68629a4c9290a16a44ffca31",
+   "avatarUrl": "/avatars/d451a92abe2c22093adb85593197ef5d.svg",
+   "fullname": "Teresa Delgado de las Heras",
+   "name": "teresadelgadoheras",
+   "type": "user",
+   "isPro": false,
+   "isHf": false,
+   "isHfAdmin": false,
+   "isMod": false,
+   "followerCount": 1,
+   "isUserFollowing": false
+  },
+  "isAuthorParticipating": true
+ },
+ {
+  "paper": {
+   "id": "2611.08179",
+   "authors": [
+    {
+     "_id": "6af168bc05af6789c0631fc4",
+     "user": {
+      "_id": "69ae99c872acbc1c21889d2b",
+      "avatarUrl": "/avatars/4064e75e0d20b36a58ceff339f7d7e8a.svg",
+      "isPro": false,
+      "fullname": "jaylacho",
+      "user": "jaylacho",
+      "type": "user",
+      "name": "jaylacho"
+     },
+     "name": "Jaewon Cho",
+     "status": "claimed_verified",
+     "statusLastChangedAt": "2026-11-09T09:32:54.308Z",
+     "hidden": false
+    },
+    {
+     "_id": "6af168bc05af6789c0631fc5",
+     "name": "Minseo Yoon",
+     "hidden": false
+    },
+    {
+     "_id": "6af168bc05af6789c0631fc6",
+     "name": "Jinyoung Park",
+     "hidden": false
+    },
+    {
+     "_id": "6af168bc05af6789c0631fc7",
+     "name": "Jinwoo Seo",
+     "hidden": false
+    },
+    {
+     "_id": "6af168bc05af6789c0631fc8",
+     "name": "Jaewon Chu",
+     "hidden": false
+    },
+    {
+     "_id": "6af168bc05af6789c0631fc9",
+     "name": "Alice Oh",
+     "hidden": false
+    },
+    {
+     "_id": "6af168bc05af6789c0631fca",
+     "name": "Hyunwoo J. Kim",
+     "hidden": false
+    }
+   ],
+   "publishedAt": "2026-11-05T15:34:23.000Z",
+   "submittedOnDailyAt": "2026-11-09T00:00:00.000Z",
+   "title": "Knowing When to Teach: Learning from Teachable Prefixes in Multilingual Reasoning Distillation",
+   "submittedOnDailyBy": {
+    "_id": "69ae99c872acbc1c21889d2b",
+    "avatarUrl": "/avatars/4064e75e0d20b36a58ceff339f7d7e8a.svg",
+    "isPro": false,
+    "fullname": "jaylacho",
+    "user": "jaylacho",
+    "type": "user",
+    "name": "jaylacho"
+   },
+   "summary": "On-Policy Self-Distillation (OPSD) improves reasoning by training a student on its own reasoning, using the same model conditioned on reference solutions as a teacher. Applying OPSD to multilingual reasoning requires the teacher to provide useful feedback across languages, even when the student makes mistakes in intermediate steps. We observe a phenomenon we call Teacher Drift: as these mistakes accumulate, the teacher may follow the student's incorrect steps instead of correcting them. Our analysis shows that this shift tends to occur earlier in lower-resource languages. To account for these differences across languages, we propose Teachable On-Policy Self-Distillation (TOPSD), which determines where and whether teacher supervision should be applied to each reasoning trajectory. TOPSD uses teacher-student likelihood to estimate where drift begins and select a prefix for supervision. It then verifies whether the teacher can recover the correct answer from that prefix, applying distillation only to prefixes that pass verification. Experiments on multilingual mathematical reasoning across ten languages and three model scales show that TOPSD consistently outperforms conventional OPSD, particularly in low- and medium-resource languages.",
+   "upvotes": 1,
+   "discussionId": "6af168bc05af6789c0631fcb",
+   "ai_summary": "Teachable On-Policy Self-Distillation improves multilingual mathematical reasoning by detecting and limiting teacher drift during student training, especially for lower-resource languages.",
+   "ai_keywords": [
+    "On-Policy Self-Distillation",
+    "OPSD",
+    "Teachable On-Policy Self-Distillation",
+    "TOPSD",
+    "self-distillation",
+    "Teacher Drift",
+    "teacher-student likelihood",
+    "teacher supervision",
+    "reasoning trajectory",
+    "prefix supervision",
+    "multilingual reasoning",
+    "multilingual mathematical reasoning",
+    "low-resource languages",
+    "medium-resource languages"
+   ],
+   "ai_summary_model": "deepseek-ai/DeepSeek-V4.1-Flash"
+  },
+  "publishedAt": "2026-11-05T10:34:23.000Z",
+  "title": "Knowing When to Teach: Learning from Teachable Prefixes in Multilingual Reasoning Distillation",
+  "summary": "On-Policy Self-Distillation (OPSD) improves reasoning by training a student on its own reasoning, using the same model conditioned on reference solutions as a teacher. Applying OPSD to multilingual reasoning requires the teacher to provide useful feedback across languages, even when the student makes mistakes in intermediate steps. We observe a phenomenon we call Teacher Drift: as these mistakes accumulate, the teacher may follow the student's incorrect steps instead of correcting them. Our analysis shows that this shift tends to occur earlier in lower-resource languages. To account for these differences across languages, we propose Teachable On-Policy Self-Distillation (TOPSD), which determines where and whether teacher supervision should be applied to each reasoning trajectory. TOPSD uses teacher-student likelihood to estimate where drift begins and select a prefix for supervision. It then verifies whether the teacher can recover the correct answer from that prefix, applying distillation only to prefixes that pass verification. Experiments on multilingual mathematical reasoning across ten languages and three model scales show that TOPSD consistently outperforms conventional OPSD, particularly in low- and medium-resource languages.",
+  "thumbnail": "https://cdn-thumbnails.huggingface.co/social-thumbnails/papers/2611.08179.png",
+  "numComments": 1,
+  "submittedBy": {
+   "_id": "69ae99c872acbc1c21889d2b",
+   "avatarUrl": "/avatars/4064e75e0d20b36a58ceff339f7d7e8a.svg",
+   "fullname": "jaylacho",
+   "name": "jaylacho",
+   "type": "user",
+   "isPro": false,
+   "isHf": false,
+   "isHfAdmin": false,
+   "isMod": false,
+   "isUserFollowing": false
+  },
+  "isAuthorParticipating": true
+ }
+]

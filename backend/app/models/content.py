@@ -111,6 +111,8 @@ class Article(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     collected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))  # when we fetched it
     source_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     content_hash: Mapped[str] = mapped_column(String(64), index=True)
+    # Cross-source identity, e.g. "cve:CVE-2026-1234" or "arxiv:2611.00001". Used to mark duplicates.
+    canonical_key: Mapped[str | None] = mapped_column(String(200), index=True)
     verification_status: Mapped[VerificationStatus] = mapped_column(
         enum_column(VerificationStatus, "verification_status")
     )

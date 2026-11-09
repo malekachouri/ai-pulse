@@ -16,6 +16,7 @@ import type {
   DashboardSummary,
   GitHubRepository,
   Incident,
+  IngestionOverview,
   Notification,
   Page,
   Preferences,
@@ -215,4 +216,45 @@ export function useSearch(params: { q: string; item_type?: string[]; page: numbe
     enabled: params.q.trim().length >= 2,
     placeholderData: keepPreviousData,
   });
+}
+
+// ---- Ingestion admin ----
+export function useIngestionStatus(enabled: boolean) {
+  return useQuery({
+    queryKey: ["admin", "ingestion"],
+    queryFn: () => api.get<IngestionOverview>("/admin/ingestion/status"),
+    enabled,
+    refetchInterval: 30_000,
+  });
+}
+
+export function useIngestionActions() {
+  const qc = useQueryClient();
+  const refresh = () => qc.invalidateQueries({ queryKey: ["admin", "ingestion"] });
+  const run = useMutation({
+    mutationFn: (sourceId: string) => api.post<{ task_id: string }>(`/admin/sources/${sourceId}/run`),
+    onSuccess: () => {
+      toast.success("Run queued — results appear here within a minute");
+      setTimeout(refresh, 4000);
+    },
+    onError: (err) => toast.error(errorMessage(err)),
+  });
+  const retry = useMutation({
+    mutationFn: (jobId: string) => api.post<{ task_id: string }>(`/admin/jobs/${jobId}/retry`),
+    onSuccess: () => {
+      toast.success("Retry queued");
+      setTimeout(refresh, 4000);
+    },
+    onError: (err) => toast.error(errorMessage(err)),
+  });
+  const update = useMutation({
+    mutationFn: ({ id, patch }: { id: string; patch: { enabled?: boolean; poll_interval_minutes?: number } }) =>
+      api.patch(`/admin/sources/${id}`, patch),
+    onSuccess: () => {
+      toast.success("Source updated");
+      refresh();
+    },
+    onError: (err) => toast.error(errorMessage(err)),
+  });
+  return { run, retry, update };
 }

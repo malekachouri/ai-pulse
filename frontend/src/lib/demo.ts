@@ -21,6 +21,7 @@ import type {
   Preferences,
   Severity,
   SourceBrief,
+  SourceStatus,
   User,
 } from "@/lib/types";
 
@@ -308,6 +309,22 @@ export async function demoFetch<T>(
     const res = page(hits, Number(q.page ?? 1), 20);
     return r({ ...res, query: String(q.q ?? ""), mode: "keyword" });
   }
+  if (path === "/admin/ingestion/status") {
+    const mk = (i: number, name: string, connector: string, health: SourceStatus["health"], err: string | null = null): SourceStatus => ({
+      id: `demo-src-${i}`, slug: `demo-${i}`, name: `[DEMO] ${name}`, connector, source_type: "api", url: "https://example.com/demo/feed",
+      enabled: health !== "disabled", is_official: true, poll_interval_minutes: 60, health,
+      health_reason: health === "failing" ? "3 consecutive failed runs" : health === "disabled" ? "Disabled by an administrator" : "Collecting normally",
+      consecutive_failures: health === "failing" ? 3 : 0, last_success_at: health === "failing" ? iso(30) : iso(0.5), last_error_at: err ? iso(0.2) : null,
+      last_error: err, next_run_at: health === "disabled" ? null : iso(-0.5),
+      last_job: { id: `demo-job-${i}`, source_id: `demo-src-${i}`, status: err ? "failed" : "succeeded", trigger: "schedule", started_at: iso(0.5),
+        finished_at: iso(0.49), duration_seconds: 2.4, items_fetched: 40, items_created: err ? 0 : 6, items_updated: 1, items_skipped: 33, attempt: 1, error: err, errors: [] },
+      items_total: 400 + i * 37, items_24h: err ? 0 : 6 + i,
+    });
+    const sources = [mk(1, "Vendor blog", "rss", "healthy"), mk(2, "Advisory API", "nvd", "healthy"), mk(3, "Status page", "statuspage", "failing", "FetchError: HTTP 503 from example.com after 4 attempts"), mk(4, "Paused feed", "rss", "disabled")];
+    return r({ generated_at: iso(0), totals: { sources: 4, enabled: 3, items: 1600, items_24h: 21 }, by_health: { healthy: 2, failing: 1, disabled: 1 },
+      sources, recent_failures: sources.filter((x) => x.last_job?.status === "failed").map((x) => x.last_job!) });
+  }
+  if (path.startsWith("/admin/")) return r({ task_id: "demo-task", message: "Demo mode: no changes were made." });
   if (path === "/briefings/latest") return r(BRIEFING);
   if (path === "/briefings") {
     const list: BriefingListItem[] = [{ id: BRIEFING.id, briefing_date: BRIEFING.briefing_date, executive_summary: BRIEFING.executive_summary, generated_at: BRIEFING.generated_at, personalized: true }];
