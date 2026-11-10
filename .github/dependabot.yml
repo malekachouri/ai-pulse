@@ -10,6 +10,11 @@ updates:
     directory: /frontend
     schedule: { interval: weekly, day: monday }
     open-pull-requests-limit: 10
+    ignore:
+      # typescript-eslint (used by eslint-config-next) rejects TypeScript 7.0; lift this once it supports it:
+      # https://github.com/typescript-eslint/typescript-eslint/issues/10940
+      - dependency-name: typescript
+        versions: [">=7"]
     groups:
       npm-minor: { update-types: [minor, patch] }
   - package-ecosystem: docker
