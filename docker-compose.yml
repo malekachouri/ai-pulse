@@ -25,7 +25,9 @@ x-backend: &backend
   build:
     context: ./backend
     target: api
-  env_file: .env
+  env_file:
+    - path: .env
+      required: false # every setting has a default; secrets come from ./secrets
   environment: &backend-env
     ENVIRONMENT: ${ENVIRONMENT:-production}
     LOG_JSON: "true"

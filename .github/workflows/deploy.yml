@@ -47,7 +47,7 @@ jobs:
           - { name: postgres, context: infra/postgres, target: "" }
           - { name: redis, context: infra/redis, target: "" }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with: { persist-credentials: false }
       - id: vars
         run: |
@@ -112,7 +112,7 @@ jobs:
       IMAGE_TAG: ${{ needs.publish.outputs.tag }}
       DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '/opt/ai-pulse' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with: { persist-credentials: false }
       - name: SSH identity (deploy-only key, pinned host key)
         env:
