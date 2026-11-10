@@ -165,7 +165,7 @@ services:
   caddy:
     <<: *hardening
     profiles: [edge]
-    image: caddy:2.10-alpine
+    image: caddy:2.11-alpine
     cap_add: [NET_BIND_SERVICE]
     read_only: false # Caddy stores certificates in /data
     environment:
