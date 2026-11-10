@@ -1,6 +1,5 @@
 # syntax=docker/dockerfile:1.7
-ARG NODE_IMAGE=node:22-alpine
-FROM ${NODE_IMAGE} AS deps
+FROM node:26-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 # Optional build secret "build_ca": CA bundle of a TLS-inspecting corporate proxy (never stored in the image).
@@ -8,7 +7,7 @@ RUN --mount=type=cache,target=/root/.npm --mount=type=secret,id=build_ca,require
     if [ -s /run/secrets/build_ca ]; then export npm_config_cafile=/run/secrets/build_ca; fi; \
     npm ci --no-audit --no-fund
 
-FROM ${NODE_IMAGE} AS build
+FROM node:26-alpine AS build
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules
@@ -21,7 +20,7 @@ ARG NEXT_PUBLIC_DEMO_MODE=false
 ENV NEXT_PUBLIC_DEMO_MODE=$NEXT_PUBLIC_DEMO_MODE
 RUN npm run build
 
-FROM ${NODE_IMAGE} AS runtime
+FROM node:26-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
 # Runtime only needs `node`: drop npm/npx/corepack (and their bundled dependencies) from the image.

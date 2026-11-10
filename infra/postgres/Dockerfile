@@ -1,8 +1,7 @@
 # syntax=docker/dockerfile:1.7
 # PostgreSQL 16 + pgvector, with a tuned configuration and first-boot initialisation
 # (extensions + a least-privilege application role). Runs as the image's unprivileged "postgres" user.
-ARG PG_IMAGE=pgvector/pgvector:0.8.7-pg16
-FROM ${PG_IMAGE}
+FROM pgvector/pgvector:0.8.7-pg16
 # OS security updates on top of the base image (Trivy gate: no fixable HIGH/CRITICAL), and remove gosu:
 # the container always starts as the unprivileged postgres user, so the entrypoint never needs to drop
 # privileges, and the binary only adds attack surface (its Go runtime has its own CVE stream).

@@ -32,7 +32,7 @@ services:
   beat:
     <<: *dev-backend
   web:
-    image: node:22-alpine
+    image: node:26-alpine
     build: !reset null
     read_only: false
     user: "node"
