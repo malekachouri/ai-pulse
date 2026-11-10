@@ -37,10 +37,26 @@ FALLBACK_LIMIT = RateLimit(30, 60)
 class FetchError(Exception):
     """A request that failed after all retries (or with a non-retryable status)."""
 
-    def __init__(self, message: str, status: int | None = None, url: str | None = None) -> None:
+    def __init__(
+        self, message: str, status: int | None = None, url: str | None = None, body: str | None = None
+    ) -> None:
         super().__init__(message)
         self.status = status
         self.url = url
+        self.body = body  # start of the error response (APIs explain 4xx there); never request data
+
+
+def _error_body(resp: httpx.Response) -> str | None:
+    text = resp.text.strip()
+    return " ".join(text.split())[:300] or None
+
+
+def ratelimit_reset(resp: httpx.Response) -> datetime | None:
+    """When a provider says the quota is spent (GitHub-style x-ratelimit-* headers), when it resets."""
+    if resp.headers.get("x-ratelimit-remaining") != "0":
+        return None
+    reset = resp.headers.get("x-ratelimit-reset", "")
+    return datetime.fromtimestamp(int(reset), UTC) if reset.isdigit() else datetime.now(UTC)
 
 
 def retry_after_seconds(value: str | None, now: datetime | None = None) -> float | None:
@@ -82,6 +98,7 @@ class HttpClient:
         self._sleep = sleep
         self.limits = {**DEFAULT_LIMITS, **(limits or {})}
         self.requests = 0
+        self._exhausted: dict[str, datetime] = {}  # host -> quota reset time; no requests until then
 
     def backoff(self, attempt: int) -> float:
         """Exponential backoff with full jitter: random(0, min(cap, base * 2^attempt))."""
@@ -131,6 +148,14 @@ class HttpClient:
         last_error: str = ""
         status: int | None = None
         for attempt in range(self.max_attempts):
+            reset = self._exhausted.get(host)
+            if reset is not None and reset > datetime.now(UTC):
+                # Providers ask clients not to keep calling once the quota is spent (GitHub bans abusers).
+                raise FetchError(
+                    f"rate limit of {host} exhausted until {reset.isoformat(timespec='seconds')}",
+                    status=429,
+                    url=url,
+                )
             await self.limiter.acquire(host, rl.limit, rl.period)
             self.requests += 1
             try:
@@ -140,12 +165,25 @@ class HttpClient:
                 last_error, status = f"{type(exc).__name__}: {exc}", None
                 wait = self.backoff(attempt)
             else:
+                if (reset := ratelimit_reset(resp)) is not None:
+                    self._exhausted[host] = reset
                 if resp.status_code < 300 or (allow_not_modified and resp.status_code == 304):
                     return resp
                 status = resp.status_code
                 last_error = f"HTTP {resp.status_code}"
-                if resp.status_code not in RETRY_STATUSES:
-                    raise FetchError(f"{last_error} from {host}", status=status, url=url)
+                if reset is not None and status in (403, 429):  # primary quota spent: wait for the reset
+                    raise FetchError(
+                        f"{last_error} from {host}: rate limit exhausted until "
+                        f"{reset.isoformat(timespec='seconds')}",
+                        status=status,
+                        url=url,
+                    )
+                # GitHub signals secondary rate limits as 403 + Retry-After: retry after the delay asked for.
+                secondary = status == 403 and resp.headers.get("Retry-After") is not None
+                if resp.status_code not in RETRY_STATUSES and not secondary:
+                    raise FetchError(
+                        f"{last_error} from {host}", status=status, url=url, body=_error_body(resp)
+                    )
                 wait = retry_after_seconds(resp.headers.get("Retry-After")) or self.backoff(attempt)
                 wait = min(wait, 300.0)
             if attempt + 1 < self.max_attempts:

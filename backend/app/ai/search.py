@@ -17,7 +17,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any
 
-from sqlalchemy import func
+from sqlalchemy import case, func, literal
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.providers import Embedder
@@ -68,11 +68,15 @@ def rrf(rankings: list[list[uuid.UUID]], k: int = RRF_K) -> dict[uuid.UUID, floa
 _LEXEME = re.compile(r"^[a-z0-9][a-z0-9.\-]*$")
 
 
+def tsquery_words(terms: list[str]) -> list[str]:
+    """Terms reduced to words that are safe to quote inside to_tsquery (max 24)."""
+    clean = [t.replace(".", " ").replace("-", " ") for t in dict.fromkeys(terms) if _LEXEME.match(t)]
+    return list(dict.fromkeys(w for t in clean for w in t.split() if len(w) > 1))[:24]
+
+
 def or_tsquery(terms: list[str]) -> str | None:
     """Safe OR tsquery from free text terms (each term passed through to_tsquery's lexer as a quoted word)."""
-    clean = [t.replace(".", " ").replace("-", " ") for t in dict.fromkeys(terms) if _LEXEME.match(t)]
-    words = [w for t in clean for w in t.split() if len(w) > 1][:24]
-    return " | ".join(f"'{w}'" for w in words) or None
+    return " | ".join(f"'{w}'" for w in tsquery_words(terms)) or None
 
 
 def doc_tokens(a: Article) -> list[str]:
@@ -92,17 +96,29 @@ class Retriever:
     ) -> list[Hit]:
         terms = tokens(query)
         base, _ = self.repo.filtered(filters.model_copy(update={"q": None}))
+        order: list[Any] = []
         if natural:
             tsq = or_tsquery(terms)
             if not tsq:
                 return []
             ts = func.to_tsquery("english", tsq)
+            # Candidates matching more distinct question terms come first: otherwise common words
+            # ("critical", "release") fill the pool and the rare, decisive term never reaches BM25.
+            matched = sum(
+                (
+                    case((Article.search_vector.op("@@")(func.to_tsquery("english", f"'{w}'")), 1), else_=0)
+                    for w in tsquery_words(terms)
+                ),
+                start=literal(0),
+            )
+            order.append(matched.desc())
         else:
             ts = func.websearch_to_tsquery("english", query)
+        order.append(func.ts_rank_cd(Article.search_vector, ts).desc())
         stmt = (
             base.add_columns(func.ts_rank_cd(Article.search_vector, ts).label("rank"))
             .where(Article.search_vector.op("@@")(ts))
-            .order_by(func.ts_rank_cd(Article.search_vector, ts).desc())
+            .order_by(*order)
             .limit(pool)
         )
         rows = (await self.s.execute(stmt)).unique().all()

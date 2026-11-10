@@ -74,3 +74,13 @@ async def test_read_state_per_user(client, seeded):
     assert (await client.get(f"{NEWS}/{seeded['a1']}")).json()["is_read"] is False  # anonymous
     assert (await client.delete(f"{NEWS}/{seeded['a1']}/read", headers=h)).status_code == 204
     assert (await client.get(f"{NEWS}/{seeded['a1']}", headers=h)).json()["is_read"] is False
+
+
+async def test_unknown_query_parameters_are_rejected(client, seeded):
+    """A misspelt filter must fail loudly instead of returning unfiltered results."""
+    r = await client.get(NEWS, params={"severty": "critical"})
+    assert r.status_code == 422
+    assert r.json()["error"]["details"][0]["loc"] == ["query", "severty"]
+    assert (await client.get(NEWS, params={"severity": "critical", "page": 1})).status_code == 200
+    assert (await client.get("/api/v1/dashboard/summary", params={"x": "1"})).status_code == 422
+    assert (await client.get("/api/v1/dashboard/summary")).status_code == 200

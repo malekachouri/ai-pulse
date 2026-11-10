@@ -70,6 +70,11 @@ class RunResult:
     def partial(self) -> bool:
         return bool(self.errors)
 
+    @property
+    def failed(self) -> bool:
+        """Nothing was fetched and every error is a fetch error: the source is down, not partially ok."""
+        return self.fetched == 0 and bool(self.errors) and all(e.get("stage") == "fetch" for e in self.errors)
+
 
 class Connector(ABC):
     key: ClassVar[str]
@@ -154,9 +159,12 @@ class Connector(ABC):
         result.fetched = len(records)
 
         items: list[NormalizedItem] = []
+        dropped = 0  # records that normalize to nothing on purpose (e.g. rejected CVEs)
         for i, record in enumerate(records):
             try:
-                items.extend(self._enrich(x) for x in self.normalize(record))
+                normalized = self.normalize(record)
+                dropped += not normalized
+                items.extend(self._enrich(x) for x in normalized)
             except Exception as exc:  # noqa: BLE001 - one malformed record must not abort the run
                 self.record_error("normalize", f"{type(exc).__name__}: {exc}", ref=str(i))
 
@@ -169,9 +177,11 @@ class Connector(ABC):
             else:
                 valid.append(item)
 
-        stats = await self.save(session, self.deduplicate(valid))
+        unique = self.deduplicate(valid)
+        stats = await self.save(session, unique)
         await self.reconcile(session, valid)
-        result.created, result.updated, result.skipped = stats.created, stats.updated, stats.skipped
+        result.created, result.updated = stats.created, stats.updated
+        result.skipped = stats.skipped + dropped + (len(valid) - len(unique))
         result.created_ids = stats.created_ids
         result.errors = list(self.errors)
         self.log_errors()

@@ -22,7 +22,7 @@ from app.ai.providers import AIProviders, ProviderError
 from app.ai.search import Hit, Retriever
 from app.ai.text import TECH, clean_text, tokens
 from app.models import AIAnalysis, User
-from app.models.enums import AnalysisKind, ItemType
+from app.models.enums import AnalysisKind, ItemType, Severity
 from app.schemas.article import ArticleFilters
 
 MIN_SOURCES = 2  # one source suffices only when it fully covers the question
@@ -32,7 +32,7 @@ QUESTION_NOISE = set(
     "what which who when where why how are is the latest newest new recent recently important most top any "
     "this week month today there have has been were was do does did tell me about show list give happened "
     "happening developments development disclosed affecting affect popular major big things "
-    "anything everything".split()
+    "anything everything published announced reported".split()
 )
 
 TYPE_CUES: list[tuple[re.Pattern[str], list[ItemType]]] = [
@@ -40,12 +40,23 @@ TYPE_CUES: list[tuple[re.Pattern[str], list[ItemType]]] = [
     (re.compile(r"\b(bugs?|regressions?|issues?|crash)", re.I), [ItemType.BUG, ItemType.GITHUB_ISSUE]),
     (re.compile(r"\b(outages?|incidents?|downtime|disruptions?)", re.I), [ItemType.INCIDENT]),
     (
-        re.compile(r"\b(model releases?|models? (?:released|launched)|new models?)\b", re.I),
+        re.compile(
+            r"\b(model releases?|models?\b(?:\W+\w+){0,2}?\W+(?:released|launched|announced|published)"
+            r"|(?:released|launched|new) (?:\w+ )?models?)\b",
+            re.I,
+        ),
         [ItemType.MODEL_RELEASE, ItemType.NEWS],
     ),
     (re.compile(r"\b(papers?|research|arxiv)\b", re.I), [ItemType.RESEARCH]),
     (re.compile(r"\b(tools?|frameworks?|librar(y|ies))\b", re.I), [ItemType.TOOL, ItemType.GITHUB_REPO]),
 ]
+# Severity words are a filter on the official severity, never a text match ("critical" in a description
+# does not make an item critical).
+SEVERITY_CUES: list[tuple[re.Pattern[str], list[Severity]]] = [
+    (re.compile(r"\bcritical\b", re.I), [Severity.CRITICAL]),
+    (re.compile(r"\b(high[- ]severity|severe|serious)\b", re.I), [Severity.CRITICAL, Severity.HIGH]),
+]
+SEVERITY_WORDS = {"critical", "severe", "serious", "severity", "high"}
 TIME_CUES: list[tuple[re.Pattern[str], timedelta]] = [
     (re.compile(r"\btoday\b|\blast 24 ?h", re.I), timedelta(days=1)),
     (re.compile(r"\bthis week\b|\bpast week\b|\blast 7 days\b|\blast week\b", re.I), timedelta(days=7)),
@@ -57,6 +68,7 @@ TIME_CUES: list[tuple[re.Pattern[str], timedelta]] = [
 @dataclass
 class Plan:
     item_types: list[ItemType] = field(default_factory=list)
+    severities: list[Severity] = field(default_factory=list)
     date_from: datetime | None = None
     terms: list[str] = field(default_factory=list)
     window_days: int | None = None
@@ -64,16 +76,26 @@ class Plan:
 
 def interpret(question: str, now: datetime) -> Plan:
     plan = Plan()
+    cue: re.Pattern[str] | None = None
     for pattern, types in TYPE_CUES:
         if pattern.search(question):
             plan.item_types = [*plan.item_types, *[t for t in types if t not in plan.item_types]]
+            cue = pattern
             break
     for pattern, delta in TIME_CUES:
         if pattern.search(question):
             plan.date_from = now - delta
             plan.window_days = delta.days
             break
+    for pattern, severities in SEVERITY_CUES:
+        if pattern.search(question):
+            plan.severities = severities
+            break
     plan.terms = [t for t in tokens(question) if t not in QUESTION_NOISE and len(t) > 2]
+    if plan.severities:
+        plan.terms = [t for t in plan.terms if not set(t.split("-")) & SEVERITY_WORDS]
+    if cue is not None:  # the words that selected the item type are a filter now, not search terms
+        plan.terms = [t for t in plan.terms if not cue.search(t)]
     if plan.item_types == [ItemType.VULNERABILITY]:
         plan.terms = [t for t in plan.terms if not t.startswith(("vulnerab", "cve", "disclos"))]
     if ItemType.BUG in plan.item_types:
@@ -138,6 +160,7 @@ class RagService:
         f = filters.model_copy(
             update={
                 "item_type": filters.item_type or plan.item_types or None,
+                "severity": filters.severity or plan.severities or None,
                 "date_from": filters.date_from or plan.date_from,
             }
         )
@@ -167,8 +190,12 @@ class RagService:
         hits.sort(key=lambda h: h.score, reverse=True)
         return hits[:k], plan, mode
 
+    @staticmethod
+    def informative(plan: Plan) -> list[str]:
+        return [t for t in plan.terms if t in TECH or len(t) > 3]
+
     def coverage(self, plan: Plan, hits: list[Hit]) -> float:
-        informative = [t for t in plan.terms if t in TECH or len(t) > 3]
+        informative = self.informative(plan)
         if not informative:
             return 1.0 if hits else 0.0
         text = " ".join(f"{h.article.title} {h.article.description or ''}".lower() for h in hits[:5])
@@ -183,6 +210,7 @@ class RagService:
         retrieval = {
             "mode": mode,
             "item_types": [t.value for t in plan.item_types],
+            "severities": [x.value for x in plan.severities],
             "date_from": plan.date_from.isoformat() if plan.date_from else None,
             "terms": plan.terms,
         }
@@ -193,7 +221,10 @@ class RagService:
             return RagResult(question, None, True, reason, [], sources, [], retrieval, None)
 
         enough = len(hits) >= MIN_SOURCES or (len(hits) == 1 and cov >= 0.99)
-        if not enough or cov < MIN_TERM_COVERAGE:
+        # With one or two informative terms, each one matters ("capital of France" must not be answered
+        # from items that only mention "capital").
+        needed = 1.0 if 0 < len(self.informative(plan)) <= 2 else MIN_TERM_COVERAGE
+        if not enough or cov < needed:
             return insufficient(
                 "Not enough collected information to answer reliably"
                 + (

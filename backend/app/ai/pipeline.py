@@ -33,7 +33,7 @@ from app.ai.text import clean_text, detect_language, extract_entities, extract_k
 from app.core.logging import get_logger
 from app.ingestion.classify import classify
 from app.models import AIAnalysis, AIUsage, Article, Category, Incident, SecurityVulnerability
-from app.models.enums import AnalysisKind, ItemType
+from app.models.enums import AnalysisKind, ItemType, Severity
 from app.repositories.intel import ACTIVE_INCIDENT_WINDOW, UNRESOLVED
 
 log = get_logger(__name__)
@@ -263,11 +263,17 @@ class AnalysisPipeline:
                 AIAnalysis.valid.is_(True),
             )
         )
+        severity, basis = a.severity, a.severity_basis
+        linked = facts.get("severity")
+        if severity is None and facts.get("cvss") is not None and linked not in (None, "unknown"):
+            # e.g. a CISA KEV entry: the feed has no CVSS, but the linked CVE record has the official one.
+            severity = Severity(facts["severity"])
+            basis = f"CVSS {facts.get('cvss_version') or ''} {facts['cvss']} of linked {facts.get('cve_id')}"
         breakdown = score_item(
             item_type=a.item_type,
             reliability=a.source.reliability,
-            severity=a.severity,
-            severity_basis=a.severity_basis,
+            severity=severity,
+            severity_basis=basis,
             published_at=a.published_at,
             collected_at=a.collected_at,
             verification=a.verification_status,

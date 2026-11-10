@@ -1,5 +1,6 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
+from app.api.deps import reject_unknown_query_params
 from app.api.v1 import (
     admin,
     admin_ops,
@@ -22,7 +23,7 @@ from app.api.v1 import (
     tools,
 )
 
-api_router = APIRouter()
+api_router = APIRouter(dependencies=[Depends(reject_unknown_query_params)])
 for module in (
     auth, dashboard, news, models, tools, research, github, bugs, security, incidents,
     radar, search, briefings, bookmarks, notifications, preferences, catalog, admin, admin_ops,

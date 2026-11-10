@@ -12,6 +12,7 @@ class OpenAIChat:
 
     def __init__(self, http: HttpClient, api_key: str, model: str, base_url: str) -> None:
         self.http, self.model, self._key, self.base = http, model, api_key, base_url.rstrip("/")
+        self._send_temperature = True  # reasoning models (o-series, gpt-5) only accept the default
 
     async def complete(
         self,
@@ -23,22 +24,26 @@ class OpenAIChat:
         max_tokens: int,
         temperature: float,
     ) -> Completion:
-        data = await post_json(
-            self.http,
-            f"{self.base}/chat/completions",
-            {
-                "model": self.model,
-                "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
-                "response_format": {
-                    "type": "json_schema",
-                    "json_schema": {"name": schema_name, "schema": schema},
-                },
-                "max_completion_tokens": max_tokens,
-                "temperature": temperature,
+        payload: dict[str, Any] = {
+            "model": self.model,
+            "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {"name": schema_name, "schema": schema},
             },
-            {"Authorization": f"Bearer {self._key}"},
-            "OpenAI",
-        )
+            "max_completion_tokens": max_tokens,
+        }
+        headers = {"Authorization": f"Bearer {self._key}"}
+        url = f"{self.base}/chat/completions"
+        try:
+            first = {**payload, "temperature": temperature} if self._send_temperature else payload
+            data = await post_json(self.http, url, first, headers, "OpenAI")
+        except ProviderError as exc:
+            # 400 "Unsupported value: 'temperature' ... Only the default (1) value is supported."
+            if not (self._send_temperature and exc.status == 400 and "temperature" in str(exc)):
+                raise
+            self._send_temperature = False  # remembered for this model
+            data = await post_json(self.http, url, payload, headers, "OpenAI")
         choice = (data.get("choices") or [{}])[0]
         message = choice.get("message") or {}
         if message.get("refusal"):

@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import literal_column, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -74,6 +74,7 @@ class ItemWriter:
         self.source = source
         self.now = now
         self._categories: dict[str, Category] | None = None
+        self._inserted = False  # set when the current item inserted a new typed row
 
     async def _category_map(self) -> dict[str, Category]:
         if self._categories is None:
@@ -86,7 +87,11 @@ class ItemWriter:
             values["id"] = uuid.uuid4()
         # Flush first: populate_existing below would otherwise discard pending in-session changes to this row.
         await self.s.flush()
-        await self.s.execute(insert(model).values(**values).on_conflict_do_nothing())
+        inserted = await self.s.execute(
+            insert(model).values(**values).on_conflict_do_nothing().returning(literal_column("1"))
+        )
+        if inserted.first() is not None:
+            self._inserted = True
         stmt = (
             select(model)
             .filter_by(**keys)
@@ -105,10 +110,15 @@ class ItemWriter:
                 setattr(stats, outcome, getattr(stats, outcome) + 1)
                 if outcome == "created":
                     stats.created_ids.append(article.id)
+            self._inserted = False
             changed = await self._save_typed(item, article.id if article else None)
-            if not item.create_article:  # typed-only record: count it as updated or unchanged
-                stats.updated += int(changed)
-                stats.skipped += int(not changed)
+            if not item.create_article:  # typed-only record: new row, changed row, or unchanged
+                if self._inserted:
+                    stats.created += 1
+                elif changed:
+                    stats.updated += 1
+                else:
+                    stats.skipped += 1
         await self.s.flush()
         return stats
 
@@ -333,6 +343,7 @@ class ItemWriter:
         )
         rel = await self.s.scalar(stmt)
         if rel is None:
+            self._inserted = True
             self.s.add(
                 AIModelRelease(
                     id=uuid.uuid4(),

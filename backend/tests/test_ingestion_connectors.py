@@ -165,7 +165,7 @@ async def test_nvd_paginates_windows_and_skips_rejected(session_factory):
     assert len(windows) == 2  # 192 days -> two windows of <= 120 days
     for r in mock.requests:
         assert r.url.params["lastModEndDate"] <= "2026-11-09T12:00:00.000Z"
-    assert job.items_created == 3  # rejected CVE skipped
+    assert job.items_created == 3 and job.items_skipped == 1  # rejected CVE skipped, and counted
     assert (
         await _count(session_factory, SecurityVulnerability, SecurityVulnerability.cve_id == "CVE-2099-0001")
         == 0
@@ -198,12 +198,16 @@ async def test_kev_flags_exploited_and_merges_without_erasing_cvss(session_facto
     assert kev_art.severity is None  # never invented
 
 
-async def test_kev_old_entries_update_records_without_articles(session_factory):
+async def test_kev_old_entries_create_records_without_articles(session_factory):
     url = "https://www.cisa.gov/kev.json"
     kev = fixture_json("cisa_kev.json")
     sid = await make_source(session_factory, "cisa_kev", url, config={"article_window_days": 1})
     job = await ingest(session_factory, sid, MockHttp({url: js(kev)}), now=NOW + timedelta(days=400))
-    assert job.items_created == 0 and job.items_updated == 3
+    # New typed-only rows are "created" (they used to be miscounted as "updated").
+    assert (job.items_created, job.items_updated, job.items_skipped) == (3, 0, 0)
+    assert await _count(session_factory, Article) == 0
+    job2 = await ingest(session_factory, sid, MockHttp({url: js(kev)}), now=NOW + timedelta(days=400))
+    assert (job2.items_created, job2.items_updated, job2.items_skipped) == (0, 0, 3)
     assert (
         await _count(session_factory, SecurityVulnerability, SecurityVulnerability.known_exploited.is_(True))
         == 3
@@ -323,6 +327,7 @@ async def test_github_releases_tools_checkpoints_and_partial_failure(session_fac
     )
     job = await ingest(session_factory, sid, mock)
     assert job.status == JobStatus.PARTIAL and job.items_created == 2  # missing repo logged, others saved
+    assert (await _all(session_factory, select(Source)))[0].consecutive_failures == 0
     assert job.errors[0]["ref"] == "gone/missing"
     tool = (await _all(session_factory, select(AITool)))[0]
     assert tool.name == "vLLM" and tool.latest_version == "v0.9.0"
@@ -400,3 +405,16 @@ async def test_github_trending_star_snapshots(session_factory):
     assert r.stars == 1450 and r.stars_delta_7d == 450 and len(r.star_history) == 2
     q = mock.requests[0].url.params["q"]
     assert "topic:llm" in q and "stars:>=200" in q and "pushed:>=" in q
+
+
+async def test_github_every_repo_failing_fails_the_job(session_factory):
+    """A multi-repo connector that catches every fetch error must not look healthy."""
+    api = "https://api.github.com/repos/"
+    sid = await make_source(session_factory, "github_releases", "https://api.github.com",
+                            config={"repos": [{"repo": "a/one"}, {"repo": "b/two"}]})  # fmt: skip
+    mock = MockHttp({f"{api}a/one/releases": js({"message": "Forbidden"}, 403),
+                     f"{api}b/two/releases": js({"message": "Forbidden"}, 403)})  # fmt: skip
+    job = await ingest(session_factory, sid, mock)
+    assert job.status == JobStatus.FAILED and job.error.startswith("all 2 fetch(es) failed")
+    source = (await _all(session_factory, select(Source)))[0]
+    assert source.consecutive_failures == 1 and source.last_success_at is None and source.last_error

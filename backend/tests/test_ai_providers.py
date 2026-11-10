@@ -195,3 +195,36 @@ async def test_schema_violations_rejected():
     chat = ScriptedChat([too_long, too_long])
     with pytest.raises(MalformedOutputError):
         await StructuredLLM(chat, max_tokens=10, temperature=0).complete_json("s", "u", ItemAnalysis)
+
+
+async def test_openai_reasoning_model_without_temperature_support():
+    """o-series / gpt-5 models reject a non-default temperature: retry once without it, then remember."""
+    bodies = []
+
+    def handler(request):
+        body = json.loads(request.content)
+        bodies.append(body)
+        if "temperature" in body:
+            return httpx.Response(400, json={"error": {
+                "message": "Unsupported value: 'temperature' does not support 0.2 with this model. "
+                           "Only the default (1) value is supported.",
+                "type": "invalid_request_error", "param": "temperature", "code": "unsupported_value"}})  # fmt: skip
+        return httpx.Response(200, json={"choices": [{"message": {"content": json.dumps({"answer": "ok"})}}],
+                                         "usage": {"prompt_tokens": 5, "completion_tokens": 1}})  # fmt: skip
+
+    mock = MockHttp({"https://api.openai.com/v1/chat/completions": handler})
+    llm = StructuredLLM(OpenAIChat(mock.client(), "sk", "gpt-5-mini", "https://api.openai.com/v1"),
+                        max_tokens=100, temperature=0.2)  # fmt: skip
+    assert (await llm.complete_json("s", "q", RagAnswer)).data.answer == "ok"
+    assert (await llm.complete_json("s", "q", RagAnswer)).data.answer == "ok"
+    assert ["temperature" in b for b in bodies] == [True, False, False]
+
+
+async def test_provider_errors_carry_the_api_explanation():
+    mock = MockHttp({"https://api.openai.com/v1/chat/completions": httpx.Response(
+        404, json={"error": {"message": "The model `gpt-nope` does not exist", "code": "model_not_found"}})})  # fmt: skip
+    llm = StructuredLLM(OpenAIChat(mock.client(), "sk-secret", "gpt-nope", "https://api.openai.com/v1"),
+                        max_tokens=100, temperature=0)  # fmt: skip
+    with pytest.raises(ProviderError) as e:
+        await llm.complete_json("s", "q", RagAnswer)
+    assert "does not exist" in str(e.value) and "sk-secret" not in str(e.value)

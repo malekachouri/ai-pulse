@@ -81,3 +81,38 @@ async def test_per_host_default_limits_apply():
         await client.get("https://export.arxiv.org/api/query")
     # arXiv terms: 1 request per 3 s -> the second call had to wait
     assert mock.sleeps and mock.sleeps[0] > 2.9
+
+
+async def test_spent_quota_stops_requests_to_that_host_until_reset():
+    reset = str(int(datetime.now(UTC).timestamp()) + 3600)
+    spent = {"x-ratelimit-remaining": "0", "x-ratelimit-reset": reset}
+    mock = MockHttp({"https://api.github.com/": httpx.Response(403, headers=spent),
+                     "https://other.test/": httpx.Response(200, json={})})  # fmt: skip
+    client = mock.client()
+    with pytest.raises(FetchError, match="rate limit exhausted") as e:
+        await client.get("https://api.github.com/repos/a/b/releases")
+    assert e.value.status == 403 and len(mock.requests) == 1  # no retries against a spent quota
+    with pytest.raises(FetchError, match="exhausted until"):
+        await client.get("https://api.github.com/repos/c/d/releases")
+    assert len(mock.requests) == 1  # the second call never reached the API
+    await client.get("https://other.test/x")  # other hosts are unaffected
+    assert len(mock.requests) == 2
+
+
+async def test_last_request_of_the_quota_blocks_the_next_one():
+    reset = str(int(datetime.now(UTC).timestamp()) + 600)
+    mock = MockHttp({"https://api.github.com/": httpx.Response(
+        200, json={}, headers={"x-ratelimit-remaining": "0", "x-ratelimit-reset": reset})})  # fmt: skip
+    client = mock.client()
+    await client.get("https://api.github.com/a")
+    with pytest.raises(FetchError, match="exhausted"):
+        await client.get("https://api.github.com/b")
+    assert len(mock.requests) == 1
+
+
+async def test_secondary_rate_limit_403_is_retried_after_the_requested_delay():
+    mock = MockHttp({"https://api.github.com/": [
+        httpx.Response(403, headers={"Retry-After": "11"}), httpx.Response(200, json={"ok": 1}),
+    ]})  # fmt: skip
+    r = await mock.client().get("https://api.github.com/x")
+    assert r.json() == {"ok": 1} and mock.sleeps == [11]

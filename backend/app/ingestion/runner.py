@@ -122,13 +122,19 @@ async def _run_locked(
         job.items_fetched, job.items_created = result.fetched, result.created
         job.items_updated, job.items_skipped = result.updated, result.skipped + result.invalid
         job.errors = result.errors
-        job.status = JobStatus.PARTIAL if result.partial else JobStatus.SUCCEEDED
-        job.error = f"{len(result.errors)} record(s) failed" if result.partial else None
         job.finished_at = finished
-        if result.checkpoint is not None:
-            source.checkpoint = result.checkpoint
-        source.last_success_at = finished
-        source.consecutive_failures = 0
+        if result.failed:  # every request failed: the source is down, even if the connector caught it
+            job.status = JobStatus.FAILED
+            job.error = f"all {len(result.errors)} fetch(es) failed: {result.errors[0]['error']}"[:2000]
+            source.consecutive_failures += 1
+            source.last_error, source.last_error_at = job.error, finished
+        else:
+            job.status = JobStatus.PARTIAL if result.partial else JobStatus.SUCCEEDED
+            job.error = f"{len(result.errors)} record(s) failed" if result.partial else None
+            if result.checkpoint is not None:
+                source.checkpoint = result.checkpoint
+            source.last_success_at = finished
+            source.consecutive_failures = 0
         await s.commit()
         RUNS.labels(slug, job.status.value).inc()
         for outcome, n in (
