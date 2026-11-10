@@ -122,6 +122,7 @@ that a cache outage does not take the whole service down.
 | CodeQL (Python, TypeScript, workflow files) | `codeql.yml` | findings in code scanning |
 | Ruff `S` rules (Bandit), shellcheck, actionlint | CI | any finding fails |
 | Dependabot | weekly | pip, npm, Docker base images, compose images, GitHub Actions |
+| Pinned GitHub Actions | every workflow | each `uses:` is pinned to a full commit SHA (version in a comment, kept current by Dependabot), so a moved or hijacked tag cannot change what runs |
 
 Base-image CVEs keep arriving after a release, so CI also rebuilds and re-scans every week. When a
 finding has no fix yet, Trivy's `--ignore-unfixed` keeps the gate actionable. Review the full report in
