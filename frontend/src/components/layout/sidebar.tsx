@@ -67,7 +67,7 @@ export function SidebarNav({ collapsed = false, onNavigate }: { collapsed?: bool
       {groups.map((g) => (
         <div key={g}>
           {!collapsed && (
-            <p className="mb-1.5 px-2.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground/80">{g}</p>
+            <p className="mb-1.5 px-2.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{g}</p>
           )}
           <div className="space-y-0.5">
             {visible.filter((n) => n.group === g).map((item) => (

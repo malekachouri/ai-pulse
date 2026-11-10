@@ -21,7 +21,7 @@ export const KIND_META: Record<NotificationKind, { label: string; icon: LucideIc
   critical_alert: { label: "Critical alert", icon: AlertOctagon, tone: "text-red-600 dark:text-red-400" },
   model_release: { label: "Model release", icon: Cpu, tone: "text-primary" },
   vulnerability: { label: "Vulnerability", icon: ShieldAlert, tone: "text-orange-600 dark:text-orange-400" },
-  bug: { label: "Bug", icon: Bug, tone: "text-amber-600 dark:text-amber-400" },
+  bug: { label: "Bug", icon: Bug, tone: "text-amber-700 dark:text-amber-400" },
   incident: { label: "Incident", icon: Server, tone: "text-orange-600 dark:text-orange-400" },
   briefing: { label: "Briefing", icon: Sunrise, tone: "text-violet-600 dark:text-violet-300" },
   system: { label: "System", icon: Mail, tone: "text-muted-foreground" },
@@ -68,7 +68,7 @@ export function NotificationRow({
           <time dateTime={n.created_at} title={formatDateTime(n.created_at)}>
             {timeAgo(n.created_at)}
           </time>
-          {unread && <span className="size-2 rounded-full bg-primary" aria-label="Unread" />}
+          {unread && <span className="size-2 rounded-full bg-primary" role="img" aria-label="Unread" />}
         </div>
         <p className={cn("mt-1 text-sm leading-snug", unread && "font-medium")}>{n.title}</p>
         {n.body && <p className="mt-0.5 line-clamp-3 text-xs text-muted-foreground">{n.body}</p>}
