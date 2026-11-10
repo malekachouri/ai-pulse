@@ -4,7 +4,7 @@ There are two ways to work on AI Pulse:
 - **Docker development stack**: everything runs in containers, with hot reload.
 - **Native**: the API and web run on your machine; PostgreSQL and Redis run in Docker or locally.
 
-Requirements: Docker with Compose v2.24+, and for native work Python 3.12+, Node 26 (LTS) and PostgreSQL 16
+Requirements: Docker with Compose v2.24+, and for native work Python 3.15+, Node 26 (LTS) and PostgreSQL 16
 with the `vector` extension.
 
 ## Option A: Docker development stack

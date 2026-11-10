@@ -88,7 +88,7 @@ class ArticleFilters(BaseModel):
         return v.strip() or None if v else None
 
     @model_validator(mode="after")
-    def _check(self) -> "ArticleFilters":
+    def _check(self) -> ArticleFilters:
         if self.date_from and self.date_to and self.date_from > self.date_to:
             raise ValueError("date_from must be before date_to")
         if self.sort == SortOrder.RELEVANCE and not self.q:

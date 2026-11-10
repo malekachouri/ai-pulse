@@ -29,7 +29,7 @@ class User(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     role: Mapped[Role] = relationship(lazy="joined")
-    preference: Mapped["UserPreference | None"] = relationship(
+    preference: Mapped[UserPreference | None] = relationship(
         back_populates="user", uselist=False, cascade="all, delete-orphan"
     )
 

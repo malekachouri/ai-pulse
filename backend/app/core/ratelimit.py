@@ -38,7 +38,7 @@ class Limit:
     period: int
 
     @classmethod
-    def parse(cls, spec: str) -> "Limit":
+    def parse(cls, spec: str) -> Limit:
         m = _SPEC.match(spec)
         if not m:
             raise ValueError(f"Invalid rate limit '{spec}': use '<count>/<second|minute|hour>'")

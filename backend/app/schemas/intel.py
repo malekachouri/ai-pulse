@@ -34,7 +34,7 @@ class DateRangeMixin(BaseModel):
     date_to: datetime | None = None
 
     @model_validator(mode="after")
-    def _range(self) -> "DateRangeMixin":
+    def _range(self) -> DateRangeMixin:
         if self.date_from and self.date_to and self.date_from > self.date_to:
             raise ValueError("date_from must be before date_to")
         return self

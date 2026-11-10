@@ -68,7 +68,7 @@ class FollowRequest(BaseModel):
     value: str = Field(min_length=1, max_length=200)
 
     @model_validator(mode="after")
-    def _check(self) -> "FollowRequest":
+    def _check(self) -> FollowRequest:
         self.value = self.value.strip()
         if not self.value:
             raise ValueError("value must not be blank")
