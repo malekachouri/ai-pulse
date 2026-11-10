@@ -193,12 +193,49 @@ jobs:
               --format table "ai-pulse/$img:local"
           done
           exit $status
-      - name: Upload Trivy results
-        if: always() && hashFiles('trivy/*.sarif') != ''
-        uses: github/codeql-action/upload-sarif@9418214df1f2c4b8128c770156c409013b07d6b9 # v3.39.3
+      # Code scanning needs one SARIF run per category, so each image is uploaded on its own.
+      - name: Upload Trivy results (api)
+        if: always() && hashFiles('trivy/api.sarif') != ''
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
         with:
-          sarif_file: trivy
-          category: trivy-images
+          sarif_file: trivy/api.sarif
+          category: trivy-api
+      - name: Upload Trivy results (worker)
+        if: always() && hashFiles('trivy/worker.sarif') != ''
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: trivy/worker.sarif
+          category: trivy-worker
+      - name: Upload Trivy results (beat)
+        if: always() && hashFiles('trivy/beat.sarif') != ''
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: trivy/beat.sarif
+          category: trivy-beat
+      - name: Upload Trivy results (migrate)
+        if: always() && hashFiles('trivy/migrate.sarif') != ''
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: trivy/migrate.sarif
+          category: trivy-migrate
+      - name: Upload Trivy results (web)
+        if: always() && hashFiles('trivy/web.sarif') != ''
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: trivy/web.sarif
+          category: trivy-web
+      - name: Upload Trivy results (postgres)
+        if: always() && hashFiles('trivy/postgres.sarif') != ''
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: trivy/postgres.sarif
+          category: trivy-postgres
+      - name: Upload Trivy results (redis)
+        if: always() && hashFiles('trivy/redis.sarif') != ''
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: trivy/redis.sarif
+          category: trivy-redis
       - name: Start the full stack (production settings, monitoring and backup profiles)
         run: |
           docker compose --profile monitoring --profile backup up -d --no-build --wait --wait-timeout 300
