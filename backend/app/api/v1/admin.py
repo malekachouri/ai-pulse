@@ -1,13 +1,16 @@
 import uuid
 from datetime import UTC, datetime
 from typing import Annotated
+from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Query, Request, status
 from pydantic import ValidationError
 
-from app.api.deps import AdminUser, AIDep, QueueDep, SessionDep, StaffUser
+from app.api.deps import AdminUser, AIDep, QueueDep, SessionDep, SettingsDep, StaffUser
+from app.core.config import Settings
 from app.core.errors import AppError, ConflictError, NotFoundError
 from app.ingestion.connectors import REGISTRY
+from app.ingestion.netguard import internal_host
 from app.models import AuditLog, CollectionJob, Source
 from app.models.enums import JobStatus
 from app.repositories.sources import SourceRepository
@@ -67,6 +70,17 @@ async def list_sources(session: SessionDep, _: AdminUser, enabled: bool | None =
     return [SourceOut.model_validate(s) for s in await SourceRepository(session).list(enabled)]
 
 
+def _check_destination(settings: Settings, url: object | None) -> None:
+    """Collectors refuse internal destinations at fetch time too; this gives immediate feedback."""
+    if url is None or settings.ingestion_allow_private_hosts:
+        return
+    host = urlsplit(str(url)).hostname or ""
+    if reason := internal_host(host):
+        raise AppError(
+            f"Source URL refused: {reason}. Set INGESTION_ALLOW_PRIVATE_HOSTS=true for intranet feeds."
+        )
+
+
 @router.post(
     "/sources",
     response_model=SourceOut,
@@ -74,8 +88,9 @@ async def list_sources(session: SessionDep, _: AdminUser, enabled: bool | None =
     responses={409: {"model": ErrorResponse}},
 )
 async def create_source(
-    body: SourceCreate, request: Request, session: SessionDep, admin: AdminUser
+    body: SourceCreate, request: Request, session: SessionDep, admin: AdminUser, settings: SettingsDep
 ) -> SourceOut:
+    _check_destination(settings, body.url)
     repo = SourceRepository(session)
     if await repo.get_by_slug(body.slug):
         raise ConflictError(f"Source '{body.slug}' already exists")
@@ -88,8 +103,14 @@ async def create_source(
 
 @router.patch("/sources/{source_id}", response_model=SourceOut, responses={404: {"model": ErrorResponse}})
 async def update_source(
-    source_id: uuid.UUID, body: SourceUpdate, request: Request, session: SessionDep, admin: AdminUser
+    source_id: uuid.UUID,
+    body: SourceUpdate,
+    request: Request,
+    session: SessionDep,
+    admin: AdminUser,
+    settings: SettingsDep,
 ) -> SourceOut:
+    _check_destination(settings, body.url)
     source = await SourceRepository(session).get(source_id)
     if source is None:
         raise NotFoundError("Source not found")

@@ -5,9 +5,10 @@ GitHub activity, software bugs and outages, vulnerabilities, and cloud/DevOps ch
 keeps its original source, its publication and collection dates, and its verification status. What
 an AI wrote is always labelled and kept apart from the facts.
 
-> **Status: phases 1–8 of 9 complete.** Platform, ingestion from 28 official sources, AI engine,
-> Bugs & Failures radar, personalised briefings and notifications, and production tooling
-> (containers, CI/CD, monitoring, security, backups). Phase 9 is a full audit. AI Pulse never shows
+> **Status: complete (phases 1–9).** Platform, ingestion from 28 official sources, AI engine,
+> Bugs & Failures radar, personalised briefings and notifications, production tooling, and a full
+> audit with every reproducible bug fixed: see [docs/AUDIT_REPORT.md](docs/AUDIT_REPORT.md) for
+> what was verified, test results, security findings and remaining limitations. AI Pulse never shows
 > demo content as real data.
 
 ## Features
@@ -42,9 +43,9 @@ an AI wrote is always labelled and kept apart from the facts.
 
 | Layer | Technology |
 |---|---|
-| Web | Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS 4 · shadcn/ui · TanStack Query · Recharts |
-| API | FastAPI · Pydantic 2 · SQLAlchemy 2 (async) · Alembic |
-| Data | PostgreSQL 16 + pgvector + full-text search + pg_trgm · Redis 7 |
+| Web | Node 26 · Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS 4 · shadcn/ui · TanStack Query · Recharts |
+| API | Python 3.15 · FastAPI · Pydantic 2 · SQLAlchemy 2 (async) · Alembic |
+| Data | PostgreSQL 16 + pgvector + full-text search + pg_trgm · Redis 8 |
 | Background | Celery workers + Beat (DB-driven schedules) |
 | Operations | Docker / Compose · Caddy (automatic HTTPS) · Prometheus · Alertmanager · Grafana · GitHub Actions (Trivy, CodeQL, pip-audit, npm audit, Dependabot) |
 
@@ -124,6 +125,7 @@ deterministic analysis, ranking and keyword search still work.
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | server setup, secrets, CI/CD, monitoring and alerts, backups and restore, upgrades, scaling |
 | [SECURITY.md](SECURITY.md) | reporting, threat model, controls, secret rotation, scanning |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | workflow, rules, checks, what a good pull request contains |
+| [docs/AUDIT_REPORT.md](docs/AUDIT_REPORT.md) | final audit: verified features, fixed bugs, test results, security findings, limitations, credentials |
 | [docs/INGESTION.md](docs/INGESTION.md) · [docs/AI.md](docs/AI.md) · [docs/RADAR.md](docs/RADAR.md) · [docs/NOTIFICATIONS.md](docs/NOTIFICATIONS.md) | module guides |
 
 ## Tests and checks
@@ -157,3 +159,4 @@ See [docs/DEPLOYMENT.md §3](docs/DEPLOYMENT.md#3-cicd).
 | 6 Radar | bugs with fix tracking, incident states, GitHub advisories connector, configurable alerts ([RADAR.md](docs/RADAR.md)) |
 | 7 Briefings & notifications | 10-section personalised briefings, per-user scheduling, notification center and preferences ([NOTIFICATIONS.md](docs/NOTIFICATIONS.md)) |
 | 8 Production readiness | 7 hardened images, Compose dev/prod, CI/CD with Trivy/CodeQL/audits and signed provenance, Prometheus/Grafana/alerts, rate limiting, secrets, admin console, backups ([DEPLOYMENT.md](docs/DEPLOYMENT.md)) |
+| 9 Audit | live runs of every source, API, browser (axe-core, both themes, all roles) and full-stack checks; 22 bugs fixed incl. SSRF via source URLs, undelivered password-reset emails, ingestion failure accounting, RAG retrieval and WCAG 2.1 AA contrast/structure ([AUDIT_REPORT.md](docs/AUDIT_REPORT.md)) |

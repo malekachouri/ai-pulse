@@ -84,6 +84,8 @@ class Settings(BaseSettings):
     ai_daily_token_budget: int | None = None  # stop LLM analysis for the day once reached (None = unlimited)
 
     # Ingestion
+    # Collectors refuse internal destinations (metadata service, localhost, private networks, service names)
+    ingestion_allow_private_hosts: bool = False
     ingestion_max_attempts: int = 3  # job-level attempts (each HTTP request also retries with backoff)
     ingestion_dispatch_seconds: int = 60  # how often the scheduler looks for due sources
     # Scheduling of personal briefings and alert evaluation (Celery Beat)

@@ -46,6 +46,12 @@ what a role cannot do, but the API enforces it.
 - Every body and query string is a Pydantic model. Unknown query parameters are rejected (422) on every
   route by a router-level check against the OpenAPI schema, sizes are bounded, URLs are validated, and
   sort fields are whitelisted.
+- Outbound requests from collectors (source URLs are admin-configured, and what they fetch is
+  published) refuse internal destinations on every request and redirect: cloud metadata,
+  loopback, private and link-local ranges, `localhost`/`*.internal`/single-label names such as
+  `postgres`, and - without an outbound proxy - names that resolve to such addresses
+  (`app/ingestion/netguard.py`). The admin API rejects such URLs up front.
+  `INGESTION_ALLOW_PRIVATE_HOSTS=true` lifts this for intranet-only deployments.
 - SQL goes through SQLAlchemy with bound parameters. The few raw statements use bind parameters only.
 - Errors use one envelope and never leak stack traces (unhandled errors are logged server-side with
   the request path).

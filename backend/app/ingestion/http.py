@@ -11,6 +11,7 @@ from urllib.parse import urlparse
 import httpx
 
 from app.core.logging import get_logger
+from app.ingestion.netguard import blocked_reason
 from app.ingestion.ratelimit import InMemoryRateLimiter, RateLimiter, Sleep
 
 log = get_logger(__name__)
@@ -51,6 +52,14 @@ def _error_body(resp: httpx.Response) -> str | None:
     return " ".join(text.split())[:300] or None
 
 
+async def _guard_destination(request: httpx.Request) -> None:
+    """httpx request hook (every request, redirects included): refuse internal destinations."""
+    reason = await blocked_reason(str(request.url), request.url.host, request.url.port)
+    if reason:
+        log.warning("ingestion_destination_blocked", host=request.url.host, reason=reason)
+        raise FetchError(f"blocked destination: {reason}", url=str(request.url))
+
+
 def ratelimit_reset(resp: httpx.Response) -> datetime | None:
     """When a provider says the quota is spent (GitHub-style x-ratelimit-* headers), when it resets."""
     if resp.headers.get("x-ratelimit-remaining") != "0":
@@ -84,12 +93,17 @@ class HttpClient:
         backoff_cap: float = 60.0,
         sleep: Sleep = asyncio.sleep,
         limits: dict[str, RateLimit] | None = None,
+        block_private: bool = False,
     ) -> None:
+        hooks = {"request": [_guard_destination]} if block_private else {}
         self._client = client or httpx.AsyncClient(
             timeout=httpx.Timeout(30.0, connect=10.0),
             follow_redirects=True,
             headers={"User-Agent": USER_AGENT},
+            event_hooks=hooks,
         )
+        if client is not None and block_private:
+            client.event_hooks["request"] = [*client.event_hooks.get("request", []), _guard_destination]
         self._owns_client = client is None
         self.limiter = limiter or InMemoryRateLimiter(sleep=sleep)
         self.max_attempts = max_attempts

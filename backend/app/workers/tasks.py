@@ -41,7 +41,7 @@ def ingest_source(self: Any, source_id: str, trigger: str = "schedule", attempt:
 
     async def body(factory: async_sessionmaker[AsyncSession]) -> dict[str, Any]:
         limiter = RedisRateLimiter(settings.redis_url)
-        http = HttpClient(limiter=limiter)
+        http = HttpClient(limiter=limiter, block_private=not settings.ingestion_allow_private_hosts)
         try:
             job = await run_source(
                 factory,

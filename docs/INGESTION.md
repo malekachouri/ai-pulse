@@ -22,6 +22,8 @@ Celery Beat ──every 60 s──▶ dispatch_due_sources ──▶ ingest_sour
   (`x-ratelimit-remaining: 0`) stops all requests to that host until `x-ratelimit-reset` instead of retrying.
   A failed *job* is retried by the worker after 1, 2, 4 … minutes (`INGESTION_MAX_ATTEMPTS`, default 3).
   Stuck `running` jobs older than 1 h are marked failed.
+* **Destinations.** Collectors refuse internal addresses (metadata service, loopback, private ranges,
+  internal or single-label names), redirects included; see SECURITY.md. `INGESTION_ALLOW_PRIVATE_HOSTS`.
 * **Job status.** `succeeded`; `partial` when some records or some of a multi-repo source's requests failed;
   `failed` when the fetch failed - including when *every* request of a multi-repo source failed - which
   counts as a consecutive failure (alerts, backoff). Counts: `created` (new rows, articles or typed-only
