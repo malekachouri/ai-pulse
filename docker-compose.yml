@@ -206,7 +206,7 @@ services:
   alertmanager:
     <<: *hardening
     profiles: [monitoring]
-    image: prom/alertmanager:v0.28.1
+    image: prom/alertmanager:v0.34.2
     command: [--config.file=/etc/alertmanager/alertmanager.yml, --storage.path=/alertmanager]
     volumes:
       - ./infra/alertmanager:/etc/alertmanager:ro
