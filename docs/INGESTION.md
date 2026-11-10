@@ -18,8 +18,15 @@ Celery Beat ──every 60 s──▶ dispatch_due_sources ──▶ ingest_sour
 * **Schedule lives in Postgres.** A source is due when `last run + poll_interval × 2^failures` has passed
   (backoff capped at 24 h). Admin changes to `enabled` / `poll_interval_minutes` apply on the next tick.
 * **Retries.** Each HTTP request retries 429/5xx/network errors up to 4× with exponential backoff + full
-  jitter, honouring `Retry-After`. A failed *job* is retried by the worker after 1, 2, 4 … minutes
-  (`INGESTION_MAX_ATTEMPTS`, default 3). Stuck `running` jobs older than 1 h are marked failed.
+  jitter, honouring `Retry-After` (GitHub's secondary limits, 403 + `Retry-After`, included). A spent quota
+  (`x-ratelimit-remaining: 0`) stops all requests to that host until `x-ratelimit-reset` instead of retrying.
+  A failed *job* is retried by the worker after 1, 2, 4 … minutes (`INGESTION_MAX_ATTEMPTS`, default 3).
+  Stuck `running` jobs older than 1 h are marked failed.
+* **Job status.** `succeeded`; `partial` when some records or some of a multi-repo source's requests failed;
+  `failed` when the fetch failed - including when *every* request of a multi-repo source failed - which
+  counts as a consecutive failure (alerts, backoff). Counts: `created` (new rows, articles or typed-only
+  records such as old KEV entries), `updated`, `skipped` (unchanged, rejected on purpose such as rejected
+  CVEs, in-batch duplicates, invalid).
 * **Rate limits** are per host and shared across workers through Redis (NVD 5 req/30 s without key,
   50 with key; arXiv 1 req/3 s; GitHub search 9/min; others 30/min). Overridable per source via
   `config.rate_limit = {"limit": n, "period": seconds}`.

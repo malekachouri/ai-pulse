@@ -64,6 +64,7 @@ printf '%s' 'sk-...' > secrets/openai_api_key
 | `alert_webhook_url` | Slack/Teams/Discord-compatible or generic webhook for alerts |
 | `openai_api_key`, `anthropic_api_key` | LLM providers (optional) |
 | `github_token`, `nvd_api_key` | higher source rate limits (optional) |
+| `smtp_password` | SMTP password for password-reset emails (optional; empty = no auth) |
 
 ```bash
 cp .env.example .env
@@ -77,6 +78,9 @@ Then edit `.env`:
 - `IMAGE_PREFIX=ghcr.io/<owner>/ai-pulse`
 - `IMAGE_TAG=<release tag or sha>`
 - `LLM_PROVIDER` and `LLM_MODEL` (and the embedding settings) if you use AI features
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURITY`, `SMTP_USERNAME`, `SMTP_FROM` and `PUBLIC_URL` so that
+  password-reset emails are delivered (with a link to `PUBLIC_URL/reset-password`). Without
+  `SMTP_HOST` no email is sent; the API logs `email_not_configured` at startup.
 
 Start everything:
 

@@ -24,7 +24,10 @@ Configured only through environment variables — no model names or keys in code
 Structured output: OpenAI `response_format: json_schema`, Anthropic a forced tool whose `input_schema` is the
 schema, Ollama `format: <schema>`. Output is validated with Pydantic; malformed or schema-violating JSON is
 retried **once** with the validation error, then recorded as a failed analysis (`valid=false`, error kept,
-retried on later runs up to 3 times). HTTP 429/5xx retry with backoff; 4xx (e.g. bad key) fail fast. Every
+retried on later runs up to 3 times). HTTP 429/5xx retry with backoff; 4xx (e.g. bad key) fail fast, with
+the provider's own explanation in the error ("model does not exist"; keys are never echoed). OpenAI models
+that only accept the default temperature (o-series, gpt-5) get one retry without `temperature`, which is
+then omitted for that model. Every
 call is logged in `ai_usage` (purpose, provider, model, tokens, cost, ok/error) and exported as Prometheus
 `aipulse_ai_calls_total` / `aipulse_ai_tokens_total`. Keys are never logged or returned by the API.
 
@@ -66,7 +69,7 @@ weights renormalised). Every factor is stored with its value, weight, contributi
 | Factor | Weight | Value |
 |---|---|---|
 | Source reliability | 0.20 | `sources.reliability` |
-| Severity | 0.25 | official severity (critical 1 … info 0.1, with its basis); otherwise a per-type baseline |
+| Severity | 0.25 | official severity (critical 1 … info 0.1, with its basis) - for a CVE item without one (e.g. CISA KEV), the linked CVE record's CVSS; otherwise a per-type baseline |
 | Recency | 0.15 | half-life 72 h |
 | Technical impact | 0.15 | AI-assessed level (high 1, medium 0.6, low 0.3) or incident active per provider |
 | Exploitation | 0.15 | vulnerabilities only: CISA KEV known-exploited = 1 |
@@ -88,10 +91,16 @@ Personalisation adds up to +15 for the user's interests and followed technologie
 ## Question answering (`app/ai/rag.py`, `POST /api/v1/search/ask`)
 
 1. **Interpret** the question with transparent rules: time words ("this week" → 7 days, "recently/latest" →
-   30 days), item types ("vulnerabilities", "bugs", "model releases", "outages", "papers", "tools"), topic terms.
-2. **Retrieve** hybrid (or BM25 without embeddings), lightly boosted by importance and recency.
+   30 days), item types ("vulnerabilities", "bugs", "model releases", "outages", "papers", "tools"),
+   severity words ("critical", "high-severity" → a filter on the *official* severity, never a text match),
+   topic terms. Words that selected a type or severity, and event verbs ("published", "announced"), are
+   filters, not search terms.
+2. **Retrieve** hybrid (or BM25 without embeddings), lightly boosted by importance and recency. Lexical
+   candidates that match more distinct question terms are ranked first, so a rare, decisive term
+   ("kubernetes") is not crowded out of the pool by common ones.
 3. **Sufficiency gate before any generation:** at least 2 sources (or 1 that fully covers the question) and
-   ≥ 50 % of the informative question terms present — otherwise `insufficient: true`, no LLM call.
+   ≥ 50 % of the informative question terms present (all of them for one- or two-term questions) —
+   otherwise `insufficient: true`, no LLM call.
 4. **Generate** from numbered sources only; the model may itself answer `insufficient`.
 5. **Validate:** citations must point to provided sources (invalid ones removed), unsupported claims removed,
    an answer with no valid citation is withheld. Without an LLM, the relevant sources are returned.
