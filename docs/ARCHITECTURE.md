@@ -108,7 +108,7 @@ ai-pulse/
 │   │   ├── ai/                 providers, pipeline, scoring, search, rag, briefing
 │   │   ├── alerts/             alert engine
 │   │   └── workers/            celery_app, tasks, telemetry (task durations, Beat heartbeat)
-│   └── tests/                  real PostgreSQL + migrations; 200+ tests
+│   └── tests/                  real PostgreSQL + migrations (199 tests; frontend: 27 Vitest tests)
 └── frontend/                   Next.js 16 App Router + Tailwind 4 + shadcn/ui
     ├── Dockerfile              standalone output, non-root, no npm in the runtime image
     └── src/app/(app)/admin/    overview (health, usage), users & roles, sources, connector health,

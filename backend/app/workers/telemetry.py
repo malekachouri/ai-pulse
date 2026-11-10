@@ -77,7 +77,6 @@ def _retry(sender: Any = None, **_: Any) -> None:
         record(sender.name, None, retried=True)
 
 
-
 class HeartbeatScheduler(PersistentScheduler):
     """Celery Beat's default scheduler plus a heartbeat in Redis (container health check, Prometheus).
 
