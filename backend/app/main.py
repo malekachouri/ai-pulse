@@ -39,6 +39,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             app.state.ai_providers = build_providers(settings)
             for problem in app.state.ai_providers.problems:
                 log.warning("ai_provider_config", problem=problem)
+        if getattr(app.state, "email_sender", None) is None:
+            from app.services.email import build_email_sender
+
+            app.state.email_sender = build_email_sender(settings)
         log.info("startup", environment=settings.environment)
         yield
         await app.state.ai_providers.aclose()

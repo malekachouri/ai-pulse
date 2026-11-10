@@ -135,10 +135,12 @@ jobs:
           USER_: ${{ secrets.DEPLOY_USER }}
           REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PUBLIC_URL: ${{ vars.PUBLIC_URL }}
+          ACTOR: ${{ github.actor }}
         run: |
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$USER_@$HOST" \
-            "cd '$DEPLOY_PATH' && tar xzf bundle.tgz && rm bundle.tgz && \
-             printf '%s' '$REGISTRY_TOKEN' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin && \
+          remote() { ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$USER_@$HOST" "$@"; }
+          # The registry token goes over stdin, never on a command line (visible in the server's process list).
+          printf '%s' "$REGISTRY_TOKEN" | remote "docker login ghcr.io -u '$ACTOR' --password-stdin"
+          remote "cd '$DEPLOY_PATH' && tar xzf bundle.tgz && rm bundle.tgz && \
              IMAGE_PREFIX='$IMAGE_PREFIX' IMAGE_TAG='$IMAGE_TAG' PUBLIC_URL='$PUBLIC_URL' ./scripts/deploy.sh; \
              rc=\$?; docker logout ghcr.io >/dev/null; exit \$rc"
       - name: Remove the SSH key
