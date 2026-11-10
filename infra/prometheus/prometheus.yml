@@ -1,0 +1,39 @@
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+  external_labels:
+    project: ai-pulse
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
+scrape_configs:
+  # FastAPI + derived state (DB pool, queues, ingestion, sources, AI usage, Celery task durations).
+  - job_name: ai-pulse-api
+    metrics_path: /metrics
+    authorization:
+      type: Bearer
+      credentials_file: /run/secrets/metrics_token
+    # One target per API replica: in-process HTTP metrics are per process, so each replica is scraped.
+    dns_sd_configs:
+      - names: ["api"]
+        type: A
+        port: 8000
+        refresh_interval: 30s
+
+  - job_name: postgres
+    static_configs:
+      - targets: ["postgres-exporter:9187"]
+
+  - job_name: redis
+    static_configs:
+      - targets: ["redis-exporter:9121"]
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

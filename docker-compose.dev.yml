@@ -1,0 +1,65 @@
+# Development override: hot reload, source mounts, debug-friendly settings, ports on 127.0.0.1.
+#   ./scripts/generate-secrets.sh
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+# API http://localhost:8000/docs · Web http://localhost:3000 · Postgres localhost:5432 · Redis localhost:6379
+x-dev-backend: &dev-backend
+  environment:
+    ENVIRONMENT: development
+    COOKIE_SECURE: "false"
+    LOG_JSON: "false"
+    LOG_LEVEL: DEBUG
+  volumes:
+    - ./backend/app:/app/app:ro
+    - ./backend/alembic:/app/alembic:ro
+  restart: "no"
+
+services:
+  postgres:
+    ports: ["127.0.0.1:${DEV_POSTGRES_PORT:-5432}:5432"]
+    networks: [data, devhost]
+  redis:
+    ports: ["127.0.0.1:${DEV_REDIS_PORT:-6379}:6379"]
+    networks: [data, devhost]
+  migrate:
+    <<: *dev-backend
+  api:
+    <<: *dev-backend
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "/app/app", "--proxy-headers"]
+    ports: ["127.0.0.1:8000:8000"]
+  worker:
+    <<: *dev-backend
+    command: ["celery", "-A", "app.workers.celery_app", "worker", "-Q", "ingestion", "--concurrency", "2", "--loglevel", "INFO"]
+  beat:
+    <<: *dev-backend
+  web:
+    image: node:22-alpine
+    build: !reset null
+    read_only: false
+    user: "node"
+    working_dir: /app
+    command: ["sh", "-c", "npm ci --no-audit --no-fund && npm run dev -- --hostname 0.0.0.0 --port 3000"]
+    environment:
+      NODE_ENV: development
+      BACKEND_URL: http://api:8000
+      NEXT_TELEMETRY_DISABLED: "1"
+      WATCHPACK_POLLING: "true"
+    volumes:
+      - ./frontend:/app
+      - webmodules:/app/node_modules
+      - webnext:/app/.next
+    tmpfs: !reset []
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/login"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 180s
+    restart: "no"
+
+volumes:
+  webmodules:
+  webnext:
+
+networks:
+  # Development only: lets you reach Postgres/Redis from the host (the data network itself stays internal).
+  devhost:

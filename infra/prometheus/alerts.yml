@@ -1,0 +1,136 @@
+groups:
+  - name: ai-pulse-availability
+    rules:
+      - alert: APIDown
+        expr: up{job="ai-pulse-api"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: "AI Pulse API is not answering scrapes"
+          description: "Prometheus cannot scrape api:8000/metrics for 2 minutes."
+
+      - alert: DependencyDown
+        expr: aipulse_dependency_up == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: "{{ $labels.name }} unreachable from the API"
+
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(aipulse_http_requests_total{status=~"5.."}[5m]))
+            / clamp_min(sum(rate(aipulse_http_requests_total[5m])), 0.001) > 0.05
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "More than 5% of API requests fail with 5xx"
+          description: "Current 5xx ratio: {{ $value | humanizePercentage }}"
+
+      - alert: HighLatencyP95
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(aipulse_http_request_duration_seconds_bucket{route!~"/api/v1/search/ask|/api/v1/briefings/generate"}[5m]))) > 1
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "API p95 latency above 1 s (excluding LLM-backed endpoints)"
+          description: "p95 = {{ $value | humanizeDuration }}"
+
+      - alert: DatabaseConnectionsHigh
+        expr: sum(aipulse_db_connections) / max(aipulse_db_max_connections) > 0.8
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "PostgreSQL connections above 80% of max_connections"
+
+  - name: ai-pulse-pipeline
+    rules:
+      - alert: CeleryQueueBacklog
+        expr: max(aipulse_celery_queue_length) > 200
+        for: 15m
+        labels: { severity: warning }
+        annotations:
+          summary: "{{ $value }} tasks waiting in the ingestion queue for 15 minutes"
+          description: "Workers are down or too slow. Check `docker compose ps worker` and the worker logs."
+
+      - alert: BeatNotRunning
+        expr: time() - aipulse_beat_heartbeat_timestamp_seconds > 300
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: "Celery Beat has not ticked for 5 minutes: nothing is being scheduled"
+
+      - alert: SchedulerDispatchStalled
+        expr: time() - aipulse_scheduler_last_dispatch_timestamp_seconds > 600
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: "No source dispatch for 10 minutes (Beat or workers are down)"
+
+      - alert: IngestionJobsFailing
+        expr: increase(aipulse_ingestion_jobs_total{status="failed"}[1h]) > 10
+        labels: { severity: warning }
+        annotations:
+          summary: "{{ $value | humanize }} ingestion jobs failed in the last hour"
+
+      - alert: DataSourceDown
+        expr: aipulse_source_up == 0 and on (source) aipulse_source_consecutive_failures >= 3
+        for: 30m
+        labels: { severity: warning }
+        annotations:
+          summary: "Source {{ $labels.source }} ({{ $labels.connector }}) failing"
+          description: "3+ consecutive failed runs. See Admin > Connector health for the error."
+
+      - alert: CeleryTaskFailures
+        expr: increase(aipulse_celery_task_failures_total[30m]) > 3
+        labels: { severity: warning }
+        annotations:
+          summary: "Task {{ $labels.task }} failed {{ $value | humanize }} times in 30 minutes"
+
+      - alert: SlowBackgroundJobs
+        expr: |
+          histogram_quantile(0.95, sum by (le, task) (rate(aipulse_celery_task_duration_seconds_bucket[1h]))) > 600
+        for: 30m
+        labels: { severity: warning }
+        annotations:
+          summary: "p95 duration of {{ $labels.task }} above 10 minutes"
+
+  - name: ai-pulse-ai
+    rules:
+      - alert: AIProviderErrors
+        expr: |
+          sum(increase(aipulse_ai_calls_total{outcome="error"}[30m]))
+            / clamp_min(sum(increase(aipulse_ai_calls_total[30m])), 1) > 0.2
+          and sum(increase(aipulse_ai_calls_total[30m])) > 10
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "More than 20% of AI provider calls fail"
+          description: "Check the provider status, the API key and LLM_TIMEOUT_SECONDS."
+
+      - alert: AITokenSpendSpike
+        expr: sum(increase(aipulse_ai_tokens_total[1h])) > 2 * sum(increase(aipulse_ai_tokens_total[1h] offset 1d)) and sum(increase(aipulse_ai_tokens_total[1h])) > 100000
+        for: 30m
+        labels: { severity: info }
+        annotations:
+          summary: "Token usage is more than twice the same hour yesterday"
+
+      - alert: AIAnalysisBacklog
+        expr: aipulse_articles_unanalysed > 2000
+        for: 2h
+        labels: { severity: info }
+        annotations:
+          summary: "{{ $value }} items waiting for AI analysis"
+
+  - name: ai-pulse-infrastructure
+    rules:
+      - alert: PostgresExporterDown
+        expr: up{job="postgres"} == 0
+        for: 5m
+        labels: { severity: warning }
+        annotations: { summary: "postgres-exporter is down" }
+      - alert: RedisMemoryHigh
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.8
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "Redis above 80% of maxmemory (noeviction: new tasks will be refused when full)"

@@ -4,17 +4,27 @@ No credentials are hardcoded: secrets have no usable defaults and the app refuse
 to start in production with the development JWT secret.
 """
 
+import os
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field, SecretStr, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _DEV_SECRET = "dev-insecure-change-me"  # noqa: S105 - sentinel, rejected in production
+# Docker/Kubernetes secrets: a file /run/secrets/<setting name> (e.g. jwt_secret) provides that setting.
+# Environment variables take precedence over secret files.
+SECRETS_DIR = os.environ.get("SECRETS_DIR", "/run/secrets")
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        env_ignore_empty=True,  # "OPENAI_API_KEY=" in an env file must not mask a secret file
+        secrets_dir=SECRETS_DIR if os.path.isdir(SECRETS_DIR) else None,
+    )
 
     app_name: str = "AI Pulse"
     environment: Literal["development", "test", "staging", "production"] = "development"
@@ -29,6 +39,15 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
 
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
+
+    # Rate limiting ("<count>/<second|minute|hour>"; Redis-backed, per client IP or signed-in user)
+    rate_limit_enabled: bool = True
+    rate_limit_global: str = "600/minute"  # every /api/v1 request, per client IP
+    rate_limit_auth: str = "10/minute"  # login, register, refresh, password change/reset, per IP
+    rate_limit_search: str = "60/minute"
+    rate_limit_ai: str = "10/minute"  # Ask AI Pulse, on-demand briefing generation
+    # Prometheus: when set, GET /metrics requires "Authorization: Bearer <token>"
+    metrics_token: SecretStr | None = None
 
     # Auth
     jwt_secret: SecretStr = SecretStr(_DEV_SECRET)
@@ -75,6 +94,24 @@ class Settings(BaseSettings):
     github_token: SecretStr | None = None
     nvd_api_key: SecretStr | None = None
 
+    @field_validator(
+        "openai_api_key", "anthropic_api_key", "github_token", "nvd_api_key", "metrics_token", mode="before"
+    )
+    @classmethod
+    def _blank_secret_is_unset(cls, v: object) -> object:
+        # An empty secret file / variable means "not configured", never an empty credential.
+        if isinstance(v, SecretStr):
+            v = v.get_secret_value()
+        return None if isinstance(v, str) and not v.strip() else v
+
+    @model_validator(mode="after")
+    def _check_rate_limits(self) -> "Settings":
+        from app.core.ratelimit import Limit
+
+        for name in ("global", "auth", "search", "ai"):
+            Limit.parse(getattr(self, f"rate_limit_{name}"))
+        return self
+
     @model_validator(mode="after")
     def _check_production_secrets(self) -> "Settings":
         if self.environment == "production":
@@ -83,6 +120,12 @@ class Settings(BaseSettings):
                 raise ValueError("JWT_SECRET must be set to a strong value (>=32 chars) in production")
             if self.expose_reset_token:
                 raise ValueError("EXPOSE_RESET_TOKEN must be false in production")
+            if not self.cookie_secure:
+                raise ValueError("COOKIE_SECURE must be true in production (refresh cookie over HTTPS only)")
+            if any(o == "*" or o.startswith("http://") and "localhost" not in o for o in self.cors_origins):
+                raise ValueError("CORS_ORIGINS must list explicit https:// origins in production")
+            if self.debug:
+                raise ValueError("DEBUG must be false in production")
         return self
 
 

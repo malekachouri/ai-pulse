@@ -324,6 +324,8 @@ export interface CollectionJob {
   attempt: number;
   error: string | null;
   errors: { stage?: string; error?: string; ref?: string | null }[];
+  source?: { id: string; slug: string; name: string } | null;
+  celery_task_id?: string | null;
 }
 
 export interface SourceStatus {
@@ -534,4 +536,141 @@ export interface AlertSettings {
   model_releases: boolean;
   model_providers: string[];
   briefing_ready: boolean;
+}
+
+// ---- Administration ----
+export type HealthStatus = "ok" | "degraded" | "down";
+
+export interface HealthCheck {
+  name: string;
+  status: HealthStatus;
+  detail: string | null;
+  latency_ms: number | null;
+  data: Record<string, unknown>;
+}
+
+export interface SystemHealth {
+  status: HealthStatus;
+  environment: string;
+  version: string;
+  started_at: string;
+  checked_at: string;
+  checks: HealthCheck[];
+}
+
+export interface DayValue {
+  day: string;
+  value: number;
+}
+
+export interface AIUsageRow {
+  provider: string;
+  model: string;
+  purpose: string;
+  calls: number;
+  errors: number;
+  input_tokens: number;
+  output_tokens: number;
+  cost_usd: number | null;
+}
+
+export interface UsageStats {
+  window_days: number;
+  generated_at: string;
+  users_total: number;
+  users_active: number;
+  users_by_role: Partial<Record<Role, number>>;
+  users_new: number;
+  users_logged_in_7d: number;
+  signups_by_day: DayValue[];
+  articles_total: number;
+  articles_by_day: DayValue[];
+  articles_by_type: Record<string, number>;
+  bookmarks_total: number;
+  notifications_by_day: DayValue[];
+  notifications_by_kind: Record<string, number>;
+  notifications_read_ratio: number | null;
+  briefings_by_day: DayValue[];
+  ai_by_day: { day: string; calls: number; errors: number; tokens: number; cost_usd: number | null }[];
+  ai_by_model: AIUsageRow[];
+  ai_tokens_total: number;
+  ai_cost_total_usd: number | null;
+  ai_daily_token_budget: number | null;
+}
+
+export interface AIConfig {
+  llm_provider: string;
+  llm_model: string | null;
+  embedding_provider: string;
+  embedding_model: string | null;
+  embedding_dim: number;
+  openai_base_url: string;
+  anthropic_api_url: string;
+  ollama_base_url: string;
+  openai_api_key_set: boolean;
+  anthropic_api_key_set: boolean;
+  llm_timeout_seconds: number;
+  llm_max_output_tokens: number;
+  llm_temperature: number;
+  llm_price_input_per_mtok: number | null;
+  llm_price_output_per_mtok: number | null;
+  ai_batch_size: number;
+  ai_daily_token_budget: number | null;
+}
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  full_name: string | null;
+  is_active: boolean;
+  role: Role;
+  created_at: string;
+  last_login_at: string | null;
+  updated_at: string;
+}
+
+export interface RoleInfo {
+  id: number;
+  name: Role;
+  description: string | null;
+  user_count: number;
+}
+
+export interface AuditLogEntry {
+  id: string;
+  actor_id: string | null;
+  actor_email: string | null;
+  action: string;
+  target_type: string | null;
+  target_id: string | null;
+  details: Record<string, unknown>;
+  ip_address: string | null;
+  created_at: string;
+}
+
+export interface AdminSource {
+  id: string;
+  slug: string;
+  name: string;
+  source_type: string;
+  connector: string;
+  url: string;
+  homepage_url: string | null;
+  default_item_type: ItemType;
+  is_official: boolean;
+  reliability: number;
+  enabled: boolean;
+  poll_interval_minutes: number;
+  config: Record<string, unknown>;
+  last_success_at: string | null;
+  last_error_at: string | null;
+  last_error: string | null;
+  consecutive_failures: number;
+  created_at: string;
+}
+
+export interface ConnectorInfo {
+  key: string;
+  description: string;
+  config_schema: Record<string, unknown>;
 }

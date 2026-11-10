@@ -10,6 +10,7 @@ from sqlalchemy import or_, select
 from app.ai.briefing import BriefingGenerator, local_now
 from app.api.deps import AIDep, CurrentUser, OptionalUser, SessionDep
 from app.core.errors import NotFoundError
+from app.core.ratelimit import limiter
 from app.models import DailyBriefing, UserPreference
 from app.schemas.common import ErrorResponse
 from app.schemas.user_data import BriefingListItem, BriefingOut
@@ -58,6 +59,7 @@ async def latest(session: SessionDep, user: OptionalUser) -> BriefingOut:
 
 @router.post(
     "/generate",
+    dependencies=[limiter("ai", per_user=True)],
     response_model=BriefingOut,
     summary="Generate (or refresh) today's personalised briefing now",
     description="Idempotent per user and day; one generated under 10 minutes ago is returned as is.",

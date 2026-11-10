@@ -407,6 +407,58 @@ export async function demoFetch<T>(
       sources, recent_failures: sources.filter((x) => x.last_job?.status === "failed").map((x) => x.last_job!) });
   }
   if (path === "/admin/ai/status") return r({ llm_provider: "demo", llm_model: "demo-model", embedding_provider: null, embedding_model: null, problems: ["[DEMO] fictional status"], items_total: ARTICLES.length, items_with_rules_analysis: ARTICLES.length, items_with_ai_summary: 12, items_with_embedding: 0, failed_analyses: 0, tokens_today: 0, cost_today_usd: null, calls_today: 0, errors_today: 0 });
+  if (method === "GET" && path.startsWith("/admin/")) {
+    const days = (n: number, f: (i: number) => number) =>
+      Array.from({ length: n + 1 }, (_, i) => ({ day: new Date(now - (n - i) * 86_400_000).toISOString().slice(0, 10), value: f(i) }));
+    const n = Number(q.days ?? 30);
+    if (path === "/admin/system/health")
+      return r({
+        status: "degraded", environment: "demo", version: "0.8.0", started_at: iso(30), checked_at: iso(0),
+        checks: [
+          { name: "database", status: "ok", detail: null, latency_ms: 2.1, data: { postgres: "16 (demo)", pgvector: "0.8", connections: 9, max_connections: 100 } },
+          { name: "migrations", status: "ok", detail: null, latency_ms: null, data: { current: "0006", head: "0006" } },
+          { name: "redis", status: "ok", detail: null, latency_ms: 0.4, data: { used_memory: "1.1M", queues: { ingestion: 0 } } },
+          { name: "scheduler", status: "ok", detail: null, latency_ms: null, data: { last_dispatch_at: iso(0.01) } },
+          { name: "workers", status: "ok", detail: null, latency_ms: null, data: { last_task_success_at: iso(0.05) } },
+          { name: "ingestion", status: "degraded", detail: "[DEMO] 1 of 27 sources failing", latency_ms: null, data: { enabled_sources: 27, failing_sources: ["demo-feed"], failed_jobs_24h: 2, running_jobs: 0 } },
+          { name: "ai_provider", status: "ok", detail: null, latency_ms: null, data: { provider: "demo", calls_24h: 40, errors_24h: 1 } },
+        ],
+      });
+    if (path === "/admin/usage")
+      return r({
+        window_days: n, generated_at: iso(0), users_total: 4, users_active: 4, users_by_role: { admin: 1, analyst: 1, user: 2 },
+        users_new: 2, users_logged_in_7d: 3, signups_by_day: days(n, (i) => (i % 9 === 0 ? 1 : 0)),
+        articles_total: ARTICLES.length, articles_by_day: days(n, (i) => 20 + ((i * 7) % 13)), articles_by_type: { news: 8, vulnerability: 4, research: 3 },
+        bookmarks_total: 3, notifications_by_day: days(n, (i) => i % 4), notifications_by_kind: { vulnerability: 6, model_release: 3, briefing: 5 },
+        notifications_read_ratio: 0.6, briefings_by_day: days(n, () => 1),
+        ai_by_day: days(n, (i) => i).map((d) => ({ day: d.day, calls: 30, errors: d.value % 5 === 0 ? 1 : 0, tokens: 12000 + d.value * 150, cost_usd: null })),
+        ai_by_model: [{ provider: "demo", model: "demo-model", purpose: "analysis", calls: 900, errors: 6, input_tokens: 300000, output_tokens: 60000, cost_usd: null }],
+        ai_tokens_total: 360000, ai_cost_total_usd: null, ai_daily_token_budget: 200000,
+      });
+    if (path === "/admin/ai/config")
+      return r({ llm_provider: "demo", llm_model: "demo-model", embedding_provider: "none", embedding_model: null, embedding_dim: 768,
+        openai_base_url: "https://api.openai.com/v1", anthropic_api_url: "https://api.anthropic.com", ollama_base_url: "http://localhost:11434",
+        openai_api_key_set: false, anthropic_api_key_set: false, llm_timeout_seconds: 90, llm_max_output_tokens: 1800, llm_temperature: 0.2,
+        llm_price_input_per_mtok: null, llm_price_output_per_mtok: null, ai_batch_size: 20, ai_daily_token_budget: 200000 });
+    if (path === "/admin/roles")
+      return r([{ id: 1, name: "admin", description: null, user_count: 1 }, { id: 2, name: "analyst", description: null, user_count: 1 }, { id: 3, name: "user", description: null, user_count: 2 }]);
+    if (path === "/admin/users")
+      return r(page([
+        { id: "demo-user", email: "demo@example.com", full_name: "[DEMO] Admin", is_active: true, role: "admin", created_at: iso(900), last_login_at: iso(1), updated_at: iso(1) },
+        { id: "u2", email: "analyst@example.com", full_name: "[DEMO] Analyst", is_active: true, role: "analyst", created_at: iso(400), last_login_at: iso(30), updated_at: iso(30) },
+        { id: "u3", email: "reader@example.com", full_name: null, is_active: false, role: "user", created_at: iso(200), last_login_at: null, updated_at: iso(50) },
+      ]));
+    if (path === "/admin/jobs")
+      return r(page([
+        { id: "j1", source_id: "s1", source: { id: "s1", slug: "demo-feed", name: "[DEMO] Example feed" }, status: "failed", trigger: "schedule", celery_task_id: null, started_at: iso(2), finished_at: iso(1.99), duration_seconds: 4.2, items_fetched: 0, items_created: 0, items_updated: 0, items_skipped: 0, attempt: 3, error: "[DEMO] HTTP 503 from the (fictional) feed", errors: [] },
+        { id: "j2", source_id: "s2", source: { id: "s2", slug: "demo-nvd", name: "[DEMO] CVE feed" }, status: "succeeded", trigger: "schedule", celery_task_id: null, started_at: iso(3), finished_at: iso(2.98), duration_seconds: 61.5, items_fetched: 120, items_created: 14, items_updated: 3, items_skipped: 103, attempt: 1, error: null, errors: [] },
+      ]));
+    if (path === "/admin/audit-logs")
+      return r(page([{ id: "a1", actor_id: "demo-user", actor_email: "demo@example.com", action: "source.update", target_type: "source", target_id: "s1", details: { enabled: false }, ip_address: "127.0.0.1", created_at: iso(5) }]));
+    if (path === "/admin/sources")
+      return r([{ id: "s1", slug: "demo-feed", name: "[DEMO] Example feed", source_type: "rss", connector: "rss", url: "https://example.com/feed.xml", homepage_url: null, default_item_type: "news", is_official: true, reliability: 0.9, enabled: true, poll_interval_minutes: 60, config: {}, last_success_at: iso(26), last_error_at: iso(2), last_error: "[DEMO] HTTP 503", consecutive_failures: 3, created_at: iso(900) }]);
+    if (path === "/admin/connectors") return r([{ key: "rss", description: "[DEMO] RSS / Atom feeds", config_schema: { properties: {} } }]);
+  }
   if (path.startsWith("/admin/")) return r({ task_id: "demo-task", message: "Demo mode: no changes were made." });
   if (path === "/search/capabilities") return r({ keyword: true, semantic: false, hybrid: false, ask: true, ask_mode: "sources-only", embedded_items: 0, total_items: ARTICLES.length });
   if (path === "/search/ask") {

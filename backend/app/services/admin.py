@@ -1,10 +1,11 @@
 import uuid
 from datetime import UTC, datetime
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ConflictError, NotFoundError, PermissionDeniedError
-from app.models import AuditLog, User
+from app.models import AuditLog, Source, User
 from app.models.enums import RoleName
 from app.repositories.admin import AdminRepository
 from app.repositories.users import TokenRepository, UserRepository
@@ -17,6 +18,7 @@ from app.schemas.admin import (
     CollectionJobOut,
     JobFilters,
     RoleOut,
+    SourceRef,
 )
 from app.schemas.common import Page
 
@@ -91,9 +93,19 @@ class AdminService:
 
     async def jobs(self, f: JobFilters) -> Page[CollectionJobOut]:
         rows, total = await self.repo.list_jobs(f)
+        ids = {j.source_id for j in rows}
+        refs = (
+            {
+                src.id: SourceRef.model_validate(src)
+                for src in (await self.s.scalars(select(Source).where(Source.id.in_(ids)))).all()
+            }
+            if ids
+            else {}
+        )
         items = []
         for j in rows:
             out = CollectionJobOut.model_validate(j)
+            out.source = refs.get(j.source_id)
             if j.finished_at:
                 out.duration_seconds = round((j.finished_at - j.started_at).total_seconds(), 3)
             items.append(out)

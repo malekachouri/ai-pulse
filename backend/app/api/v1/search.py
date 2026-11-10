@@ -6,6 +6,7 @@ from sqlalchemy import func, select
 
 from app.ai.rag import RagService
 from app.api.deps import AIDep, OptionalUser, SessionDep
+from app.core.ratelimit import limiter
 from app.models import Article
 from app.schemas.article import ArticleFilters
 from app.schemas.common import ErrorResponse
@@ -17,6 +18,7 @@ router = APIRouter(prefix="/search", tags=["search"], responses={501: {"model": 
 
 @router.get(
     "",
+    dependencies=[limiter("search", per_user=True)],
     response_model=SearchResponse,
     summary="Search all collected items",
     description=(
@@ -49,6 +51,7 @@ async def capabilities(session: SessionDep, ai: AIDep) -> SearchCapabilities:
 
 @router.post(
     "/ask",
+    dependencies=[limiter("ai", per_user=True)],
     response_model=AskResponse,
     summary="Ask a question; answered only from collected items, with citations",
     description=(
