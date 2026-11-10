@@ -8,7 +8,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 FILE="${1:?usage: scripts/restore.sh <file.dump> [--yes]}"
-COMPOSE=(docker compose ${COMPOSE_FILES:-})
+read -r -a COMPOSE_EXTRA <<< "${COMPOSE_FILES:-}"  # e.g. "-f docker-compose.yml -f docker-compose.prod.yml"
+COMPOSE=(docker compose "${COMPOSE_EXTRA[@]}")
 DB="${POSTGRES_DB:-aipulse}"
 APP_USER="${APP_DB_USER:-aipulse}"
 TS="$(date -u +%Y%m%d%H%M%S)"
@@ -25,6 +26,7 @@ if [[ "${2:-}" != "--yes" ]]; then
 fi
 
 psql_admin() {
+  # shellcheck disable=SC2016 # evaluated inside the container, on purpose
   "${COMPOSE[@]}" exec -T postgres sh -c \
     'PGPASSWORD="$(cat /run/secrets/postgres_password)" psql -v ON_ERROR_STOP=1 -q -h 127.0.0.1 -U postgres "$@"' psql "$@"
 }
@@ -34,6 +36,7 @@ psql_admin -d postgres -c "CREATE DATABASE \"$STAGING\" OWNER \"$APP_USER\";"
 psql_admin -d "$STAGING" -c "CREATE EXTENSION IF NOT EXISTS vector; CREATE EXTENSION IF NOT EXISTS pg_trgm; CREATE EXTENSION IF NOT EXISTS pg_stat_statements; ALTER SCHEMA public OWNER TO \"$APP_USER\"; REVOKE ALL ON SCHEMA public FROM PUBLIC;"
 # As the application role, so every object keeps the right owner. Extensions already exist (created by the
 # superuser above); --no-comments skips COMMENT ON EXTENSION, which only an extension's owner may run.
+# shellcheck disable=SC2016 # evaluated inside the container, on purpose
 if ! "${COMPOSE[@]}" exec -T postgres sh -c \
   'PGPASSWORD="$(cat /run/secrets/app_db_password)" pg_restore -h 127.0.0.1 -U "$1" -d "$0" --no-owner --no-comments --exit-on-error' \
   "$STAGING" "$APP_USER" < "$FILE"; then

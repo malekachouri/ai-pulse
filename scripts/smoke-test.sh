@@ -6,14 +6,16 @@
 # and (inside the stack) every container is healthy, runs as non-root with a read-only root filesystem.
 set -euo pipefail
 BASE="${1:-http://localhost:3000}"
-COMPOSE=(docker compose ${COMPOSE_FILES:-})
+read -r -a COMPOSE_EXTRA <<< "${COMPOSE_FILES:-}"  # e.g. "-f docker-compose.yml -f docker-compose.prod.yml"
+COMPOSE=(docker compose "${COMPOSE_EXTRA[@]}")
 EMAIL="smoke-$(date +%s)-$RANDOM@example.com"
 PASS="Smoke-test-Passw0rd!"
 JAR="$(mktemp)"
 trap 'rm -f "$JAR"' EXIT
 fail() { echo "FAIL: $*" >&2; exit 1; }
 # Extra curl options, e.g. SMOKE_CURL_OPTS=--insecure for Caddy's local CA on https://localhost
-curl() { command curl ${SMOKE_CURL_OPTS:-} "$@"; }
+read -r -a CURL_EXTRA <<< "${SMOKE_CURL_OPTS:-}"
+curl() { command curl "${CURL_EXTRA[@]}" "$@"; }
 ok() { echo "ok   $*"; }
 
 code() { curl -s -o /dev/null -w '%{http_code}' "$@"; }

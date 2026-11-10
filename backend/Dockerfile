@@ -13,7 +13,8 @@ COPY requirements.txt .
 # Optional build secret "build_ca": CA bundle of a TLS-inspecting corporate proxy (never stored in the image).
 RUN --mount=type=cache,target=/root/.cache/pip --mount=type=secret,id=build_ca,required=false \
     if [ -s /run/secrets/build_ca ]; then export PIP_CERT=/run/secrets/build_ca; fi; \
-    python -m venv /opt/venv && /opt/venv/bin/pip install --upgrade pip && /opt/venv/bin/pip install -r requirements.txt
+    python -m venv /opt/venv && /opt/venv/bin/pip install --upgrade pip && /opt/venv/bin/pip install -r requirements.txt \
+    && /opt/venv/bin/pip uninstall -y pip  # no package manager in the runtime image
 
 FROM ${PYTHON_IMAGE} AS runtime
 LABEL org.opencontainers.image.title="ai-pulse-backend" \
@@ -26,7 +27,9 @@ ENV PATH="/opt/venv/bin:$PATH" \
     LOG_JSON=true
 # Unprivileged user with a fixed UID. OS patches come from rebuilding on the current base image
 # (Dependabot + scheduled CI builds), and Trivy blocks images with fixable HIGH/CRITICAL CVEs.
-RUN groupadd --system --gid 10001 app && useradd --system --uid 10001 --gid app --home /app --shell /usr/sbin/nologin app
+# The base image's own pip (and what it vendors) is never used at runtime: remove it.
+RUN python -m pip uninstall -y pip \
+    && groupadd --system --gid 10001 app && useradd --system --uid 10001 --gid app --home /app --shell /usr/sbin/nologin app
 COPY --from=builder /opt/venv /opt/venv
 WORKDIR /app
 COPY --chown=root:root alembic.ini ./

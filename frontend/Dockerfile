@@ -24,7 +24,10 @@ RUN npm run build
 FROM ${NODE_IMAGE} AS runtime
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
-RUN addgroup -S -g 10001 app && adduser -S -u 10001 -G app -h /app app
+# Runtime only needs `node`: drop npm/npx/corepack (and their bundled dependencies) from the image.
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+      /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /opt/yarn* /usr/local/bin/yarn /usr/local/bin/yarnpkg \
+    && addgroup -S -g 10001 app && adduser -S -u 10001 -G app -h /app app
 COPY --from=build --chown=app:app /app/.next/standalone ./
 COPY --from=build --chown=app:app /app/.next/static ./.next/static
 COPY --from=build --chown=app:app /app/public ./public

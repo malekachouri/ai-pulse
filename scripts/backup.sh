@@ -5,11 +5,13 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 OUT_DIR="${1:-./backups}"
-COMPOSE=(docker compose ${COMPOSE_FILES:-})
+read -r -a COMPOSE_EXTRA <<< "${COMPOSE_FILES:-}"  # e.g. "-f docker-compose.yml -f docker-compose.prod.yml"
+COMPOSE=(docker compose "${COMPOSE_EXTRA[@]}")
 DB="${POSTGRES_DB:-aipulse}"
 mkdir -p "$OUT_DIR"
 ts="$(date -u +%Y%m%dT%H%M%SZ)"
 file="$OUT_DIR/${DB}-${ts}.dump"
+# shellcheck disable=SC2016 # evaluated inside the container, on purpose
 "${COMPOSE[@]}" exec -T postgres sh -c \
   'PGPASSWORD="$(cat /run/secrets/postgres_password)" pg_dump -h 127.0.0.1 -U postgres --format=custom --compress=6 --no-owner "$0"' \
   "$DB" > "$file.partial"

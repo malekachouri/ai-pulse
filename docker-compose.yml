@@ -167,7 +167,7 @@ services:
     cap_add: [NET_BIND_SERVICE]
     read_only: false # Caddy stores certificates in /data
     environment:
-      DOMAIN: ${DOMAIN:?set DOMAIN in .env for the edge profile}
+      DOMAIN: ${DOMAIN:-localhost} # "localhost" = Caddy's local CA, for testing only
     volumes:
       - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddydata:/data

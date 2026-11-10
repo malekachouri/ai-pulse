@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
-# Creates ./secrets/* for docker compose (mode 600, never committed: secrets/ is in .gitignore).
-# Existing files are kept, so running it again never rotates a secret by accident (use --force to rotate
-# the generated ones). Optional third-party keys are created empty: put your keys in those files.
+# Creates ./secrets/* for docker compose (never committed: secrets/ is in .gitignore).
+# Existing files are always kept, so running it again never changes a secret by accident.
+#   --force  rotates the secrets that are safe to rotate by replacing the file: jwt_secret (signs every
+#            user out), metrics_token and redis_password (+ derived redis_url / exporter file).
+# Database and Grafana passwords are stored inside PostgreSQL / Grafana too, so replacing the file alone
+# would lock the services out: rotate them with the procedure in SECURITY.md ("Rotating secrets").
+# Optional third-party keys are created empty: put your keys in those files.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 DIR=secrets
@@ -11,22 +15,22 @@ umask 077
 mkdir -p "$DIR"
 
 rand() { openssl rand -base64 48 | tr -d '/+=\n' | cut -c1-"${1:-40}"; }
-put() {  # put NAME VALUE [generated]
+put() {  # put NAME VALUE [rotatable]: create if missing; with --force also replace rotatable secrets
   local f="$DIR/$1"
-  if [[ -s "$f" && "$FORCE" != true ]] || [[ -e "$f" && "${3:-}" != generated ]]; then return; fi
+  if [[ -s "$f" ]] && ! [[ "$FORCE" == true && "${3:-}" == rotatable ]]; then return; fi
   printf '%s' "$2" > "$f"
   echo "  wrote $f"
 }
 
 DB_NAME="${POSTGRES_DB:-aipulse}"
 APP_USER="${APP_DB_USER:-aipulse}"
-put postgres_password "$(rand 40)" generated
-put app_db_password "$(rand 40)" generated
-put metrics_db_password "$(rand 40)" generated
-put redis_password "$(rand 40)" generated
-put jwt_secret "$(rand 64)" generated
-put metrics_token "$(rand 48)" generated
-put grafana_admin_password "$(rand 24)" generated
+put postgres_password "$(rand 40)"
+put app_db_password "$(rand 40)"
+put metrics_db_password "$(rand 40)"
+put redis_password "$(rand 40)" rotatable
+put jwt_secret "$(rand 64)" rotatable
+put metrics_token "$(rand 48)" rotatable
+put grafana_admin_password "$(rand 24)"
 
 # Derived connection strings (regenerated whenever their passwords change).
 app_pw="$(cat "$DIR/app_db_password")"
