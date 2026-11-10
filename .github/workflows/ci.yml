@@ -242,13 +242,8 @@ jobs:
           docker compose --profile monitoring --profile backup ps
       - name: End-to-end smoke test
         run: ./scripts/smoke-test.sh http://localhost:3000
-      - name: Monitoring scrapes the application
-        run: |
-          for _ in $(seq 1 30); do
-            if curl -fsS localhost:9090/api/v1/targets | grep -q '"job":"ai-pulse-api"[^}]*"health":"up"\|"health":"up"[^}]*"ai-pulse-api"'; then exit 0; fi
-            sleep 5
-          done
-          curl -s localhost:9090/api/v1/targets; exit 1
+      - name: Monitoring scrapes the application and the exporters
+        run: python3 scripts/check-prometheus-targets.py --wait 180 ai-pulse-api postgres redis
       - name: Backup and restore drill
         run: |
           ./scripts/backup.sh
