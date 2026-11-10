@@ -7,7 +7,10 @@ from app.core.config import get_settings
 settings = get_settings()
 
 celery_app = Celery(
-    "aipulse", broker=settings.redis_url, backend=settings.redis_url, include=["app.workers.tasks"]
+    "aipulse",
+    broker=settings.redis_url,
+    backend=settings.redis_url,
+    include=["app.workers.tasks", "app.workers.telemetry"],
 )
 celery_app.conf.update(
     task_default_queue="ingestion",
@@ -20,6 +23,8 @@ celery_app.conf.update(
     timezone="UTC",
     enable_utc=True,
     broker_connection_retry_on_startup=True,
+    beat_scheduler="app.workers.telemetry:HeartbeatScheduler",
+    worker_send_task_events=False,
     beat_schedule={
         "dispatch-due-sources": {
             "task": "aipulse.dispatch_due_sources",

@@ -1,0 +1,34 @@
+rule_files: [/etc/prometheus/alerts.yml]
+evaluation_interval: 1m
+tests:
+  - interval: 1m
+    input_series:
+      - series: 'aipulse_source_up{source="nvd",connector="nvd"}'
+        values: '0x40'
+      - series: 'aipulse_source_consecutive_failures{source="nvd"}'
+        values: '3x40'
+      - series: 'aipulse_celery_queue_length{queue="ingestion"}'
+        values: '500x20'
+      - series: 'aipulse_beat_heartbeat_timestamp_seconds'
+        values: '0x20'
+    alert_rule_test:
+      - eval_time: 35m
+        alertname: DataSourceDown
+        exp_alerts:
+          - exp_labels: { severity: warning, source: nvd, connector: nvd }
+            exp_annotations:
+              summary: "Source nvd (nvd) failing"
+              description: "3+ consecutive failed runs. See Admin > Connector health for the error."
+      - eval_time: 18m
+        alertname: CeleryQueueBacklog
+        exp_alerts:
+          - exp_labels: { severity: warning }
+            exp_annotations:
+              summary: "500 tasks waiting in the ingestion queue for 15 minutes"
+              description: "Workers are down or too slow. Check `docker compose ps worker` and the worker logs."
+      - eval_time: 10m
+        alertname: BeatNotRunning
+        exp_alerts:
+          - exp_labels: { severity: critical }
+            exp_annotations:
+              summary: "Celery Beat has not ticked for 5 minutes: nothing is being scheduled"

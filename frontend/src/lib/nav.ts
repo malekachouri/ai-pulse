@@ -7,6 +7,7 @@ import {
   Cloud,
   Cpu,
   DatabaseZap,
+  Gauge,
   FileText,
   GitPullRequest,
   LayoutDashboard,
@@ -44,7 +45,8 @@ export const NAV: NavItem[] = [
   { href: "/bookmarks", label: "Bookmarks", icon: Bookmark, group: "You" },
   { href: "/analytics", label: "Analytics", icon: BarChart3, group: "You" },
   { href: "/settings", label: "Settings", icon: Settings, group: "You" },
-  { href: "/admin/ingestion", label: "Ingestion", icon: DatabaseZap, group: "Admin", roles: ["admin", "analyst"] },
+  { href: "/admin", label: "Administration", icon: Gauge, group: "Admin", roles: ["admin", "analyst"] },
+  { href: "/admin/ingestion", label: "Connector health", icon: DatabaseZap, group: "Admin", roles: ["admin", "analyst"] },
 ];
 
 export const BrandIcon: LucideIcon = Boxes;

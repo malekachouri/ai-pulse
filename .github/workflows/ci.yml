@@ -1,0 +1,259 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 4 * * 1" # weekly rebuild + scan, so new CVEs in base images are caught without a code change
+
+# Least privilege by default; jobs that need more ask for it explicitly.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+  PYTHON_VERSION: "3.12"
+  NODE_VERSION: "22"
+  TRIVY_IMAGE: aquasec/trivy:0.67.2
+
+jobs:
+  frontend:
+    name: Frontend · lint, types, tests, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults: { run: { working-directory: frontend } }
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: ESLint
+        run: npm run lint
+      - name: TypeScript
+        run: npm run typecheck
+      - name: Unit tests (Vitest)
+        run: npm test
+      - name: Production build
+        run: npm run build
+
+  backend:
+    name: Backend · lint, migrations, tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults: { run: { working-directory: backend } }
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.7-pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: aipulse_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 20
+      redis:
+        image: redis:7.4-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      TEST_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/aipulse_test
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/aipulse_test
+      REDIS_URL: redis://localhost:6379/0
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+      - run: pip install -r requirements-dev.txt
+      - name: Ruff (lint, security rules S, format)
+        run: |
+          ruff check --config pyproject.toml app tests alembic docker ../scripts
+          ruff format --check --config pyproject.toml app tests alembic docker ../scripts
+      - name: Migrations - upgrade, models in sync, full downgrade, upgrade again
+        run: |
+          alembic upgrade head
+          alembic check
+          alembic downgrade base
+          alembic upgrade head
+      - name: Unit + API integration tests (real PostgreSQL / pgvector)
+        run: pytest -q -p no:logging
+      - name: API reference in docs/API.md matches the code
+        run: |
+          python ../scripts/build-api-docs.py
+          git diff --exit-code ../docs/API.md
+
+  dependencies:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with: { python-version: "${{ env.PYTHON_VERSION }}" }
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with: { node-version: "${{ env.NODE_VERSION }}" }
+      - name: Python (pip-audit, PyPI advisory database)
+        run: |
+          pip install pip-audit==2.9.0
+          pip-audit -r backend/requirements.txt -r backend/requirements-dev.txt --progress-spinner off
+      - name: Node (npm audit, all dependencies)
+        working-directory: frontend
+        run: npm audit --audit-level=moderate
+
+  compose:
+    name: Compose configuration
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with: { persist-credentials: false }
+      - name: Validate base, development and production files with every profile
+        run: |
+          ./scripts/generate-secrets.sh
+          cp .env.example .env
+          sed -i 's/^DOMAIN=.*/DOMAIN=ci.example.com/' .env
+          for override in "" docker-compose.dev.yml docker-compose.prod.yml; do
+            files=(-f docker-compose.yml)
+            [ -n "$override" ] && files+=(-f "$override")
+            docker compose "${files[@]}" --profile monitoring --profile edge --profile backup config --quiet
+            echo "valid: ${files[*]}"
+          done
+      - name: Prometheus config and alert rule unit tests
+        run: |
+          echo -n ci-token > /tmp/metrics_token
+          docker run --rm -v "$PWD/infra/prometheus:/etc/prometheus:ro" -v /tmp/metrics_token:/run/secrets/metrics_token:ro \
+            --entrypoint promtool prom/prometheus:v3.5.0 check config /etc/prometheus/prometheus.yml
+          docker run --rm -v "$PWD/infra/prometheus:/etc/prometheus:ro" \
+            --entrypoint promtool prom/prometheus:v3.5.0 test rules /etc/prometheus/alerts_test.yml
+          docker run --rm -v "$PWD/infra/alertmanager:/etc/alertmanager:ro" \
+            --entrypoint amtool prom/alertmanager:v0.28.1 check-config /etc/alertmanager/alertmanager.yml
+      - name: Lint shell scripts and workflows (shellcheck, actionlint)
+        run: |
+          pip install actionlint-py==1.7.12.25
+          shellcheck scripts/*.sh infra/backup/*.sh infra/postgres/initdb/*.sh infra/redis/entrypoint.sh
+          actionlint -color=false
+      - name: Grafana dashboards are generated from scripts/build-dashboards.py
+        run: |
+          python3 scripts/build-dashboards.py
+          git diff --exit-code infra/grafana/dashboards
+
+  containers:
+    name: Images · build, scan, end-to-end
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    needs: [frontend, backend, compose]
+    permissions:
+      contents: read
+      security-events: write # upload Trivy results to code scanning
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with: { persist-credentials: false }
+      - name: Configuration for the stack (random secrets, production settings)
+        run: |
+          ./scripts/generate-secrets.sh
+          cp .env.example .env
+          sed -i 's|^CORS_ORIGINS=.*|CORS_ORIGINS=["https://localhost"]|' .env
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+      - name: Build every image (BuildKit cache in GitHub Actions)
+        uses: docker/bake-action@5be5f02ff8819ecd3092ea6b2e6261c31774f2b4 # v6.10.0
+        with:
+          source: .
+          files: docker-compose.yml
+          targets: postgres,redis,migrate,api,worker,beat,web
+          load: true
+          set: |
+            *.cache-from=type=gha
+            *.cache-to=type=gha,mode=max
+      - name: Trivy - fail on fixable HIGH/CRITICAL vulnerabilities
+        run: |
+          mkdir -p trivy
+          status=0
+          for img in api worker beat migrate web postgres redis; do
+            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$HOME/.cache/trivy:/root/.cache" \
+              -v "$PWD/trivy:/out" "$TRIVY_IMAGE" image --quiet --scanners vuln,secret \
+              --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 \
+              --format sarif --output "/out/$img.sarif" "ai-pulse/$img:local" || status=1
+            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$HOME/.cache/trivy:/root/.cache" \
+              "$TRIVY_IMAGE" image --quiet --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed \
+              --format table "ai-pulse/$img:local"
+          done
+          exit $status
+      # Code scanning needs one SARIF run per category, so each image is uploaded on its own.
+      - name: Upload Trivy results (api)
+        if: always() && hashFiles('trivy/api.sarif') != ''
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: trivy/api.sarif
+          category: trivy-api
+      - name: Upload Trivy results (worker)
+        if: always() && hashFiles('trivy/worker.sarif') != ''
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: trivy/worker.sarif
+          category: trivy-worker
+      - name: Upload Trivy results (beat)
+        if: always() && hashFiles('trivy/beat.sarif') != ''
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: trivy/beat.sarif
+          category: trivy-beat
+      - name: Upload Trivy results (migrate)
+        if: always() && hashFiles('trivy/migrate.sarif') != ''
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: trivy/migrate.sarif
+          category: trivy-migrate
+      - name: Upload Trivy results (web)
+        if: always() && hashFiles('trivy/web.sarif') != ''
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: trivy/web.sarif
+          category: trivy-web
+      - name: Upload Trivy results (postgres)
+        if: always() && hashFiles('trivy/postgres.sarif') != ''
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: trivy/postgres.sarif
+          category: trivy-postgres
+      - name: Upload Trivy results (redis)
+        if: always() && hashFiles('trivy/redis.sarif') != ''
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: trivy/redis.sarif
+          category: trivy-redis
+      - name: Start the full stack (production settings, monitoring and backup profiles)
+        run: |
+          docker compose --profile monitoring --profile backup up -d --no-build --wait --wait-timeout 300
+          docker compose --profile monitoring --profile backup ps
+      - name: End-to-end smoke test
+        run: ./scripts/smoke-test.sh http://localhost:3000
+      - name: Monitoring scrapes the application and the exporters
+        run: python3 scripts/check-prometheus-targets.py --wait 180 ai-pulse-api postgres redis
+      - name: Backup and restore drill
+        run: |
+          ./scripts/backup.sh
+          latest="$(find backups -maxdepth 1 -name '*.dump' -printf '%T@ %p\n' | sort -n | tail -1 | cut -d' ' -f2)"
+          ./scripts/restore.sh "$latest" --yes
+          docker compose up -d --wait --wait-timeout 180 api worker beat
+          ./scripts/smoke-test.sh http://localhost:3000
+      - name: Container logs
+        if: failure()
+        run: docker compose --profile monitoring --profile backup logs --no-color --tail 200
+      - name: Tear down
+        if: always()
+        run: docker compose --profile monitoring --profile backup down -v --remove-orphans

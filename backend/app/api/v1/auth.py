@@ -4,6 +4,7 @@ from fastapi import APIRouter, Request, Response, status
 
 from app.api.deps import CurrentUser, EmailDep, SessionDep, SettingsDep
 from app.core.config import Settings
+from app.core.ratelimit import limiter
 from app.schemas.auth import (
     ChangePasswordRequest,
     LoginRequest,
@@ -47,6 +48,7 @@ def _clear_refresh_cookie(response: Response, settings: Settings) -> None:
 
 @router.post(
     "/register",
+    dependencies=[limiter("auth")],
     response_model=UserOut,
     status_code=status.HTTP_201_CREATED,
     responses={409: {"model": ErrorResponse}},
@@ -58,7 +60,12 @@ async def register(
     return UserOut.model_validate(user)
 
 
-@router.post("/login", response_model=TokenResponse, summary="Login; sets an httpOnly refresh cookie")
+@router.post(
+    "/login",
+    dependencies=[limiter("auth")],
+    response_model=TokenResponse,
+    summary="Login; sets an httpOnly refresh cookie",
+)
 async def login(
     body: LoginRequest,
     request: Request,
@@ -108,7 +115,7 @@ async def update_me(body: UpdateProfileRequest, user: CurrentUser, session: Sess
     return UserOut.model_validate(user)
 
 
-@router.post("/change-password", response_model=MessageResponse)
+@router.post("/change-password", dependencies=[limiter("auth")], response_model=MessageResponse)
 async def change_password(
     body: ChangePasswordRequest,
     user: CurrentUser,
@@ -124,7 +131,9 @@ async def change_password(
     return MessageResponse(message="Password changed; all sessions were signed out")
 
 
-@router.post("/password-reset/request", response_model=PasswordResetRequestResponse)
+@router.post(
+    "/password-reset/request", dependencies=[limiter("auth")], response_model=PasswordResetRequestResponse
+)
 async def request_reset(
     body: PasswordResetRequest, session: SessionDep, settings: SettingsDep, email: EmailDep
 ) -> PasswordResetRequestResponse:
@@ -135,7 +144,7 @@ async def request_reset(
     )
 
 
-@router.post("/password-reset/confirm", response_model=MessageResponse)
+@router.post("/password-reset/confirm", dependencies=[limiter("auth")], response_model=MessageResponse)
 async def confirm_reset(
     body: PasswordResetConfirm, session: SessionDep, settings: SettingsDep, email: EmailDep
 ) -> MessageResponse:

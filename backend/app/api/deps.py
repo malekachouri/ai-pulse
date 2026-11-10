@@ -84,6 +84,7 @@ def require_roles(*roles: RoleName) -> Callable[..., Coroutine[Any, Any, User]]:
             raise PermissionDeniedError("Insufficient permissions")
         return user
 
+    _check.roles = roles  # type: ignore[attr-defined]  # introspected by scripts/build-api-docs.py
     return _check
 
 

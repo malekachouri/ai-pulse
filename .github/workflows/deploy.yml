@@ -1,0 +1,146 @@
+name: Deploy
+
+# Releases: push a tag "v*" (deploys to production after the environment's required reviewers approve),
+# or run manually for staging/production. Needs, per GitHub environment (Settings > Environments):
+#   secrets: DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY (private key, deploy-only user), DEPLOY_KNOWN_HOSTS
+#   vars:    DEPLOY_PATH (e.g. /opt/ai-pulse), PUBLIC_URL (e.g. https://pulse.example.com)
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        type: choice
+        options: [staging, production]
+        default: staging
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.event.inputs.environment || 'production' }}
+  cancel-in-progress: false # never interrupt a deployment half-way
+
+jobs:
+  publish:
+    name: Build, scan and push images
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write # push to ghcr.io
+      id-token: write # keyless build provenance attestations
+      attestations: write
+    outputs:
+      prefix: ${{ steps.vars.outputs.prefix }}
+      tag: ${{ steps.vars.outputs.tag }}
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - { name: api, context: backend, target: api }
+          - { name: worker, context: backend, target: worker }
+          - { name: beat, context: backend, target: beat }
+          - { name: migrate, context: backend, target: migrate }
+          - { name: web, context: frontend, target: runtime }
+          - { name: postgres, context: infra/postgres, target: "" }
+          - { name: redis, context: infra/redis, target: "" }
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with: { persist-credentials: false }
+      - id: vars
+        run: |
+          echo "prefix=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/ai-pulse" >> "$GITHUB_OUTPUT"
+          echo "tag=${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build (loaded locally for the scan)
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: ${{ matrix.context }}
+          target: ${{ matrix.target }}
+          load: true
+          tags: ${{ steps.vars.outputs.prefix }}/${{ matrix.name }}:${{ steps.vars.outputs.tag }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+      - name: Trivy gate (fixable HIGH/CRITICAL block the release)
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.67.2 image --quiet \
+            --scanners vuln,secret --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 \
+            "${{ steps.vars.outputs.prefix }}/${{ matrix.name }}:${{ steps.vars.outputs.tag }}"
+      - name: Push with SBOM and provenance
+        id: push
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: ${{ matrix.context }}
+          target: ${{ matrix.target }}
+          push: true
+          sbom: true
+          provenance: mode=max
+          tags: |
+            ${{ steps.vars.outputs.prefix }}/${{ matrix.name }}:${{ steps.vars.outputs.tag }}
+            ${{ startsWith(github.ref, 'refs/tags/v') && format('{0}/{1}:{2}', steps.vars.outputs.prefix, matrix.name, github.ref_name) || '' }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+        with:
+          subject-name: ${{ steps.vars.outputs.prefix }}/${{ matrix.name }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+  deploy:
+    name: Deploy to ${{ github.event.inputs.environment || 'production' }}
+    needs: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: ${{ github.event.inputs.environment || 'production' }}
+      url: ${{ vars.PUBLIC_URL }}
+    permissions:
+      contents: read
+      packages: read # the server pulls with this job's short-lived token
+    env:
+      IMAGE_PREFIX: ${{ needs.publish.outputs.prefix }}
+      IMAGE_TAG: ${{ needs.publish.outputs.tag }}
+      DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '/opt/ai-pulse' }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with: { persist-credentials: false }
+      - name: SSH identity (deploy-only key, pinned host key)
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key && chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts && chmod 644 ~/.ssh/known_hosts
+      - name: Copy the deployment bundle (compose files, configs, scripts; never secrets)
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER_: ${{ secrets.DEPLOY_USER }}
+        run: |
+          tar czf bundle.tgz docker-compose.yml docker-compose.prod.yml infra scripts .env.example
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes bundle.tgz "$USER_@$HOST:$DEPLOY_PATH/bundle.tgz"
+      - name: Pull, migrate, roll out, smoke test (automatic rollback on failure)
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER_: ${{ secrets.DEPLOY_USER }}
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PUBLIC_URL: ${{ vars.PUBLIC_URL }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$USER_@$HOST" \
+            "cd '$DEPLOY_PATH' && tar xzf bundle.tgz && rm bundle.tgz && \
+             printf '%s' '$REGISTRY_TOKEN' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin && \
+             IMAGE_PREFIX='$IMAGE_PREFIX' IMAGE_TAG='$IMAGE_TAG' PUBLIC_URL='$PUBLIC_URL' ./scripts/deploy.sh; \
+             rc=\$?; docker logout ghcr.io >/dev/null; exit \$rc"
+      - name: Remove the SSH key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

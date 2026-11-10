@@ -6,6 +6,15 @@ import { toast } from "sonner";
 import { api, ApiError, buildQuery, errorMessage } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import type {
+  AdminSource,
+  AdminUser,
+  AIConfig,
+  AuditLogEntry,
+  CollectionJob,
+  ConnectorInfo,
+  RoleInfo,
+  SystemHealth,
+  UsageStats,
   AIModel,
   AIStatus,
   Article,
@@ -398,4 +407,127 @@ export function useIncidentList(params: Params) {
 
 export function useVulnList(params: Params) {
   return useQuery({ queryKey: ["vulns", params], queryFn: () => api.get<Page<Vulnerability>>("/security/vulnerabilities", params), placeholderData: keepPreviousData });
+}
+
+// ---- Administration ----
+
+type AdminParams = Record<string, string | number | boolean | string[] | undefined>;
+
+export function useSystemHealth(enabled: boolean) {
+  return useQuery({
+    queryKey: ["admin", "system"],
+    queryFn: () => api.get<SystemHealth>("/admin/system/health"),
+    enabled,
+    refetchInterval: 30_000,
+  });
+}
+
+export function useUsageStats(enabled: boolean, days: number) {
+  return useQuery({
+    queryKey: ["admin", "usage", days],
+    queryFn: () => api.get<UsageStats>("/admin/usage", { days }),
+    enabled,
+  });
+}
+
+export function useAIConfig(enabled: boolean) {
+  return useQuery({ queryKey: ["admin", "ai-config"], queryFn: () => api.get<AIConfig>("/admin/ai/config"), enabled });
+}
+
+export function useAdminUsers(params: AdminParams, enabled: boolean) {
+  return useQuery({
+    queryKey: ["admin", "users", params],
+    queryFn: () => api.get<Page<AdminUser>>("/admin/users", params),
+    enabled,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useRoles(enabled: boolean) {
+  return useQuery({ queryKey: ["admin", "roles"], queryFn: () => api.get<RoleInfo[]>("/admin/roles"), enabled });
+}
+
+export function useUpdateUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...patch }: { id: string; role?: string; is_active?: boolean }) =>
+      api.patch<AdminUser>(`/admin/users/${id}`, patch),
+    onSuccess: (u) => {
+      toast.success(`Updated ${u.email}`);
+      qc.invalidateQueries({ queryKey: ["admin", "users"] });
+      qc.invalidateQueries({ queryKey: ["admin", "roles"] });
+    },
+    onError: (err) => toast.error(errorMessage(err)),
+  });
+}
+
+export function useJobs(params: AdminParams, enabled: boolean) {
+  return useQuery({
+    queryKey: ["admin", "jobs", params],
+    queryFn: () => api.get<Page<CollectionJob>>("/admin/jobs", params),
+    enabled,
+    placeholderData: keepPreviousData,
+    refetchInterval: 30_000,
+  });
+}
+
+export function useRetryFailedJobs() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (hours: number) =>
+      api.post<{ retried: number; skipped_sources: string[] }>(`/admin/jobs/retry-failed${buildQuery({ hours })}`),
+    onSuccess: (r) => {
+      toast.success(r.retried ? `${r.retried} source(s) queued for retry` : "Nothing to retry");
+      qc.invalidateQueries({ queryKey: ["admin"] });
+    },
+    onError: (err) => toast.error(errorMessage(err)),
+  });
+}
+
+export function useAuditLogs(params: AdminParams, enabled: boolean) {
+  return useQuery({
+    queryKey: ["admin", "audit", params],
+    queryFn: () => api.get<Page<AuditLogEntry>>("/admin/audit-logs", params),
+    enabled,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useAdminSources(enabled: boolean) {
+  return useQuery({ queryKey: ["admin", "sources"], queryFn: () => api.get<AdminSource[]>("/admin/sources"), enabled });
+}
+
+export function useConnectors(enabled: boolean) {
+  return useQuery({ queryKey: ["admin", "connectors"], queryFn: () => api.get<ConnectorInfo[]>("/admin/connectors"), enabled, staleTime: Infinity });
+}
+
+export function useSourceMutations() {
+  const qc = useQueryClient();
+  const done = () => qc.invalidateQueries({ queryKey: ["admin"] });
+  return {
+    create: useMutation({
+      mutationFn: (body: Record<string, unknown>) => api.post<AdminSource>("/admin/sources", body),
+      onSuccess: (s) => {
+        toast.success(`Source ${s.slug} created`);
+        done();
+      },
+      onError: (err) => toast.error(errorMessage(err)),
+    }),
+    update: useMutation({
+      mutationFn: ({ id, ...patch }: { id: string } & Record<string, unknown>) => api.patch<AdminSource>(`/admin/sources/${id}`, patch),
+      onSuccess: (s) => {
+        toast.success(`Source ${s.slug} saved`);
+        done();
+      },
+      onError: (err) => toast.error(errorMessage(err)),
+    }),
+    remove: useMutation({
+      mutationFn: (id: string) => api.delete(`/admin/sources/${id}`),
+      onSuccess: () => {
+        toast.success("Source deleted");
+        done();
+      },
+      onError: (err) => toast.error(errorMessage(err)),
+    }),
+  };
 }

@@ -55,6 +55,8 @@ def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(AppError)
     async def _app_error(_: Request, exc: AppError) -> JSONResponse:
         headers = {"WWW-Authenticate": "Bearer"} if isinstance(exc, AuthenticationError) else None
+        if retry_after := getattr(exc, "retry_after", None):
+            headers = {"Retry-After": str(retry_after)}
         return JSONResponse(
             status_code=exc.status_code,
             content=_envelope(exc.code, exc.message, exc.details),

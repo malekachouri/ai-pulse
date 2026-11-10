@@ -10,7 +10,7 @@ import { BrandIcon, NAV, type NavItem } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 
 export function isActive(pathname: string, href: string) {
-  return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
+  return href === "/" || href === "/admin" ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
 }
 
 function Brand({ collapsed }: { collapsed: boolean }) {

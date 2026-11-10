@@ -17,35 +17,40 @@ every implementation phase. Status markers: ✅ implemented · 🚧 next phase �
    within the last 2 hours (`last_verified_at`).
 4. **Idempotent everything.** Ingestion upserts on `(source_id, external_id)`; notifications dedupe
    on `(user_id, dedup_key)`; briefings are unique per `(user_id, briefing_date)`.
-5. **Secrets only from the environment.** The app refuses to start in production with a weak
-   `JWT_SECRET`. No keys ever reach the frontend.
+5. **Secrets never in code, images or the repository.** They come from Docker secret files
+   (`/run/secrets/*`) or environment variables. In production the app refuses to start with a weak
+   `JWT_SECRET`, insecure cookies or wildcard CORS. No key ever reaches the frontend.
 
 ## 2. System overview
 
 ```mermaid
 flowchart LR
+  U((Users)) -->|HTTPS| EDGE[Caddy edge<br/>TLS · HSTS · real client IP]
+  EDGE -->|/api/*| API
+  EDGE -->|pages| WEB[Next.js web<br/>standalone, non-root]
+  WEB -.->|same-origin rewrite<br/>(no edge, local)| API[FastAPI /api/v1<br/>rate limits · RBAC · audit]
   subgraph Sources
-    RSS[Vendor RSS / blogs]
-    GH[GitHub REST API]
-    NVD[NVD CVE API 2.0]
-    KEV[CISA KEV JSON]
-    ARX[arXiv API]
-    STAT[Cloud status pages]
+    RSS[Vendor blogs / RSS] & GH[GitHub API] & NVD[NVD · CISA KEV · GHSA] & ARX[arXiv · HF] & STAT[Status pages]
   end
-  subgraph Workers["Celery workers (Redis broker)"]
-    BEAT[Celery Beat scheduler] --> ING[Ingestion tasks<br/>fetch → normalize → validate → dedupe → save]
-    ING --> AIQ[AI pipeline tasks<br/>classify · summarise · score · embed]
-    AIQ --> NOTIF[Alert & notification tasks]
-    BEAT --> BRIEF[Daily briefing tasks]
+  subgraph Workers["Celery (Redis broker)"]
+    BEAT[Beat<br/>heartbeat] --> ING[Ingestion<br/>fetch → normalize → validate → dedupe → save]
+    ING --> AIQ[AI pipeline]
+    BEAT --> ALERT[Alert engine] & BRIEF[Briefings]
   end
   Sources --> ING
-  ING & AIQ & NOTIF & BRIEF --> PG[(PostgreSQL 16<br/>+ pgvector + FTS)]
-  AIQ <--> LLM{{LLM provider<br/>OpenAI · Ollama · Anthropic}}
-  API[FastAPI /api/v1] --> PG
-  WEB[Next.js App Router] -->|HTTPS, JWT + refresh cookie| API
-  PROM[Prometheus] -->|/metrics| API & Workers
-  GRAF[Grafana] --> PROM
+  API & ING & AIQ & ALERT & BRIEF --> PG[(PostgreSQL 16<br/>pgvector · FTS · pg_trgm)]
+  API & Workers --> R[(Redis<br/>queue · rate limits · telemetry)]
+  AIQ & API <--> LLM{{LLM provider<br/>OpenAI · Anthropic · Ollama}}
+  PROM[Prometheus + alert rules] -->|/metrics (token)| API
+  PROM --> PGX[postgres-exporter] & RX[redis-exporter]
+  PROM --> AM[Alertmanager → webhook]
+  GRAF[Grafana dashboards] --> PROM
+  BK[backup service<br/>pg_dump + sha256] --> PG
 ```
+
+Networks (docker-compose): `data` (PostgreSQL, Redis: **internal**, no internet, not published),
+`egress` (workers/API → sources and LLM providers), `frontend` (edge → web/API, fixed subnet; the API
+trusts `X-Forwarded-For` only from the edge's fixed IP), `monitoring` (Prometheus ↔ Grafana/Alertmanager).
 
 ### Layers (backend)
 
@@ -59,7 +64,8 @@ flowchart LR
 | Core | `app/core` | Config, security, logging, errors, metrics. |
 | Ingestion ✅ | `app/ingestion` | Connector contract, normalized format, HTTP client (retries, rate limits), writer, runner, scheduling, catalog. |
 | AI ✅ | `app/ai` | Providers, text/NLP, claims checks, scoring, pipeline, search (BM25/semantic/RRF), RAG, briefings. |
-| Workers ✅ | `app/workers` | Celery app, Beat schedule, tasks (ingest, dispatch, stale-job recovery). |
+| Workers ✅ | `app/workers` | Celery app, Beat schedule (heartbeat scheduler), tasks, task telemetry. |
+| Alerts ✅ | `app/alerts` | Alert rules and idempotent in-app notification delivery. |
 
 Dependencies point inwards only (API → services → repositories → models). Services receive the DB
 session and collaborators (settings, email sender, LLM provider) via FastAPI dependency injection,
@@ -69,43 +75,44 @@ which is what the tests override.
 
 ```
 ai-pulse/
-├── docker-compose.yml          postgres(pgvector) · redis · migrate · api · worker · beat · web
-├── .env.example
-├── docs/ARCHITECTURE.md
+├── docker-compose.yml          base stack (production defaults, secrets, networks, limits, profiles)
+├── docker-compose.dev.yml      development override (hot reload, source mounts, host ports)
+├── docker-compose.prod.yml     production override (registry images, replicas, restart: always)
+├── .env.example                non-secret Compose configuration (secrets live in ./secrets)
+├── SECURITY.md · CONTRIBUTING.md
+├── docs/                       ARCHITECTURE · API · DATABASE · DEVELOPMENT · DEPLOYMENT ·
+│                               INGESTION · AI · RADAR · NOTIFICATIONS
+├── .github/                    workflows: ci (lint, types, tests, audits, images, Trivy, e2e),
+│                               deploy (GHCR + provenance, SSH roll-out, rollback), codeql; dependabot
+├── scripts/                    generate-secrets · smoke-test · backup · restore · deploy ·
+│                               build-dashboards (Grafana dashboards as code)
+├── infra/
+│   ├── postgres/               image (pgvector, OS updates, tuned postgresql.conf, init: extensions,
+│   │                           least-privilege app role, metrics role)
+│   ├── redis/                  image (password from secret, AOF, noeviction, dangerous commands off)
+│   ├── prometheus/             scrape config, 17 alert rules + promtool unit tests
+│   ├── alertmanager/           webhook routing (URL from a secret)
+│   ├── grafana/                provisioning + 2 dashboards (service health; pipeline, ingestion & AI)
+│   ├── caddy/                  edge: automatic HTTPS, security headers, /api → api, rest → web
+│   └── backup/                 scheduled pg_dump loop + health check
 ├── backend/
-│   ├── Dockerfile              multi-stage, non-root, healthcheck
-│   ├── alembic/                migrations (0001 schema + seeds, 0002 filter indexes,
-│   │                           0003 canonical_key + 27 official sources, 0004 pg_trgm + ai_usage)
+│   ├── Dockerfile              one file, targets api · worker · beat · migrate (non-root, no pip)
+│   ├── docker/healthcheck.py   api / worker / beat health checks
+│   ├── alembic/                migrations 0001 … 0006 (round-trip tested in CI)
 │   ├── app/
-│   │   ├── main.py             app factory, middleware, routers
-│   │   ├── cli.py              `python -m app.cli create-admin`
-│   │   ├── core/               config · security · errors · logging · metrics
-│   │   ├── db/                 declarative base, engine/session factory
-│   │   ├── models/             enums · user · content · intel · ops
-│   │   ├── schemas/            auth · article · source · dashboard · common
-│   │   ├── repositories/       base (sort/paginate) · users · articles · sources · intel · admin
-│   │   ├── services/           auth · articles · dashboard · intel · search · admin · email
-│   │   ├── api/v1/             one router per module (auth, news, models, tools, research, github,
-│   │   │                       bugs, security, incidents, search, briefings, bookmarks,
-│   │   │                       notifications, preferences, catalog, dashboard, admin, health)
-│   │   ├── ingestion/          base, normalized, http, ratelimit, writer, runner, scheduling,
-│   │   │                       catalog, connectors/* (14)
-│   │   ├── ai/                 providers/*, text, claims, scoring, learning, prompts, pipeline,
-│   │   │                       search, rag, briefing
-│   │   └── workers/            celery_app (Beat schedule), tasks
-│   └── tests/                  integration tests against real Postgres + migrations
-├── frontend/                   Next.js 16 App Router + Tailwind 4 + shadcn/ui
-│   ├── Dockerfile              standalone output, non-root, BACKEND_URL build arg
-│   └── src/
-│       ├── app/(app)/          overview, news, models, tools, research, github, bugs, security,
-│       │                       devops, briefing, bookmarks, analytics, settings, search
-│       ├── app/(auth)/         login, register, forgot-password, reset-password
-│       ├── components/ui/      shadcn-style primitives on Radix
-│       ├── components/layout/  app shell, sidebar, global search, notifications, user menu, theme
-│       ├── components/feed/    article card, badges, URL-synced filters, pagination, feed view
-│       ├── components/{dashboard,charts,states}/
-│       └── lib/                api client (silent refresh), auth context, query hooks, types, demo
-└── monitoring/          📋     prometheus.yml, grafana dashboards, alert rules
+│   │   ├── main.py             app factory, middleware (metrics, global rate limit, security headers)
+│   │   ├── core/               config (env + secret files) · security · errors · logging · metrics ·
+│   │   │                       ratelimit
+│   │   ├── models/ schemas/ repositories/ services/ api/v1/   (layers, see above)
+│   │   ├── ingestion/          connectors/* (15), http, ratelimit, writer, runner, scheduling
+│   │   ├── ai/                 providers, pipeline, scoring, search, rag, briefing
+│   │   ├── alerts/             alert engine
+│   │   └── workers/            celery_app, tasks, telemetry (task durations, Beat heartbeat)
+│   └── tests/                  real PostgreSQL + migrations (199 tests; frontend: 27 Vitest tests)
+└── frontend/                   Next.js 16 App Router + Tailwind 4 + shadcn/ui
+    ├── Dockerfile              standalone output, non-root, no npm in the runtime image
+    └── src/app/(app)/admin/    overview (health, usage), users & roles, sources, connector health,
+                                jobs & failures, AI providers & usage, audit log
 ```
 
 ## 4. Database schema
@@ -193,7 +200,7 @@ matches (`%`/`_` are escaped).
 | admin | `GET/POST /admin/sources`, `PATCH/DELETE /admin/sources/{id}` (audited) | admin | ✅ |
 | admin | `GET /admin/users`, `GET/PATCH /admin/users/{id}` (role, active; audited; self-lockout and last-admin protection; deactivation revokes sessions), `GET /admin/roles`, `GET /admin/audit-logs` | admin | ✅ |
 | admin | `GET /admin/jobs` (ingestion history, duration, errors) | admin, analyst | ✅ |
-| admin | failed-task retry, AI provider config, usage statistics | admin | 📋 P8 |
+| admin | `GET /admin/system/health`, `GET /admin/usage?days=`, `GET /admin/ai/config` (no secrets), `POST /admin/jobs/retry-failed?hours=` (audited) | staff | ✅ |
 | models | `GET /models` (q, provider, open_weights, modality; latest release + count), `GET /models/releases` (provider, model_id, date range), `GET /models/{id}` | optional | ✅ |
 | tools | `GET /tools` (q, category, license), `GET /tools/{id}` | optional | ✅ |
 | research | `GET /research` (q, primary_category, author, date range), `GET /research/{uuid or arXiv id}` | optional | ✅ |
@@ -236,19 +243,24 @@ and personalised daily briefings. Usage and cost per call in `ai_usage`.
 
 ## 8. Security architecture
 
+Full threat model, controls and procedures: **[SECURITY.md](../SECURITY.md)**.
+
 | Concern | Control | Status |
 |---|---|---|
 | Passwords | Argon2id, rehash on login when params change, strength policy (≥12 chars, 3 classes) | ✅ |
 | Tokens | short JWT + rotating hashed refresh tokens, reuse detection, revocation on password change | ✅ |
-| Cookies | httpOnly, Secure (configurable for local http), SameSite=Strict, path-scoped | ✅ |
-| AuthZ | role-based dependencies (`require_roles`) on admin routes | ✅ |
-| Secrets | env only; production refuses dev JWT secret / exposed reset tokens | ✅ |
-| Input | Pydantic validation on every body/query, bounded page sizes, URL validation | ✅ |
-| Headers/CORS | nosniff, frame deny, referrer policy; explicit CORS allow-list | ✅ |
-| Audit | admin mutations recorded in `audit_logs` | ✅ (sources) |
-| Rate limiting | Redis-backed per-IP/per-user limits on auth & search | 📋 P8 |
-| Supply chain | pinned deps, CI lint/tests, container + dependency scanning | ✅ partial / 📋 P8 |
-| Containers | non-root user, healthchecks, internal network, DB bound to 127.0.0.1 | ✅ |
+| Cookies | httpOnly, Secure (enforced in production), SameSite=Strict, path-scoped | ✅ |
+| AuthZ | role-based dependencies (`require_roles`): admin, analyst (staff), user | ✅ |
+| Secrets | Docker secret files (`/run/secrets`), never in images/env files/git; production refuses weak settings | ✅ |
+| Input | Pydantic validation on every body/query (unknown params rejected), bounded page sizes, URL validation | ✅ |
+| Rate limiting | Redis fixed windows: global per IP, auth per IP, search and AI per user; 429 + `Retry-After` | ✅ |
+| Client IP | `X-Forwarded-For` trusted only from the edge's fixed IP (no spoofing) | ✅ |
+| Headers/CORS | nosniff, frame deny, referrer/permissions policy, `no-store` on API, HSTS (prod/edge); explicit CORS allow-list | ✅ |
+| Audit | admin mutations (users, sources, jobs, AI/alert runs) recorded with actor and IP | ✅ |
+| Supply chain | pinned deps, pip-audit + npm audit, Trivy image gate, CodeQL, Dependabot, SBOM + provenance | ✅ |
+| Containers | non-root, read-only root FS, `cap_drop: ALL`, no-new-privileges, internal data network, limits | ✅ |
+| Database | application role is not superuser; separate read-only metrics role; scram-sha-256; checksums | ✅ |
+| Backups | scheduled + pre-deployment `pg_dump`, checksums, verified restore into a staging database | ✅ |
 
 ## 9. Roadmap
 
@@ -261,7 +273,7 @@ and personalised daily briefings. Usage and cost per call in `ai_usage`.
 | 5 | AI engine: providers, 10-step pipeline with grounding checks, explainable scoring, embeddings, hybrid search, RAG with citations, personalised briefings | ✅ |
 | 6 | Bugs & Failures radar (bugs/incidents/vulnerabilities, state & categories, GitHub advisories) + configurable alerts, migration 0005 | ✅ |
 | 7 | Personalised briefings (10 sections, computed changes), per-user scheduling with timezone/weekday, retries & idempotency, notification preferences & center, follow API, migration 0006 | ✅ |
-| 8 | Production: worker/beat/web images, Prometheus/Grafana, rate limiting, scanning, docs | 📋 |
+| 8 | Production: images (api/worker/beat/migrate/web/postgres/redis), compose dev/prod, CI/CD, Trivy & audits, Prometheus/Grafana/alerts, rate limiting, admin console, backups, docs | ✅ |
 | 9 | Full audit & hardening | 📋 |
 
 ## 10. Frontend architecture
@@ -283,3 +295,19 @@ and personalised daily briefings. Usage and cost per call in `ai_usage`.
   never encode two series). Each chart has a table view.
 - **Demo mode** (`NEXT_PUBLIC_DEMO_MODE=true`) swaps the API client for in-memory fictional fixtures,
   all prefixed `[DEMO]` with `example.com` links and a permanent banner. Off by default.
+
+## 11. Deployment & operations
+
+See **[DEPLOYMENT.md](DEPLOYMENT.md)** (first deployment, TLS, secrets, monitoring, alerts, backups,
+upgrades and rollback), **[DEVELOPMENT.md](DEVELOPMENT.md)**, **[DATABASE.md](DATABASE.md)** and
+**[API.md](API.md)**.
+
+| Concern | Implementation |
+|---|---|
+| Process model | 1 uvicorn process per API container (scale with replicas); Celery worker (prefork 4, `max-tasks-per-child`); exactly one Beat |
+| Health | API `/health/live`, `/health/ready` (DB + pgvector); worker = Celery ping; Beat = Redis heartbeat; Postgres/Redis native checks; backup = age of the newest dump |
+| Metrics | HTTP latency/requests (route templates), DB pool + server connections, queue length, ingestion jobs, source availability, AI calls/errors/tokens/cost, Celery task durations/failures/retries, Beat heartbeat, rate-limit rejections |
+| Logs | JSON (structlog) on stdout, rotated by the Docker log driver |
+| Alerts | 17 Prometheus rules (availability, latency, errors, DB connections, backlog, Beat, dispatch, failing sources/jobs/tasks, slow jobs, AI errors/spend/backlog, Redis memory), unit-tested with promtool |
+| Releases | tag `v*` → CI gates → images to GHCR with SBOM + provenance → environment approval → SSH roll-out with pre-deploy backup, migrations, smoke test, automatic rollback |
+

@@ -1,127 +1,357 @@
+# AI Pulse - base Compose file (production-oriented defaults).
+#
+#   docker compose up -d --build                                  # local "production-like" stack
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build   # development (hot reload)
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d       # production (pulled images)
+#   add  --profile monitoring  for Prometheus / Grafana / Alertmanager / exporters,
+#        --profile edge        for Caddy (automatic HTTPS),  --profile backup  for scheduled pg_dump.
+#
+# Secrets are files in ./secrets (create them with scripts/generate-secrets.sh); they are mounted at
+# /run/secrets and never placed in environment variables or images. Non-secret settings come from .env.
 name: ai-pulse
 
+x-hardening: &hardening
+  read_only: true
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]
+  init: true
+  logging:
+    driver: json-file
+    options: { max-size: "20m", max-file: "5" }
+
 x-backend: &backend
-  build: ./backend
-  env_file: .env
-  environment:
-    DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-    REDIS_URL: redis://redis:6379/0
-  networks: [internal]
+  <<: *hardening
+  image: ${IMAGE_PREFIX:-ai-pulse}/api:${IMAGE_TAG:-local}
+  build:
+    context: ./backend
+    target: api
+  env_file:
+    - path: .env
+      required: false # every setting has a default; secrets come from ./secrets
+  environment: &backend-env
+    ENVIRONMENT: ${ENVIRONMENT:-production}
+    LOG_JSON: "true"
+    COOKIE_SECURE: ${COOKIE_SECURE:-true}
+  secrets: &backend-secrets
+    - database_url
+    - redis_url
+    - jwt_secret
+    - metrics_token
+    - openai_api_key
+    - anthropic_api_key
+    - github_token
+    - nvd_api_key
+  tmpfs: ["/tmp:size=64m,mode=1777"]
+  networks: [data, egress]
+  restart: unless-stopped
 
 services:
   postgres:
-    image: pgvector/pgvector:pg16
-    restart: unless-stopped
+    <<: *hardening
+    image: ${IMAGE_PREFIX:-ai-pulse}/postgres:${IMAGE_TAG:-local}
+    build: ./infra/postgres
+    user: postgres # the data volume is created owned by postgres, so no extra capabilities are needed
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
-      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in .env}
+      POSTGRES_USER: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-aipulse}
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      APP_DB_USER: ${APP_DB_USER:-aipulse}
+      APP_DB_PASSWORD_FILE: /run/secrets/app_db_password
+      METRICS_DB_PASSWORD_FILE: /run/secrets/metrics_db_password
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --data-checksums"
+    secrets: [postgres_password, app_db_password, metrics_db_password]
     volumes:
       - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-    ports:
-      - "127.0.0.1:5432:5432"
-    networks: [internal]
+    tmpfs: ["/tmp:size=64m", "/var/run/postgresql:size=1m,uid=999,gid=999"]
+    shm_size: 256m
+    networks: [data]
+    restart: unless-stopped
+    stop_grace_period: 60s
+    deploy:
+      resources:
+        limits: { cpus: "2.0", memory: 2g }
+        reservations: { memory: 512m }
 
   redis:
-    image: redis:7-alpine
-    restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes"]
+    <<: *hardening
+    image: ${IMAGE_PREFIX:-ai-pulse}/redis:${IMAGE_TAG:-local}
+    build: ./infra/redis
+    environment:
+      REDIS_PASSWORD_FILE: /run/secrets/redis_password
+    secrets: [redis_password]
     volumes:
       - redisdata:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-    networks: [internal]
+    tmpfs: ["/tmp:size=1m,mode=1777"]
+    networks: [data]
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits: { cpus: "0.5", memory: 384m }
 
   migrate:
     <<: *backend
-    command: ["alembic", "upgrade", "head"]
+    image: ${IMAGE_PREFIX:-ai-pulse}/migrate:${IMAGE_TAG:-local}
+    build: { context: ./backend, target: migrate }
     restart: "no"
+    networks: [data]
     depends_on:
-      postgres:
-        condition: service_healthy
+      postgres: { condition: service_healthy }
 
   api:
     <<: *backend
-    restart: unless-stopped
+    environment:
+      <<: *backend-env
+      # X-Forwarded-For is trusted ONLY from the Caddy edge (fixed IP), which sets it to the real client IP.
+      # Requests that reach the API through the web container's rewrite (no edge) are keyed by that
+      # container's IP: fine for local use, which is why production always runs the edge profile.
+      FORWARDED_ALLOW_IPS: ${EDGE_IP:-172.30.10.10}
+    networks: [data, egress, frontend]
     depends_on:
-      migrate:
-        condition: service_completed_successfully
-      redis:
-        condition: service_healthy
-    ports:
-      - "127.0.0.1:8000:8000"
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+    stop_grace_period: 30s
     deploy:
       resources:
-        limits:
-          cpus: "1.0"
-          memory: 512M
+        limits: { cpus: "1.0", memory: 768m }
+        reservations: { memory: 256m }
 
   worker:
     <<: *backend
-    command: ["celery", "-A", "app.workers.celery_app", "worker", "-Q", "ingestion", "--concurrency", "4", "-l", "info"]
-    restart: unless-stopped
+    image: ${IMAGE_PREFIX:-ai-pulse}/worker:${IMAGE_TAG:-local}
+    build: { context: ./backend, target: worker }
     depends_on:
-      migrate:
-        condition: service_completed_successfully
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "celery -A app.workers.celery_app inspect ping -d celery@$$HOSTNAME -t 10 | grep -q pong"]
-      interval: 60s
-      timeout: 20s
-      retries: 3
-      start_period: 30s
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+    stop_grace_period: 120s # let running ingestion jobs finish (acks_late re-delivers otherwise)
     deploy:
       resources:
-        limits:
-          cpus: "1.0"
-          memory: 768M
+        limits: { cpus: "2.0", memory: 1536m }
+        reservations: { memory: 512m }
 
   beat:
     <<: *backend
-    # Single scheduler instance: it only enqueues "dispatch due sources"; the schedule itself lives in Postgres.
-    command: ["celery", "-A", "app.workers.celery_app", "beat", "-l", "info", "-s", "/tmp/celerybeat-schedule"]
-    restart: unless-stopped
+    image: ${IMAGE_PREFIX:-ai-pulse}/beat:${IMAGE_TAG:-local}
+    build: { context: ./backend, target: beat }
+    # Exactly one Beat: it only enqueues small "dispatch" tasks; schedules live in PostgreSQL.
     depends_on:
-      migrate:
-        condition: service_completed_successfully
-      redis:
-        condition: service_healthy
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
     deploy:
+      replicas: 1
       resources:
-        limits:
-          cpus: "0.25"
-          memory: 256M
+        limits: { cpus: "0.25", memory: 256m }
 
   web:
+    <<: *hardening
+    image: ${IMAGE_PREFIX:-ai-pulse}/web:${IMAGE_TAG:-local}
     build:
       context: ./frontend
       args:
         BACKEND_URL: http://api:8000
+    environment:
+      NODE_ENV: production
+    tmpfs: ["/tmp:size=64m,mode=1777", "/app/.next/cache:size=128m,uid=10001,gid=10001"]
+    ports:
+      - "${WEB_BIND:-127.0.0.1}:${WEB_PORT:-3000}:3000"
+    networks: [frontend]
     restart: unless-stopped
     depends_on:
-      api:
-        condition: service_healthy
-    ports:
-      - "127.0.0.1:3000:3000"
+      api: { condition: service_healthy }
     deploy:
       resources:
-        limits:
-          cpus: "1.0"
-          memory: 512M
-    networks: [internal]
+        limits: { cpus: "1.0", memory: 512m }
+
+  # ---------------------------------------------------------------- edge (optional): automatic HTTPS
+  caddy:
+    <<: *hardening
+    profiles: [edge]
+    image: caddy:2.10-alpine
+    cap_add: [NET_BIND_SERVICE]
+    read_only: false # Caddy stores certificates in /data
+    environment:
+      DOMAIN: ${DOMAIN:-localhost} # "localhost" = Caddy's local CA, for testing only
+    volumes:
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+      - caddyconfig:/config
+    ports: ["80:80", "443:443", "443:443/udp"]
+    networks:
+      frontend:
+        ipv4_address: ${EDGE_IP:-172.30.10.10}
+    restart: unless-stopped
+    depends_on:
+      web: { condition: service_healthy }
+      api: { condition: service_healthy }
+
+  # ---------------------------------------------------------------- monitoring (optional)
+  prometheus:
+    <<: *hardening
+    profiles: [monitoring]
+    image: prom/prometheus:v3.5.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-30d}
+    volumes:
+      - ./infra/prometheus:/etc/prometheus:ro
+      - promdata:/prometheus
+    secrets: [metrics_token]
+    ports: ["127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"]
+    networks: [data, frontend, monitoring]
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits: { cpus: "0.5", memory: 768m }
+
+  alertmanager:
+    <<: *hardening
+    profiles: [monitoring]
+    image: prom/alertmanager:v0.28.1
+    command: [--config.file=/etc/alertmanager/alertmanager.yml, --storage.path=/alertmanager]
+    volumes:
+      - ./infra/alertmanager:/etc/alertmanager:ro
+      - alertdata:/alertmanager
+    secrets: [alert_webhook_url]
+    ports: ["127.0.0.1:${ALERTMANAGER_PORT:-9093}:9093"]
+    networks: [monitoring, egress]
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits: { cpus: "0.25", memory: 128m }
+
+  grafana:
+    <<: *hardening
+    profiles: [monitoring]
+    image: grafana/grafana:12.2.1
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_password
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_SECURITY_COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      GF_SECURITY_DISABLE_GRAVATAR: "true"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-http://localhost:3001}
+    secrets: [grafana_admin_password]
+    volumes:
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafanadata:/var/lib/grafana
+    tmpfs: ["/tmp:size=32m,mode=1777"]
+    ports: ["127.0.0.1:${GRAFANA_PORT:-3001}:3000"]
+    networks: [monitoring]
+    restart: unless-stopped
+    depends_on: [prometheus]
+    deploy:
+      resources:
+        limits: { cpus: "0.5", memory: 384m }
+
+  postgres-exporter:
+    <<: *hardening
+    profiles: [monitoring]
+    image: prometheuscommunity/postgres-exporter:v0.17.1
+    environment:
+      DATA_SOURCE_URI: postgres:5432/${POSTGRES_DB:-aipulse}?sslmode=disable
+      DATA_SOURCE_USER: metrics
+      DATA_SOURCE_PASS_FILE: /run/secrets/metrics_db_password
+    secrets: [metrics_db_password]
+    networks: [data]
+    restart: unless-stopped
+    depends_on:
+      postgres: { condition: service_healthy }
+    deploy:
+      resources:
+        limits: { cpus: "0.25", memory: 128m }
+
+  redis-exporter:
+    <<: *hardening
+    profiles: [monitoring]
+    image: oliver006/redis_exporter:v1.74.0
+    environment:
+      REDIS_ADDR: redis://redis:6379
+      # JSON map {"redis://redis:6379": "<password>"} written by scripts/generate-secrets.sh
+      REDIS_PASSWORD_FILE: /run/secrets/redis_exporter_passwords
+      REDIS_EXPORTER_CHECK_SINGLE_KEYS: ingestion
+    secrets: [redis_exporter_passwords]
+    networks: [data]
+    restart: unless-stopped
+    depends_on:
+      redis: { condition: service_healthy }
+    deploy:
+      resources:
+        limits: { cpus: "0.25", memory: 64m }
+
+  # ---------------------------------------------------------------- backups (optional)
+  backup:
+    <<: *hardening
+    profiles: [backup]
+    image: ${IMAGE_PREFIX:-ai-pulse}/postgres:${IMAGE_TAG:-local}
+    build: ./infra/postgres
+    user: postgres
+    entrypoint: ["/bin/bash", "/backup/backup-loop.sh"]
+    environment:
+      PGHOST: postgres
+      PGDATABASE: ${POSTGRES_DB:-aipulse}
+      PGUSER: postgres
+      PGPASSFILE_SOURCE: /run/secrets/postgres_password
+      BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-86400}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+    secrets: [postgres_password]
+    volumes:
+      - ./infra/backup:/backup:ro
+      # named volume by default; a host path also works if owned by UID 999 (postgres): chown 999:999 <dir>
+      - ${BACKUP_DIR:-pgbackups}:/backups
+    tmpfs: ["/tmp:size=16m"]
+    networks: [data]
+    restart: unless-stopped
+    healthcheck:
+      # healthy while the newest dump is younger than the backup interval + 1 hour
+      test: ["CMD", "/bin/bash", "/backup/healthcheck.sh"]
+      interval: 5m
+      timeout: 10s
+      start_period: 10m
+      retries: 1
+    depends_on:
+      postgres: { condition: service_healthy }
 
 volumes:
   pgdata:
   redisdata:
+  promdata:
+  grafanadata:
+  alertdata:
+  caddydata:
+  pgbackups:
+  caddyconfig:
 
 networks:
-  internal:
+  # PostgreSQL and Redis: no route to the internet, not reachable from the host.
+  data:
+    internal: true
+  # Outbound internet for ingestion connectors, LLM providers and alert webhooks.
+  egress:
+  # edge (Caddy) -> web / api, and web -> api for the same-origin rewrite.
+  frontend:
+    ipam:
+      config:
+        - subnet: ${FRONTEND_SUBNET:-172.30.10.0/24}
+  # Prometheus <-> Grafana / Alertmanager (Grafana is published on 127.0.0.1 only).
+  monitoring:
+
+secrets:
+  postgres_password: { file: ./secrets/postgres_password }
+  app_db_password: { file: ./secrets/app_db_password }
+  metrics_db_password: { file: ./secrets/metrics_db_password }
+  redis_password: { file: ./secrets/redis_password }
+  redis_exporter_passwords: { file: ./secrets/redis_exporter_passwords.json }
+  database_url: { file: ./secrets/database_url }
+  redis_url: { file: ./secrets/redis_url }
+  jwt_secret: { file: ./secrets/jwt_secret }
+  metrics_token: { file: ./secrets/metrics_token }
+  grafana_admin_password: { file: ./secrets/grafana_admin_password }
+  alert_webhook_url: { file: ./secrets/alert_webhook_url }
+  openai_api_key: { file: ./secrets/openai_api_key }
+  anthropic_api_key: { file: ./secrets/anthropic_api_key }
+  github_token: { file: ./secrets/github_token }
+  nvd_api_key: { file: ./secrets/nvd_api_key }

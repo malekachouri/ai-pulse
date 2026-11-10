@@ -64,6 +64,7 @@ class CollectionJobOut(ORMModel):
     attempt: int
     error: str | None
     errors: list[dict[str, Any]]
+    source: SourceRef | None = None
 
 
 class AuditFilters(ListParams, DateRangeMixin):

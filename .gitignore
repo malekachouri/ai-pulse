@@ -8,3 +8,7 @@ __pycache__/
 node_modules/
 .next/
 coverage/
+
+# Deployment secrets and database dumps
+secrets/
+backups/

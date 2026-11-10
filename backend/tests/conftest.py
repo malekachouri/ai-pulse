@@ -55,6 +55,7 @@ def settings() -> Settings:
         log_json=False,
         log_level="WARNING",
         expose_reset_token=False,
+        rate_limit_enabled=False,  # covered by tests/test_ops.py with an in-memory backend
     )
 
 

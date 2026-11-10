@@ -1,0 +1,36 @@
+# Production override: versioned images from the registry (no builds on the server), stricter restarts,
+# horizontal API scaling. Used by .github/workflows/deploy.yml and docs/DEPLOYMENT.md:
+#   IMAGE_PREFIX=ghcr.io/<owner>/ai-pulse IMAGE_TAG=<git sha> \
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile monitoring --profile edge --profile backup up -d
+x-prod: &prod
+  build: !reset null
+  pull_policy: missing
+  restart: always
+
+services:
+  postgres: { <<: *prod }
+  redis: { <<: *prod }
+  migrate:
+    <<: *prod
+    restart: "no"
+  api:
+    <<: *prod
+    environment:
+      ENVIRONMENT: production
+      COOKIE_SECURE: "true"
+      FORWARDED_ALLOW_IPS: ${EDGE_IP:-172.30.10.10}
+    deploy:
+      replicas: ${API_REPLICAS:-2}
+      resources:
+        limits: { cpus: "1.0", memory: 768m }
+        reservations: { memory: 256m }
+  worker:
+    <<: *prod
+    deploy:
+      replicas: ${WORKER_REPLICAS:-1}
+      resources:
+        limits: { cpus: "2.0", memory: 1536m }
+        reservations: { memory: 512m }
+  beat: { <<: *prod }
+  web: { <<: *prod }
+  backup: { <<: *prod }

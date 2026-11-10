@@ -30,9 +30,19 @@ function TooltipBox({ label, value, unit }: { label: string; value: number; unit
 }
 
 /** Single-series time series: 2px line, light fill, crosshair tooltip. */
-export function ActivityChart({ data, height = 220 }: { data: { day: string; count: number }[]; height?: number }) {
+export function ActivityChart({
+  data,
+  height = 220,
+  unit = "items",
+  label = "Items collected per day over the last 14 days",
+}: {
+  data: { day: string; count: number }[];
+  height?: number;
+  unit?: string;
+  label?: string;
+}) {
   return (
-    <div style={{ height }} role="img" aria-label="Items collected per day over the last 14 days">
+    <div style={{ height }} role="img" aria-label={label}>
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
           <defs>
@@ -48,7 +58,7 @@ export function ActivityChart({ data, height = 220 }: { data: { day: string; cou
             cursor={{ stroke: "var(--chart-axis)", strokeDasharray: "3 3" }}
             content={({ active, payload, label }) =>
               active && payload?.[0] ? (
-                <TooltipBox label={formatDay(String(label))} value={Number(payload[0].value)} unit="items" />
+                <TooltipBox label={formatDay(String(label))} value={Number(payload[0].value)} unit={unit} />
               ) : null
             }
           />

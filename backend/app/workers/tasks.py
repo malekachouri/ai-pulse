@@ -79,9 +79,12 @@ def dispatch_due_sources() -> int:
         async with factory() as s:
             return [str(src.id) for src in await due_sources(s, datetime.now(UTC))]
 
+    from app.workers.telemetry import mark_scheduler_dispatch
+
     ids = _run(body)
     for sid in ids:
         ingest_source.delay(sid, "schedule")
+    mark_scheduler_dispatch()  # lets Prometheus alert when Beat stops dispatching
     return len(ids)
 
 
