@@ -8,5 +8,7 @@ COPY --chown=postgres:postgres postgresql.conf /etc/postgresql/postgresql.conf
 COPY --chown=postgres:postgres initdb/ /docker-entrypoint-initdb.d/
 HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=10 \
   CMD pg_isready -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-postgres}" -h 127.0.0.1 || exit 1
+# Target directory of the optional backup service (named volume inherits this ownership).
+RUN mkdir -p /backups && chown postgres:postgres /backups && chmod 700 /backups
 USER postgres
 CMD ["postgres", "-c", "config_file=/etc/postgresql/postgresql.conf"]

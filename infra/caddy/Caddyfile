@@ -1,11 +1,8 @@
-# Edge proxy with automatic HTTPS (Let's Encrypt). Set DOMAIN (and optionally ACME_EMAIL) in .env.
-{
-	email {$ACME_EMAIL}
-	servers {
-		trusted_proxies static private_ranges
-	}
-}
-
+# Edge proxy with automatic HTTPS (Let's Encrypt / ZeroSSL; for "localhost" Caddy uses its local CA). Set DOMAIN in .env.
+#
+# Caddy is the only component that sees the client's TCP connection, so it sets X-Forwarded-For to the
+# real client IP (an X-Forwarded-For sent by the client is ignored because no proxy in front of Caddy is
+# trusted). If you run Caddy behind a cloud load balancer, add its address range to trusted_proxies.
 {$DOMAIN} {
 	encode zstd gzip
 	header {
@@ -19,6 +16,13 @@
 	# Internal endpoints are never exposed publicly.
 	@internal path /metrics /metrics/*
 	respond @internal 404
+
+	# API calls go straight to FastAPI (one hop, real client IP for rate limiting and audit logs).
+	@api path /api/*
+	reverse_proxy @api api:8000 {
+		health_uri /health/live
+		health_interval 15s
+	}
 	reverse_proxy web:3000 {
 		health_uri /login
 		health_interval 30s

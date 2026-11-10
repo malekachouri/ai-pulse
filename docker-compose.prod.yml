@@ -18,7 +18,7 @@ services:
     environment:
       ENVIRONMENT: production
       COOKIE_SECURE: "true"
-      FORWARDED_ALLOW_IPS: ${FRONTEND_SUBNET:-172.30.10.0/24}
+      FORWARDED_ALLOW_IPS: ${EDGE_IP:-172.30.10.10}
     deploy:
       replicas: ${API_REPLICAS:-2}
       resources:

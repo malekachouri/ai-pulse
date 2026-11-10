@@ -99,8 +99,10 @@ services:
     <<: *backend
     environment:
       <<: *backend-env
-      # uvicorn trusts X-Forwarded-For only from the web/edge network (real client IPs for rate limiting)
-      FORWARDED_ALLOW_IPS: ${FRONTEND_SUBNET:-172.30.10.0/24}
+      # X-Forwarded-For is trusted ONLY from the Caddy edge (fixed IP), which sets it to the real client IP.
+      # Requests that reach the API through the web container's rewrite (no edge) are keyed by that
+      # container's IP: fine for local use, which is why production always runs the edge profile.
+      FORWARDED_ALLOW_IPS: ${EDGE_IP:-172.30.10.10}
     networks: [data, egress, frontend]
     depends_on:
       migrate: { condition: service_completed_successfully }
@@ -166,16 +168,18 @@ services:
     read_only: false # Caddy stores certificates in /data
     environment:
       DOMAIN: ${DOMAIN:?set DOMAIN in .env for the edge profile}
-      ACME_EMAIL: ${ACME_EMAIL:-}
     volumes:
       - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddydata:/data
       - caddyconfig:/config
     ports: ["80:80", "443:443", "443:443/udp"]
-    networks: [frontend]
+    networks:
+      frontend:
+        ipv4_address: ${EDGE_IP:-172.30.10.10}
     restart: unless-stopped
     depends_on:
       web: { condition: service_healthy }
+      api: { condition: service_healthy }
 
   # ---------------------------------------------------------------- monitoring (optional)
   prometheus:
@@ -294,7 +298,8 @@ services:
     secrets: [postgres_password]
     volumes:
       - ./infra/backup:/backup:ro
-      - ${BACKUP_DIR:-./backups}:/backups
+      # named volume by default; a host path also works if owned by UID 999 (postgres): chown 999:999 <dir>
+      - ${BACKUP_DIR:-pgbackups}:/backups
     tmpfs: ["/tmp:size=16m"]
     networks: [data]
     restart: unless-stopped
@@ -315,6 +320,7 @@ volumes:
   grafanadata:
   alertdata:
   caddydata:
+  pgbackups:
   caddyconfig:
 
 networks:
@@ -323,7 +329,7 @@ networks:
     internal: true
   # Outbound internet for ingestion connectors, LLM providers and alert webhooks.
   egress:
-  # web <-> api (and the optional Caddy edge); its subnet is the only one api trusts for X-Forwarded-For.
+  # edge (Caddy) -> web / api, and web -> api for the same-origin rewrite.
   frontend:
     ipam:
       config:
