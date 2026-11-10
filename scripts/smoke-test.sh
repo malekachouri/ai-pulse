@@ -11,7 +11,7 @@ COMPOSE=(docker compose "${COMPOSE_EXTRA[@]}")
 EMAIL="smoke-$(date +%s)-$RANDOM@example.com"
 PASS="Smoke-test-Passw0rd!"
 JAR="$(mktemp)"
-trap 'rm -f "$JAR"' EXIT
+trap 'rm -f "$JAR" "$JAR.h"' EXIT
 fail() { echo "FAIL: $*" >&2; exit 1; }
 # Extra curl options, e.g. SMOKE_CURL_OPTS=--insecure for Caddy's local CA on https://localhost
 read -r -a CURL_EXTRA <<< "${SMOKE_CURL_OPTS:-}"
@@ -19,6 +19,24 @@ curl() { command curl "${CURL_EXTRA[@]}" "$@"; }
 ok() { echo "ok   $*"; }
 
 code() { curl -s -o /dev/null -w '%{http_code}' "$@"; }
+
+# POST JSON to an auth endpoint and print "<body>\n<status>". The smoke test itself exhausts the auth rate
+# limit (see the 429 check below), so a second run within the same minute waits for Retry-After instead of
+# failing: at most 3 waits of at most 65 s each.
+auth_post() {  # auth_post <path> <json> [extra curl args...]
+  local path="$1" data="$2" out status wait tries=0
+  shift 2
+  while :; do
+    out="$(curl -s -D "$JAR.h" -w '\n%{http_code}' -H 'content-type: application/json' -d "$data" "$@" "$BASE$path")"
+    status="${out##*$'\n'}"
+    if [[ "$status" != 429 || $tries -ge 3 ]]; then printf '%s' "$out"; return; fi
+    wait="$(awk 'tolower($1)=="retry-after:"{print $2+0}' "$JAR.h" | tr -d '\r')"
+    wait="${wait:-5}"; ((wait > 65)) && wait=65
+    tries=$((tries + 1))
+    echo "wait auth rate limit window: ${wait}s" >&2
+    sleep "$((wait + 1))"
+  done
+}
 
 [[ "$(code "$BASE/login")" == 200 ]] || fail "web /login"
 ok "web serves /login"
@@ -30,12 +48,10 @@ grep -qi '^x-content-type-options: nosniff' <<<"$hdrs" || fail "missing nosniff 
 grep -qi '^cache-control: no-store' <<<"$hdrs" || fail "API responses must not be cached"
 ok "security headers"
 
-r="$(curl -s -w '\n%{http_code}' -H 'content-type: application/json' \
-  -d "{\"email\":\"$EMAIL\",\"password\":\"$PASS\"}" "$BASE/api/v1/auth/register")"
+r="$(auth_post /api/v1/auth/register "{\"email\":\"$EMAIL\",\"password\":\"$PASS\"}")"
 [[ "${r##*$'\n'}" == 201 ]] || fail "register: $r"
 ok "register"
-r="$(curl -s -c "$JAR" -w '\n%{http_code}' -H 'content-type: application/json' \
-  -d "{\"email\":\"$EMAIL\",\"password\":\"$PASS\"}" "$BASE/api/v1/auth/login")"
+r="$(auth_post /api/v1/auth/login "{\"email\":\"$EMAIL\",\"password\":\"$PASS\"}" -c "$JAR")"
 [[ "${r##*$'\n'}" == 200 ]] || fail "login: $r"
 token="$(sed -n '1p' <<<"$r" | python3 -c 'import json,sys; print(json.load(sys.stdin)["access_token"])')"
 grep -q aipulse_refresh "$JAR" || fail "refresh cookie not set"
