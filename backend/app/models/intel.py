@@ -41,7 +41,7 @@ class AIModel(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     is_open_weights: Mapped[bool | None] = mapped_column(Boolean)
     homepage_url: Mapped[str | None] = mapped_column(String(2048))
 
-    releases: Mapped[list["AIModelRelease"]] = relationship(
+    releases: Mapped[list[AIModelRelease]] = relationship(
         back_populates="model", cascade="all, delete-orphan"
     )
 
@@ -77,7 +77,7 @@ class AITool(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     license: Mapped[str | None] = mapped_column(String(100))
     article_id: Mapped[uuid.UUID | None] = _article_fk(unique=False)
 
-    repository: Mapped["GitHubRepository | None"] = relationship(lazy="joined")
+    repository: Mapped[GitHubRepository | None] = relationship(lazy="joined")
 
 
 class ResearchPaper(Base, UUIDPrimaryKeyMixin, TimestampMixin):
@@ -162,8 +162,8 @@ class SoftwareBug(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     fix_merged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
-    github_issue: Mapped["GitHubIssue | None"] = relationship(lazy="joined")
-    article: Mapped["Article | None"] = relationship(lazy="joined")  # noqa: F821 - resolved by registry
+    github_issue: Mapped[GitHubIssue | None] = relationship(lazy="joined")
+    article: Mapped[Article | None] = relationship(lazy="joined")  # noqa: F821 - resolved by registry
 
 
 class SecurityVulnerability(Base, UUIDPrimaryKeyMixin, TimestampMixin):

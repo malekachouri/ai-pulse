@@ -51,7 +51,7 @@ def retry_after_seconds(value: str | None, now: datetime | None = None) -> float
         return float(value)
     try:
         when = parsedate_to_datetime(value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None
     now = now or datetime.now(UTC)
     return max(0.0, (when - now).total_seconds())

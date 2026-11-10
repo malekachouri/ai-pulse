@@ -105,7 +105,7 @@ class Settings(BaseSettings):
         return None if isinstance(v, str) and not v.strip() else v
 
     @model_validator(mode="after")
-    def _check_rate_limits(self) -> "Settings":
+    def _check_rate_limits(self) -> Settings:
         from app.core.ratelimit import Limit
 
         for name in ("global", "auth", "search", "ai"):
@@ -113,7 +113,7 @@ class Settings(BaseSettings):
         return self
 
     @model_validator(mode="after")
-    def _check_production_secrets(self) -> "Settings":
+    def _check_production_secrets(self) -> Settings:
         if self.environment == "production":
             secret = self.jwt_secret.get_secret_value()
             if secret == _DEV_SECRET or len(secret) < 32:
