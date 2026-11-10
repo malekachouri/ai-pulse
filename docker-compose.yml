@@ -267,7 +267,7 @@ services:
   redis-exporter:
     <<: *hardening
     profiles: [monitoring]
-    image: oliver006/redis_exporter:v1.74.0
+    image: oliver006/redis_exporter:v1.97.0
     environment:
       REDIS_ADDR: redis://redis:6379
       # JSON map {"redis://redis:6379": "<password>"} written by scripts/generate-secrets.sh
