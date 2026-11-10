@@ -187,7 +187,7 @@ services:
   prometheus:
     <<: *hardening
     profiles: [monitoring]
-    image: prom/prometheus:v3.5.0
+    image: prom/prometheus:v3.16.0
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
