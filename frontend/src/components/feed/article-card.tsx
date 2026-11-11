@@ -36,7 +36,7 @@ export function ArticleCard({ article, showType = true }: { article: Article; sh
       aria-label={article.title}
     >
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-xs text-muted-foreground">
-        {!article.is_read && authed && <span className="size-2 rounded-full bg-primary" aria-label="Unread" />}
+        {!article.is_read && authed && <span className="size-2 rounded-full bg-primary" role="img" aria-label="Unread" />}
         <span className="font-medium text-foreground/90">{article.source.name}</span>
         <VerificationBadge status={article.verification_status} />
         <span aria-hidden>·</span>
@@ -55,7 +55,7 @@ export function ArticleCard({ article, showType = true }: { article: Article; sh
         </Tooltip>
       </div>
 
-      <h3 className="mt-2 text-[15px] font-semibold leading-snug sm:text-base">
+      <h2 className="mt-2 text-[15px] font-semibold leading-snug sm:text-base">
         {href ? (
           <a
             href={href}
@@ -69,7 +69,7 @@ export function ArticleCard({ article, showType = true }: { article: Article; sh
         ) : (
           article.title
         )}
-      </h3>
+      </h2>
 
       {article.description && (
         <p className="mt-1.5 line-clamp-3 text-sm leading-relaxed text-muted-foreground">{article.description}</p>

@@ -84,18 +84,35 @@ class Settings(BaseSettings):
     ai_daily_token_budget: int | None = None  # stop LLM analysis for the day once reached (None = unlimited)
 
     # Ingestion
+    # Collectors refuse internal destinations (metadata service, localhost, private networks, service names)
+    ingestion_allow_private_hosts: bool = False
     ingestion_max_attempts: int = 3  # job-level attempts (each HTTP request also retries with backoff)
     ingestion_dispatch_seconds: int = 60  # how often the scheduler looks for due sources
     # Scheduling of personal briefings and alert evaluation (Celery Beat)
     briefing_dispatch_seconds: int = Field(300, ge=60, le=3600)  # how often due briefings are looked up
     briefing_max_retries: int = Field(3, ge=0, le=10)  # per-user generation retries (exponential backoff)
     alerts_interval_seconds: int = Field(300, ge=60, le=3600)
+    # Outbound email (password reset). Without SMTP_HOST, emails are logged as "not sent" (redacted).
+    smtp_host: str | None = None
+    smtp_port: int = Field(587, ge=1, le=65535)
+    smtp_security: Literal["starttls", "ssl", "none"] = "starttls"
+    smtp_username: str | None = None
+    smtp_password: SecretStr | None = None  # secret file
+    smtp_from: str | None = None  # e.g. "AI Pulse <no-reply@pulse.example.com>"
+    public_url: str | None = None  # e.g. https://pulse.example.com - used for links in emails
     # Ingestion credentials (optional; connectors degrade gracefully without them)
     github_token: SecretStr | None = None
     nvd_api_key: SecretStr | None = None
 
     @field_validator(
-        "openai_api_key", "anthropic_api_key", "github_token", "nvd_api_key", "metrics_token", mode="before"
+        "openai_api_key",
+        "anthropic_api_key",
+        "github_token",
+        "nvd_api_key",
+        "metrics_token",
+        "smtp_password",
+        "smtp_host",
+        mode="before",
     )
     @classmethod
     def _blank_secret_is_unset(cls, v: object) -> object:

@@ -67,7 +67,7 @@ async def _ingest(slug: str) -> int:
         print(f"Unknown source '{slug}'")
         await engine.dispose()
         return 2
-    http = HttpClient()
+    http = HttpClient(block_private=not settings.ingestion_allow_private_hosts)
     try:
         job = await run_source(factory, src.id, settings, http, trigger="manual")
     finally:

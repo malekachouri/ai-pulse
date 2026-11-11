@@ -153,12 +153,14 @@ class AuthService:
                 expires_at=now + timedelta(minutes=self.settings.password_reset_ttl_minutes),
             )
         )
-        await self.email.send(
-            user.email,
-            "Reset your AI Pulse password",
-            f"Use this token to reset your password within {self.settings.password_reset_ttl_minutes} "
-            f"minutes: {raw}",
-        )
+        ttl = self.settings.password_reset_ttl_minutes
+        if self.settings.public_url:
+            link = f"{self.settings.public_url.rstrip('/')}/reset-password?token={raw}"
+            body = f"Open this link within {ttl} minutes to choose a new password:\n\n{link}\n"
+        else:
+            body = f"Use this token to reset your password within {ttl} minutes: {raw}\n"
+        body += "\nIf you did not ask for a password reset, ignore this email: your password is unchanged.\n"
+        await self.email.send(user.email, "Reset your AI Pulse password", body)
         return raw
 
     async def reset_password(self, raw_token: str, new_password: str) -> None:

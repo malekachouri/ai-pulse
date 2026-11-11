@@ -93,7 +93,9 @@ function Jobs() {
                       <Th className="text-right">Duration</Th>
                       <Th className="text-right">Fetched / new / updated</Th>
                       <Th>Error</Th>
-                      <Th />
+                      <Th>
+                    <span className="sr-only">Actions</span>
+                  </Th>
                     </tr>
                   </thead>
                   <tbody>

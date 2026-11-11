@@ -61,7 +61,7 @@ function LastRun({ s }: { s: SourceStatus }) {
   if (!j) return <span className="text-muted-foreground">—</span>;
   return (
     <div className="text-xs">
-      <span className={cn("font-medium", j.status === "failed" && "text-sev-critical", j.status === "partial" && "text-amber-600 dark:text-amber-300")}>
+      <span className={cn("font-medium", j.status === "failed" && "text-sev-critical", j.status === "partial" && "text-amber-700 dark:text-amber-300")}>
         {j.status}
       </span>{" "}
       <span className="text-muted-foreground">{timeAgo(j.started_at)}</span>
@@ -86,19 +86,32 @@ export default function IngestionPage() {
   );
   const isAdmin = user?.role === "admin";
 
-  if (status === "loading") return <ListSkeleton rows={3} />;
-  if (status === "anonymous") return <SignInRequired what="ingestion dashboard" />;
-  if (!staff)
-    return <EmptyState icon={ShieldAlert} title="Admins and analysts only" description="Ask an administrator for access." />;
+  const header = (
+    <PageHeader
+      title="Ingestion"
+      description="Health of every data source, recent runs and failures. Refreshes every 30 seconds."
+      icon={DatabaseZap}
+    />
+  );
+  // The page heading is rendered in every state (screen-reader users land on an h1, not a bare message).
+  if (status === "loading" || status === "anonymous" || !staff)
+    return (
+      <>
+        {header}
+        {status === "loading" ? (
+          <ListSkeleton rows={3} />
+        ) : status === "anonymous" ? (
+          <SignInRequired what="ingestion dashboard" description="Administration pages are for admins and analysts." />
+        ) : (
+          <EmptyState icon={ShieldAlert} title="Admins and analysts only" description="Ask an administrator for access." />
+        )}
+      </>
+    );
 
   const d = q.data;
   return (
     <>
-      <PageHeader
-        title="Ingestion"
-        description="Health of every data source, recent runs and failures. Refreshes every 30 seconds."
-        icon={DatabaseZap}
-      />
+      {header}
       {q.isLoading ? (
         <ListSkeleton rows={4} />
       ) : q.isError ? (
@@ -183,7 +196,9 @@ export default function IngestionPage() {
                         <th className="py-2 text-right font-medium">Items 24h / total</th>
                         <th className="py-2 pl-4 font-medium">Every</th>
                         <th className="py-2 font-medium">On</th>
-                        <th className="py-2" />
+                        <th className="py-2">
+                          <span className="sr-only">Actions</span>
+                        </th>
                       </tr>
                     </thead>
                     <tbody>

@@ -49,7 +49,8 @@ export function AdminNav() {
 export function StaffGate({ adminOnly, what, children }: { adminOnly?: boolean; what: string; children: React.ReactNode }) {
   const { user, status } = useAuth();
   if (status === "loading") return <ListSkeleton rows={3} />;
-  if (status !== "authenticated" || !user) return <SignInRequired what={what} />;
+  if (status !== "authenticated" || !user)
+    return <SignInRequired what={what} description="Administration pages are for admins and analysts." />;
   const allowed = adminOnly ? user.role === "admin" : user.role === "admin" || user.role === "analyst";
   if (!allowed)
     return (
@@ -69,7 +70,7 @@ export function useIsStaff() {
 
 const TONE: Record<HealthStatus, string> = {
   ok: "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
-  degraded: "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+  degraded: "border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-300",
   down: "border-sev-critical/40 bg-sev-critical/10 text-sev-critical",
 };
 

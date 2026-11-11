@@ -219,7 +219,9 @@ function Sources() {
                   <Th>Last success</Th>
                   <Th>Failures</Th>
                   <Th>Enabled</Th>
-                  <Th />
+                  <Th>
+                    <span className="sr-only">Actions</span>
+                  </Th>
                 </tr>
               </thead>
               <tbody>

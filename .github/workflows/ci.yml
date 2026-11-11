@@ -135,13 +135,17 @@ jobs:
           done
       - name: Prometheus config and alert rule unit tests
         run: |
+          # Validate with exactly the versions docker-compose.yml deploys (Dependabot updates only that file).
+          prom="$(grep -oE 'prom/prometheus:[^[:space:]]+' docker-compose.yml | head -1)"
+          am="$(grep -oE 'prom/alertmanager:[^[:space:]]+' docker-compose.yml | head -1)"
+          echo "using $prom and $am"
           echo -n ci-token > /tmp/metrics_token
           docker run --rm -v "$PWD/infra/prometheus:/etc/prometheus:ro" -v /tmp/metrics_token:/run/secrets/metrics_token:ro \
-            --entrypoint promtool prom/prometheus:v3.5.0 check config /etc/prometheus/prometheus.yml
+            --entrypoint promtool "$prom" check config /etc/prometheus/prometheus.yml
           docker run --rm -v "$PWD/infra/prometheus:/etc/prometheus:ro" \
-            --entrypoint promtool prom/prometheus:v3.5.0 test rules /etc/prometheus/alerts_test.yml
+            --entrypoint promtool "$prom" test rules /etc/prometheus/alerts_test.yml
           docker run --rm -v "$PWD/infra/alertmanager:/etc/alertmanager:ro" \
-            --entrypoint amtool prom/alertmanager:v0.28.1 check-config /etc/alertmanager/alertmanager.yml
+            --entrypoint amtool "$am" check-config /etc/alertmanager/alertmanager.yml
       - name: Lint shell scripts and workflows (shellcheck, actionlint)
         run: |
           pip install actionlint-py==1.7.12.25

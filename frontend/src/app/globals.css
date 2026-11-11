@@ -18,6 +18,8 @@
   --popover-foreground: #0f172a;
   --primary: #2563eb;
   --primary-foreground: #ffffff;
+  /* solid fills behind white text (buttons): >= 4.5:1 against --primary-foreground in both themes */
+  --primary-solid: #2563eb;
   --secondary: #eef1f7;
   --secondary-foreground: #1e293b;
   --muted: #eef1f7;
@@ -42,7 +44,7 @@
   --chart-axis: #64748b;
 
   /* status (reserved; always paired with a text label) */
-  --sev-critical: #d03b3b;
+  --sev-critical: #b91c1c; /* 5.4:1 on its own 10% tint (badges); #d03b3b was 4.1:1 */
   --sev-high: #ec835a;
   --sev-medium: #fab219;
   --sev-low: #0ca30c;
@@ -56,8 +58,9 @@
   --card-foreground: #e6eaf3;
   --popover: #121c32;
   --popover-foreground: #e6eaf3;
-  --primary: #3b82f6;
+  --primary: #3b82f6; /* text/accents on navy: 5.1:1 */
   --primary-foreground: #ffffff;
+  --primary-solid: #2563eb; /* white on it: 5.2:1 (#3b82f6 would be 3.7:1) */
   --secondary: #1a2540;
   --secondary-foreground: #dbe2f0;
   --muted: #17213a;
@@ -80,6 +83,9 @@
   --chart-series: #3987e5;
   --chart-grid: #1c2742;
   --chart-axis: #8391ad;
+  /* severity text on navy needs lighter tones for 4.5:1 (the light-theme values are ~3.6:1 here) */
+  --sev-critical: #ef5350;
+  --sev-info: #94a3b8;
 }
 
 @theme inline {
@@ -91,6 +97,7 @@
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-primary-solid: var(--primary-solid);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);

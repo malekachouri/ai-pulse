@@ -16,8 +16,9 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
   return <div className={cn("flex items-start justify-between gap-3 px-5 pt-5", className)} {...props} />;
 }
 
-function CardTitle({ className, ...props }: React.ComponentProps<"h3">) {
-  return <h3 className={cn("text-sm font-semibold leading-none tracking-tight", className)} {...props} />;
+// h2: cards are the top-level sections under a page's h1 (heading levels must not skip).
+function CardTitle({ className, ...props }: React.ComponentProps<"h2">) {
+  return <h2 className={cn("text-sm font-semibold leading-none tracking-tight", className)} {...props} />;
 }
 
 function CardDescription({ className, ...props }: React.ComponentProps<"p">) {

@@ -40,7 +40,7 @@ printf 'redis://:%s@redis:6379/0' "$redis_pw" > "$DIR/redis_url"
 printf '{"redis://redis:6379": "%s"}' "$redis_pw" > "$DIR/redis_exporter_passwords.json"
 
 # Optional: empty means "not configured".
-for f in openai_api_key anthropic_api_key github_token nvd_api_key; do
+for f in openai_api_key anthropic_api_key github_token nvd_api_key smtp_password; do
   [[ -e "$DIR/$f" ]] || { : > "$DIR/$f"; echo "  created empty $DIR/$f (optional)"; }
 done
 [[ -e "$DIR/alert_webhook_url" ]] || {

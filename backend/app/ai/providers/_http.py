@@ -17,8 +17,9 @@ async def post_json(
         resp = await http.post(url, json=payload, headers=headers, rate_limit=_LIMIT)
     except FetchError as exc:
         retryable = exc.status is None or exc.status == 429 or exc.status >= 500
+        detail = f" - {exc.body}" if exc.body else ""  # e.g. "model not found"; keys are never echoed
         raise ProviderError(
-            f"{provider} request failed: {exc}", retryable=retryable, status=exc.status
+            f"{provider} request failed: {exc}{detail}", retryable=retryable, status=exc.status
         ) from exc
     try:
         data = resp.json()

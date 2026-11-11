@@ -1,3 +1,5 @@
+import re
+
 import pytest
 
 from tests.conftest import PASSWORD, register_and_login
@@ -129,7 +131,7 @@ async def test_password_reset_flow(client, email_sender):
     await register_and_login(client, "flow@example.com")
     old_refresh = client.cookies.get("aipulse_refresh")
     await client.post(f"{AUTH}/password-reset/request", json={"email": "flow@example.com"})
-    raw = email_sender.sent[-1][2].rsplit(" ", 1)[-1]
+    raw = re.search(r"minutes: (\S+)", email_sender.sent[-1][2]).group(1)
 
     r = await client.post(
         f"{AUTH}/password-reset/confirm", json={"token": raw, "new_password": "Brand-new-Pass9"}

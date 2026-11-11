@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Request, Response, status
+from fastapi import APIRouter, BackgroundTasks, Request, Response, status
 
 from app.api.deps import CurrentUser, EmailDep, SessionDep, SettingsDep
 from app.core.config import Settings
@@ -19,6 +19,7 @@ from app.schemas.auth import (
 )
 from app.schemas.common import ErrorResponse
 from app.services.auth import AuthService, IssuedTokens
+from app.services.email import DeferredEmailSender
 
 router = APIRouter(prefix="/auth", tags=["auth"], responses={401: {"model": ErrorResponse}})
 
@@ -135,9 +136,16 @@ async def change_password(
     "/password-reset/request", dependencies=[limiter("auth")], response_model=PasswordResetRequestResponse
 )
 async def request_reset(
-    body: PasswordResetRequest, session: SessionDep, settings: SettingsDep, email: EmailDep
+    body: PasswordResetRequest,
+    session: SessionDep,
+    settings: SettingsDep,
+    email: EmailDep,
+    background: BackgroundTasks,
 ) -> PasswordResetRequestResponse:
-    raw = await AuthService(session, settings, email).request_password_reset(body.email)
+    # Delivered after the response: same latency and same answer whether or not the account exists.
+    outbox = DeferredEmailSender(email)
+    raw = await AuthService(session, settings, outbox).request_password_reset(body.email)
+    background.add_task(outbox.flush)
     return PasswordResetRequestResponse(
         message="If an account exists for this email, a reset link has been sent.",
         reset_token=raw if settings.expose_reset_token else None,

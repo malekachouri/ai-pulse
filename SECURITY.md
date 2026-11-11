@@ -24,7 +24,10 @@ issues within 14 days. We credit reporters who wish to be credited.
 ### Authentication and sessions
 - Passwords: Argon2id (parameters upgraded transparently on login), at least 12 characters and 3 character classes.
 - Unknown e-mail addresses take the same time as wrong passwords (dummy hash). Password-reset requests
-  get the same response whether or not the account exists.
+  get the same response whether or not the account exists; the email is sent after the response
+  (background task), so neither latency nor an SMTP failure reveals the account.
+- Reset tokens: random, single-use, stored as a SHA-256 hash, valid 30 minutes; emailed over SMTP
+  (`SMTP_*` settings). Without SMTP nothing is sent and the console backend never logs the token.
 - Access token: HS256 JWT, 15 minutes, sent as `Authorization: Bearer`, kept in memory by the web app (never in `localStorage`).
 - Refresh token:
   - 384-bit random value, stored only as a SHA-256 hash;
@@ -40,8 +43,15 @@ what a role cannot do, but the API enforces it.
 - Only admins manage users, roles, sources and read the audit log.
 
 ### Input validation and output
-- Every body and query string is a Pydantic model. Unknown query parameters are rejected (422), sizes
-  are bounded, URLs are validated, and sort fields are whitelisted.
+- Every body and query string is a Pydantic model. Unknown query parameters are rejected (422) on every
+  route by a router-level check against the OpenAPI schema, sizes are bounded, URLs are validated, and
+  sort fields are whitelisted.
+- Outbound requests from collectors (source URLs are admin-configured, and what they fetch is
+  published) refuse internal destinations on every request and redirect: cloud metadata,
+  loopback, private and link-local ranges, `localhost`/`*.internal`/single-label names such as
+  `postgres`, and - without an outbound proxy - names that resolve to such addresses
+  (`app/ingestion/netguard.py`). The admin API rejects such URLs up front.
+  `INGESTION_ALLOW_PRIVATE_HOSTS=true` lifts this for intranet-only deployments.
 - SQL goes through SQLAlchemy with bound parameters. The few raw statements use bind parameters only.
 - Errors use one envelope and never leak stack traces (unhandled errors are logged server-side with
   the request path).
@@ -71,6 +81,10 @@ that a cache outage does not take the whole service down.
   - `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy`;
   - `Cache-Control: no-store` on API responses;
   - HSTS in production.
+- The web app sends a Content-Security-Policy on every page: `default-src 'self'`, no third-party
+  scripts, `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, `frame-ancestors 'none'`.
+  `script-src` allows `'unsafe-inline'` because Next.js bootstraps pages with inline scripts (no
+  per-request nonces); `img-src` allows any HTTPS host (avatars, source images).
 - CORS is an explicit allow-list (the web app calls the API same-origin anyway). Production refuses
   `*` and plain-http origins.
 - `/metrics` requires a bearer token and the edge never routes it. Grafana and Prometheus listen on `127.0.0.1` only.

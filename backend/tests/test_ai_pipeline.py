@@ -404,3 +404,53 @@ async def test_due_briefings_respect_timezone_and_frequency(session_factory):
         due = await due_briefings(s, now)
         ids = [d.user_id for d in due]
         assert users[0] in ids and users[1] not in ids and users[2] not in ids and None in ids
+
+
+async def test_kev_item_scored_with_linked_cvss_severity(session_factory, corpus):
+    """A KEV entry carries no CVSS; the score uses the linked CVE record's official severity, with its basis."""
+    async with session_factory() as s:
+        src_id = (await s.get(Article, corpus["old"])).source_id
+        cats = {c.slug: c for c in await s.scalars(select(Category))}
+        kev = Article(source_id=src_id, external_id="CVE-2026-55555", item_type=ItemType.VULNERABILITY,
+                      title="CVE-2026-55555 added to CISA KEV", url="https://t.test/kev",
+                      published_at=NOW - timedelta(hours=2), collected_at=NOW - timedelta(hours=2),
+                      content_hash="k" * 64, verification_status=VerificationStatus.OFFICIAL,
+                      categories=[cats["cybersecurity"]])  # fmt: skip
+        s.add(kev)
+        await s.flush()
+        s.add(SecurityVulnerability(cve_id="CVE-2026-55555", severity=Severity.CRITICAL, cvss_score=9.8,
+                                    cvss_version="3.1", known_exploited=True, article_id=kev.id))  # fmt: skip
+        await s.commit()
+        await AnalysisPipeline(s, providers()).run()
+        await s.commit()
+        imp = await s.scalar(select(AIAnalysis).where(AIAnalysis.article_id == kev.id,
+                                                      AIAnalysis.kind == AnalysisKind.IMPORTANCE))  # fmt: skip
+    sev = next(f for f in imp.output["factors"] if f["name"] == "severity")
+    assert sev["value"] == 1.0 and "9.8" in sev["reason"] and "CVE-2026-55555" in sev["reason"]
+
+
+@pytest.mark.parametrize(
+    ("question", "types", "severities", "terms"),
+    [
+        ("What critical Kubernetes vulnerabilities were published this week?",
+         [ItemType.VULNERABILITY], [Severity.CRITICAL], ["kubernetes"]),
+        ("Which AI models were released recently?", [ItemType.MODEL_RELEASE, ItemType.NEWS], [], []),
+        ("Were there any GitHub outages today?", [ItemType.INCIDENT], [], ["github"]),
+        ("Any high-severity bugs in vLLM?", [ItemType.BUG, ItemType.GITHUB_ISSUE],
+         [Severity.CRITICAL, Severity.HIGH], ["vllm"]),
+    ],
+)  # fmt: skip
+def test_question_interpretation(question, types, severities, terms):
+    from app.ai.rag import interpret
+
+    plan = interpret(question, NOW)
+    assert (plan.item_types, plan.severities, plan.terms) == (types, severities, terms)
+
+
+async def test_rag_two_term_question_needs_both_terms(session_factory, corpus):
+    """Items that only share one of two terms ("capital", not "France") are not enough to answer."""
+    async with session_factory() as s:
+        r = await RagService(s, providers(chat=ScriptedChat([]))).ask(
+            "What is the RAG capital of France?", ArticleFilters(), None
+        )
+    assert r.insufficient and r.answer is None

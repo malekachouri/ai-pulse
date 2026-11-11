@@ -163,7 +163,7 @@ function BriefingView({ b }: { b: Briefing }) {
               ) : (
                 <>
                   No interests selected —{" "}
-                  <Link href="/settings#preferences" className="text-primary hover:underline">
+                  <Link href="/settings#preferences" className="text-primary underline underline-offset-2">
                     choose some
                   </Link>{" "}
                   to personalise the ranking
@@ -217,7 +217,7 @@ function BriefingContent() {
               <>
                 Briefings are generated on your schedule from collected items. Choose your interests, frequency, delivery time and
                 timezone in{" "}
-                <Link href="/settings#preferences" className="text-primary hover:underline">
+                <Link href="/settings#preferences" className="text-primary underline underline-offset-2">
                   Settings
                 </Link>
                 , or use Generate now.

@@ -67,12 +67,12 @@ export function ErrorState({
   );
 }
 
-export function SignInRequired({ what }: { what: string }) {
+export function SignInRequired({ what, description }: { what: string; description?: string }) {
   return (
     <EmptyState
       icon={Lock}
       title={`Sign in to see your ${what}`}
-      description="Your bookmarks, preferences and notifications are private to your account."
+      description={description ?? "Your bookmarks, preferences and notifications are private to your account."}
       action={
         <div className="flex gap-2">
           <Button asChild variant="brand" size="sm">

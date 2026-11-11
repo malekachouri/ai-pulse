@@ -11,7 +11,7 @@ import { NOTIFICATION_GROUPS, NotificationRow } from "@/components/notifications
 import { EmptyState, ErrorState, ListSkeleton, SignInRequired } from "@/components/states/states";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/lib/auth";
 import { useNotificationAction, useNotificationList, useUnreadCount } from "@/lib/queries";
 import type { NotificationKind } from "@/lib/types";
@@ -60,7 +60,8 @@ function Center() {
             );
           })}
         </TabsList>
-      </Tabs>
+        {/* The list is the active tab's panel, so each tab's aria-controls points at a real element. */}
+        <TabsContent value={group.key}>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <label className="flex cursor-pointer items-center gap-2 text-sm">
           <Checkbox checked={unreadOnly} onCheckedChange={(c) => update({ unread: c ? "1" : null, page: null })} />
@@ -108,6 +109,8 @@ function Center() {
           />
         </>
       )}
+        </TabsContent>
+      </Tabs>
     </>
   );
 }
