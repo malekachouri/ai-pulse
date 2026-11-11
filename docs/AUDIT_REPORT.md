@@ -168,12 +168,14 @@ These were not verified here, or were found but deliberately not changed:
   and Trivy flags `apt` 2.6.1. CI builds with the upgrade, and the Trivy gate passed on PR #20. Releases
   are unaffected.
 - **Notification volume.** On live data, the default "critical CVE" rule produced 84 notifications per
-  user in a 48-hour window, plus 10 KEV alerts. NVD publishes about 50 critical CVEs a day. This is the
-  specified behaviour, and it is de-duplicated. Users can raise *Settings → Notifications → minimum
-  CVSS* or rely on followed technologies. Consider a higher default (e.g. CVSS ≥ 9.5) if this is too
-  noisy.
-- **Accessibility.** axe-core was run on desktop layouts; mobile layouts were checked for overflow and
-  navigation only. Automated checks don't replace a manual screen-reader pass.
+  user in a 48-hour window, plus 10 KEV alerts. *Follow-up (after the audit):* the default minimum CVSS
+  is now 9.5, which gives 56 for the same window. That is still about 28 a day, because NVD publishes
+  many critical CVEs. Users can pick a stricter value or "any critical" in *Settings → Notifications*,
+  and followed technologies keep their own rule.
+- **Accessibility.** Automated checks don't replace a manual screen-reader pass. *Follow-up:* axe-core
+  now runs in CI on every page for every role, in both themes and on a phone layout (`e2e/`). Its
+  first run found and fixed horizontally scrolling tables that keyboards couldn't reach, an admin card
+  that widened the page on phones, and a badge that inherited low-contrast text.
 - **Email.** SMTP delivery was tested against an in-process SMTP server, not a real provider.
 - **GitHub CI on the audit commits.** Every CI step was reproduced locally (§3); the hosted workflow runs
   when these commits are proposed as a pull request.
