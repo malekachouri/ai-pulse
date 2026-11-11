@@ -401,6 +401,74 @@ export interface ArticleAnalysis {
   language: string | null;
   keywords: string[];
   entities: { type: string; value: string }[];
+  changes: ReleaseChanges | null;
+}
+
+/** Release-to-release comparison, extracted from both sources (rule-based, never generated). */
+export interface ReleaseRef {
+  article_id: string | null;
+  title: string;
+  url: string;
+  version: string | null;
+  published_at: string | null;
+}
+export interface ReleaseChanges {
+  current: ReleaseRef;
+  previous: ReleaseRef;
+  version_change: { from: string; to: string; bump: "major" | "minor" | "patch" | "none" | null };
+  license: {
+    status: string;
+    current: { value: string; basis: string | null };
+    previous: { value: string; basis: string | null };
+  };
+  benchmarks: {
+    name: string;
+    current: number | string;
+    previous: number | string;
+    delta: number | null;
+    status: string;
+    quotes: { current: string | null; previous: string | null };
+  }[];
+  benchmarks_status: string;
+  changelog: { status: string; source: "current"; sections: { heading: string; kind: string; items: string[] }[] };
+  citations: { current: string; previous: string };
+  method: string;
+}
+
+export interface RecommendedItem {
+  article: Article;
+  reasons: string[];
+  score: number;
+}
+export interface Recommendations {
+  items: RecommendedItem[];
+  resources: { title: string; url: string; reason: string }[];
+  signals: { followed: string[]; interests: string[]; read: number; bookmarked: number };
+  note: string | null;
+  method: string;
+}
+export interface Lesson {
+  id: string;
+  position: number;
+  title: string;
+  explanation: string;
+  key_points: string[];
+  why_it_matters: string;
+  try_it: string | null;
+  topics: string[];
+  resources: { title: string; url: string; source: string }[];
+  source: { article_id: string; title: string; url: string; source: string };
+  personal_reason: string | null;
+  unsupported_claims_removed: string[];
+  provider: string;
+  model: string;
+  created_at: string;
+}
+export interface Lessons {
+  lesson_date: string;
+  status: "ready" | "empty" | "disabled";
+  lessons: Lesson[];
+  ai_generated_notice: string;
 }
 
 export interface SearchCapabilities {

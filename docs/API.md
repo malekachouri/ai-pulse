@@ -91,7 +91,7 @@ The table below is regenerated from the code with `cd backend && python ../scrip
 
 <!-- BEGIN GENERATED ENDPOINTS -->
 
-80 operations, generated from the OpenAPI schema.
+83 operations, generated from the OpenAPI schema.
 
 ### health
 
@@ -267,5 +267,13 @@ The table below is regenerated from the code with `cd backend && python ../scrip
 | `GET` | `/api/v1/admin/users` | List Users | admin |
 | `GET` | `/api/v1/admin/users/{user_id}` | Get User | admin |
 | `PATCH` | `/api/v1/admin/users/{user_id}` | Change a user's role or active status (audited) | admin |
+
+### learning
+
+| Method | Path | Summary | Access |
+|---|---|---|---|
+| `GET` | `/api/v1/learning/lessons` | Lessons of a day (default: today, local time) | signed in |
+| `POST` | `/api/v1/learning/lessons/generate` | Generate today's lessons now | signed in |
+| `GET` | `/api/v1/learning/recommendations` | What to learn next, with the reason for each item | signed in |
 
 <!-- END GENERATED ENDPOINTS -->

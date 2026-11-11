@@ -37,7 +37,7 @@ The ER diagram and the column-level list are in [ARCHITECTURE.md §4](ARCHITECTU
 | Identity | `roles` (admin, analyst, user), `users`, `user_preferences` (interests, follows, notification rules in `alert_settings` JSONB, briefing schedule), `refresh_tokens` (SHA-256 hashes, rotation family), `password_reset_tokens` |
 | Content | `sources` (connector, config, checkpoint, health), `categories`, `articles` (canonical item, `embedding vector(768)`, generated `search_vector`), `article_categories` |
 | Intelligence | `ai_models`, `ai_model_releases`, `ai_tools`, `research_papers`, `github_repositories` (star history), `github_issues`, `software_bugs`, `security_vulnerabilities`, `incidents` |
-| AI | `ai_analyses`, `ai_usage` (one row per LLM/embedding call: tokens, cost, errors) |
+| AI | `ai_analyses` (summary, entities, importance, release `changes`), `ai_usage` (one row per LLM/embedding call: tokens, cost, errors), `learning_lessons` (per-user daily AI lessons, labelled) |
 | User data | `bookmarks`, `article_reads`, `notifications` (soft-deleted with `dismissed_at`, so the dedup key survives), `daily_briefings` |
 | Operations | `collection_jobs` (every ingestion run), `audit_logs` (admin actions) |
 
@@ -64,6 +64,7 @@ The ER diagram and the column-level list are in [ARCHITECTURE.md §4](ARCHITECTU
 | 0004 | `pg_trgm`, `ai_usage`, analysis indexes |
 | 0005 | bug resolution and fix fields, verification timestamps, `alert_settings`, GitHub advisories source |
 | 0006 | `briefing_weekday`, notification `dismissed_at`, check constraints on the briefing schedule, notification index |
+| 0007 | analysis kind `changes` (release comparison), `learning_lessons` |
 
 Workflow:
 
@@ -71,7 +72,7 @@ Workflow:
 2. Generate the migration:
 
    ```bash
-   cd backend && alembic revision --autogenerate -m "describe the change" --rev-id 0007
+   cd backend && alembic revision --autogenerate -m "describe the change" --rev-id 0008
    ```
 
 3. Read and edit the generated file. Autogenerate misses check constraints, data migrations and

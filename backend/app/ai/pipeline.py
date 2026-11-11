@@ -23,7 +23,7 @@ from sqlalchemy import Integer, func, or_, select, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.ai import claims
+from app.ai import changes, claims
 from app.ai.learning import resources_for
 from app.ai.prompts import CATEGORY_SLUGS, PROMPT_VERSION, SYSTEM_ANALYST, ItemAnalysis, analysis_prompt
 from app.ai.providers import AIProviders, ProviderError
@@ -252,7 +252,26 @@ class AnalysisPipeline:
             },
         )
         await self.score(a, facts)
+        await self.detect_changes(a)
         return facts
+
+    async def detect_changes(self, a: Article) -> None:
+        """Release items: compare with the previous release of the same model/tool/repository."""
+        try:
+            async with self.s.begin_nested():
+                out = await changes.detect(self.s, a)
+                if out is not None:
+                    await upsert_analysis(
+                        self.s,
+                        a.id,
+                        AnalysisKind.CHANGES,
+                        changes.VERSION,
+                        provider="aipulse",
+                        model=changes.VERSION,
+                        output=out,
+                    )
+        except Exception as exc:  # noqa: BLE001 - a comparison problem must not stop the pipeline
+            log.warning("change_detection_failed", article_id=str(a.id), error=f"{type(exc).__name__}: {exc}")
 
     async def score(self, a: Article, facts: dict[str, Any] | None = None) -> dict[str, Any]:
         facts = facts if facts is not None else await self._facts(a)

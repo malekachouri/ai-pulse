@@ -179,6 +179,35 @@ test("admin: change a user's role and change it back", async ({ browser }) => {
   await admin.close();
 });
 
+test("learn: recommendations explain themselves; lessons need an LLM", async ({ browser }) => {
+  const reader = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await login(reader, ACCOUNTS.user.email, ACCOUNTS.user.password);
+  await open(reader, "/learn");
+  await expect(reader.getByRole("heading", { level: 1, name: "Learn" })).toBeVisible();
+  await expect(reader.getByText("Because you follow Kubernetes").first()).toBeVisible();
+  // CI runs without an LLM: the page says so instead of showing invented lessons.
+  await expect(reader.getByText("AI lessons are not enabled")).toBeVisible();
+  const doc = reader.getByRole("link", { name: /Kubernetes documentation/ });
+  await expect(doc).toHaveAttribute("href", "https://kubernetes.io/docs/home/");
+  await reader.close();
+});
+
+test("release analysis shows what changed, citing both releases", async ({ browser }) => {
+  const p = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await open(p, "/tools");
+  const card = p.locator("article", { hasText: "example-org/e2e-agent-kit v1.1" }).first();
+  await card.getByRole("button", { name: "Explain this item" }).click();
+  const section = p.getByRole("region", { name: /what changed since v1\.0/i });
+  await expect(section).toBeVisible();
+  await expect(section.getByText("[E2E] Removed the old planner")).toBeVisible();
+  await expect(section.getByText("+2.5")).toBeVisible();
+  const cites = await section.getByRole("link", { name: /source: (this|previous) release/i }).evaluateAll((els) =>
+    [...new Set(els.map((e) => e.getAttribute("href")))].sort(),
+  );
+  expect(cites).toEqual(["https://example.com/e2e/release-1.0", "https://example.com/e2e/release-1.1"]);
+  await p.close();
+});
+
 test("mobile: the navigation drawer opens and navigates", async ({ browser }) => {
   const ctx = await browser.newContext({ ...devices["Pixel 7"] });
   const m = await ctx.newPage();

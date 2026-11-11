@@ -114,6 +114,50 @@ LLM-written (from the listed items, claim-checked); without an LLM a factual sum
 briefing per user per local date (`POST /briefings/generate`, or Celery every 15 min at each user's
 `briefing_hour` in their `timezone`, honouring daily/weekdays/weekly/off) plus a global briefing.
 
+## Release change detection (`app/ai/changes.py`)
+
+When a release is collected (a GitHub release, `canonical_key = gh-release:<repo>:<tag>`, or a model release
+record), the pipeline compares it with the **previous release of the same repository or model** and stores
+the result as an analysis of kind `changes` (`GET /news/{id}/analysis` → `changes`; shown as *What changed*
+in the item's analysis panel). Rule-based, nothing is generated:
+
+| Field | Taken from | When a source is silent |
+|---|---|---|
+| Version | the release record (tag / version) and the bump (major, minor, patch) | "not documented" |
+| License | source metadata (e.g. Hugging Face), else an explicit "licensed under <SPDX id>" statement | "not documented" / "documented in one source only" |
+| Benchmarks | a score next to a known benchmark name ("MMLU 85.2", "90.1% on HumanEval"), with the quoted line | "not documented" per side, "only in current/previous" |
+| Changelog | the new release's own bullet points, grouped by heading (breaking, security, features, fixes) | "not documented" |
+
+Every value cites its source: `[1]` this release, `[2]` the previous one. All patterns are bounded (no
+nested or unbounded quantifiers) and run line by line, so hostile release notes stay linear time.
+
+## What to learn next (`app/services/recommendations.py`, `GET /api/v1/learning/recommendations`)
+
+Rule-based and explained. Candidates are items collected in the last 3 weeks that the user has not read or
+bookmarked; an item is recommended only with at least one personal reason:
+
+- **"Because you follow vLLM"**: a followed technology, provider or repository appears in it as a whole word;
+- **"Because you read / bookmarked “…” (shared: …)"**: it shares 2+ extracted keywords with something the user
+  read or bookmarked in the last 90 days (bookmarks weigh more);
+- **"Matches your interest in RAG"**: its categories match the user's interests.
+
+Ranking adds the AI Pulse importance; at most 3 items per source keep the list varied. Documentation
+suggestions come **only** from the curated catalog (`app/ai/learning.py`), each with its reason. Nothing is
+generated, so this works without an LLM.
+
+## Learning Assistant (`app/ai/lessons.py`, `/api/v1/learning/lessons`)
+
+Up to three short lessons a day per user (`POST /learning/lessons/generate`, rate-limited like *Ask*, cached
+10 minutes; `GET /learning/lessons` reads a day). Items: the most important news, research, model and tool
+releases of the last 36 hours, with those that mention what the user follows (or match their interests)
+first. The LLM writes title, explanation, key points, why it matters and one hands-on step **from the item
+text only**; the output is then grounded like every other AI output (sentences with numbers, versions or ids
+the source does not contain are removed and listed; a lesson whose explanation is unsupported is dropped).
+The model chooses topics from the catalog's keys; links are the catalog's official documentation, never a
+URL the model wrote. Lessons are stored in `learning_lessons` with provider and model, labelled
+**AI-generated** in the API and the UI, and logged in `ai_usage` (purpose `lesson`). Without an LLM the
+status is `disabled` and nothing is invented.
+
 ## Verification status
 
 * All deterministic stages, search, RAG gating/validation and briefings were run on the ~2,800 real items

@@ -121,6 +121,7 @@ class AnalysisKind(StrEnum):
     IMPACT = "impact"
     IMPORTANCE = "importance"
     ENTITIES = "entities"
+    CHANGES = "changes"  # release-to-release comparison (rule-based)
 
 
 class BriefingFrequency(StrEnum):

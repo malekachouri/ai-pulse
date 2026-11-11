@@ -172,3 +172,27 @@ class AIUsage(Base, UUIDPrimaryKeyMixin):
     article_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class LearningLesson(Base, UUIDPrimaryKeyMixin):
+    """A short AI-generated technical lesson built from one collected item, for one user and day."""
+
+    __tablename__ = "learning_lessons"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id", "lesson_date", "article_id", name="uq_learning_lessons_user_date_article"
+        ),
+        Index("ix_learning_lessons_user_date", "user_id", "lesson_date"),
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"))
+    article_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("articles.id", ondelete="CASCADE")
+    )
+    lesson_date: Mapped[date] = mapped_column(Date)
+    position: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    content: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    prompt_version: Mapped[str] = mapped_column(String(32))
+    provider: Mapped[str] = mapped_column(String(32))
+    model: Mapped[str] = mapped_column(String(100))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

@@ -17,7 +17,7 @@ The prompt itself is in a box you can copy as one message.
 | 07 | [Daily briefing and notifications](07-briefings-notifications.md) | personalised briefings, notification center |
 | 08 | [Production readiness](08-production-readiness.md) | images, CI/CD, monitoring, security, backups |
 | 09 | [Senior engineering review](09-final-audit.md) | verified audit, fixes, docs/AUDIT_REPORT.md |
-| 10 | [Additional features](10-additional-features.md) | next steps (not built yet) |
+| 10 | [Additional features](10-additional-features.md) | change detection, Learning Assistant and recommendations built; the rest are next steps |
 
 ## How to use them
 

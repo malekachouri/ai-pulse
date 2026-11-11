@@ -106,3 +106,34 @@ Mention the 3-5 most important points, cite items as [n]. No outside facts, no i
 
 class BriefingSummary(BaseModel):
     executive_summary: str = Field(max_length=1500)
+
+
+LESSON_VERSION = "lesson-v1"
+SYSTEM_LESSON = """You turn ONE collected technology item into a short technical lesson for an engineer.
+Use ONLY the item text below: no outside facts, no numbers, versions or names that the text does not contain.
+Explain the concept behind the item, say why it matters in practice, and suggest one concrete next step.
+Pick topics only from the allowed list. JSON only."""
+
+
+class Lesson(BaseModel):
+    title: str = Field(max_length=140, description="What the reader will learn, not the news headline")
+    explanation: str = Field(max_length=1200, description="The concept, in plain technical language")
+    key_points: list[str] = Field(min_length=1, max_length=4)
+    why_it_matters: str = Field(max_length=600)
+    try_it: str | None = Field(None, max_length=400, description="One hands-on next step, or null")
+    topics: list[str] = Field(default_factory=list, max_length=3, description="From the allowed topic list")
+
+
+def lesson_prompt(*, title: str, source: str, published: str | None, url: str, body: str, summary: str | None,
+                  followed: list[str], topics: list[str]) -> str:  # fmt: skip
+    lines = [
+        f"Item: {title}",
+        f"Source: {source} ({url})",
+        f"Published: {published or 'unknown'}",
+        f"Reader follows: {', '.join(followed) if followed else 'nothing specific'}",
+        f"Allowed topics: {', '.join(topics)}",
+    ]
+    if summary:
+        lines.append(f"Existing summary of the item: {summary}")
+    lines += ["", "Item text:", body]
+    return "\n".join(lines)
