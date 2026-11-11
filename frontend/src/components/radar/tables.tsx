@@ -9,6 +9,7 @@ import { Categories, Duration, Ext, KevBadge, Sev, StateBadge, Td, Th, Verified 
 import { EmptyState, ErrorState, ListSkeleton } from "@/components/states/states";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { useBugList, useIncidentList, useVulnList } from "@/lib/queries";
 import { formatDateTime, safeUrl, timeAgo, titleCase } from "@/lib/utils";
@@ -151,13 +152,15 @@ export function VulnsTable() {
   const [sev, setSev] = useState("");
   const [kev, setKev] = useState("");
   const [patch, setPatch] = useState("");
+  const [text, setText] = useState("");
   const q = useVulnList({
-    page, page_size: 20, sort: "-published_at", severity: sev ? sev.split(",") : undefined,
+    page, page_size: 20, sort: "-published_at", severity: sev ? sev.split(",") : undefined, q: text.trim() || undefined,
     known_exploited: kev === "" ? undefined : kev === "yes", patch_available: patch === "" ? undefined : patch === "yes",
   });
   return (
     <section>
       <Filters>
+        <Input type="search" aria-label="Search CVEs" placeholder="CVE id or text" className="h-9 w-48" value={text} onChange={(e) => { setText(e.target.value); setPage(1); }} />
         <NativeSelect aria-label="Severity" className="w-44" value={sev} onChange={(e) => { setSev(e.target.value); setPage(1); }}>
           <option value="critical,high">Critical & high</option>
           <option value="critical">Critical</option>

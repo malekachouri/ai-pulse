@@ -222,8 +222,12 @@ test("watchlist: what the reader follows, with original sources", async ({ brows
 test("compare models: only cited numbers, 'not reported' otherwise", async ({ browser }) => {
   const p = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   await open(p, "/models/compare");
-  await p.getByRole("button", { name: /Example-7B/ }).click();
-  await p.getByRole("button", { name: /Sample-13B/ }).click();
+  // With live sources there are many tracked models: find the two test models by name, as a user would.
+  const search = p.getByRole("textbox", { name: "Search models" });
+  for (const name of ["Example-7B", "Sample-13B"]) {
+    await search.fill(name);
+    await p.getByRole("button", { name: new RegExp(`^${name}`) }).click();
+  }
   await expect(p).toHaveURL(/ids=.*ids=/);
   const table = p.getByRole("region", { name: "Model comparison table" });
   const mmlu = table.getByRole("row", { name: /^MMLU/ });
@@ -238,6 +242,7 @@ test("compare models: only cited numbers, 'not reported' otherwise", async ({ br
 test("bug intelligence on the CVE table: cited facts, insufficient information otherwise", async ({ browser }) => {
   const p = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   await open(p, "/bugs?tab=vulnerabilities");
+  await p.getByRole("searchbox", { name: "Search CVEs" }).fill("CVE-2099-0101"); // live NVD data fills page 1
   await p.getByRole("button", { name: "Bug intelligence: CVE-2099-0101" }).click();
   const panel = p.getByRole("region", { name: "Bug intelligence" });
   await expect(panel).toBeVisible();
