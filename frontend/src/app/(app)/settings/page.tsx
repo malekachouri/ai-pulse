@@ -223,6 +223,9 @@ const ALERT_RULES: { key: keyof AlertSettings; label: string; hint: string }[] =
   { key: "watched_tech", label: "Advisories affecting what I follow", hint: "Uses your followed technologies and providers" },
   { key: "model_releases", label: "New model releases", hint: "From the providers below, or the providers you follow" },
   { key: "briefing_ready", label: "Briefing ready", hint: "When your scheduled briefing has been generated" },
+  { key: "watchlist", label: "Watchlist releases", hint: "A new release of a technology, provider or repository you follow" },
+  { key: "weekly_report", label: "Weekly report (PDF)", hint: "Built every Monday from the past week's briefings" },
+  { key: "weekly_report_email", label: "Email me the weekly report", hint: "PDF attached; needs email (SMTP) configured by an administrator" },
 ];
 
 function AlertsFieldset({

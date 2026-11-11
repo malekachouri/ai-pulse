@@ -1,10 +1,12 @@
 "use client";
 
-import { ArrowUpRight, Clock, Cpu, ExternalLink, ShieldAlert, Siren, Star, TrendingUp } from "lucide-react";
+import { ArrowUpRight, Clock, Cpu, ExternalLink, Scale, ShieldAlert, Siren, Star, TrendingUp } from "lucide-react";
+import Link from "next/link";
 
 import { FollowButton } from "@/components/notifications/follow-button";
 import { ErrorState } from "@/components/states/states";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -204,6 +206,11 @@ export function ModelsPanel() {
           </CardTitle>
           <CardDescription>Latest known release per model, linked to the vendor&apos;s announcement.</CardDescription>
         </div>
+        <Button asChild variant="outline" size="sm">
+          <Link href="/models/compare">
+            <Scale /> Compare models
+          </Link>
+        </Button>
       </CardHeader>
       <CardContent>
         {q.isLoading ? (

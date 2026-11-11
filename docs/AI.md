@@ -158,6 +158,47 @@ URL the model wrote. Lessons are stored in `learning_lessons` with provider and 
 **AI-generated** in the API and the UI, and logged in `ai_usage` (purpose `lesson`). Without an LLM the
 status is `disabled` and nothing is invented.
 
+## Bug Intelligence (`app/ai/bugintel.py`, `/api/v1/news/{id}/bug-intelligence`)
+
+For bugs, GitHub issues and vulnerabilities, it explains why the problem occurs, its impact, the affected
+versions and the available fixes, **only from the collected official sources**. The sources are numbered
+and returned with their links:
+
+- the item itself;
+- the structured record (the CVE fields from NVD, KEV or the advisory; the tracked issue and its linked fix);
+- the same CVE collected from other official channels;
+- release notes that mention the CVE id or the issue number.
+
+Each section has two layers:
+
+- **Facts** are copied from structured fields, each citing its source: CWE, CVSS and vector, KEV listing,
+  affected product ranges, official remediation, fixed-in version, linked fix, release-note mentions.
+- **Text** is an optional LLM explanation (`POST`, signed in, rate-limited like *Ask*). The model must cite
+  the numbered sources. Uncited text is dropped. Sentences with numbers, versions or ids that the cited
+  sources do not contain are removed and listed. A fix is kept only when a cited source documents one.
+
+A section with neither facts nor grounded text says **"insufficient information"**.
+
+- `GET` returns the stored explanation, or the facts alone (`facts_only`) when no LLM is configured or
+  nothing was generated yet.
+- The result is cached as the analysis kind `bug_intel`, labelled AI-generated when it has AI text, and
+  logged in `ai_usage` (purpose `bug_intel`).
+- In the UI it appears in the item's analysis panel and behind *Explain* in the bug and CVE tables.
+
+## AI Comparison (`app/services/comparison.py`, `GET /api/v1/models/compare?ids=…`)
+
+It compares 2 to 4 tracked models side by side. The page is `/models/compare`.
+
+- **Numbers.** The only numbers are scores quoted by each model's own collected release sources. They are
+  extracted with the change-detection rules: the same benchmark names and the same bounded patterns.
+- **Which release.** For each benchmark the newest release that reports it is used. The cell carries the
+  value, the quoted sentence, the version, the source link and its date.
+- **Facts.** Latest release, context window, license and open weights come from the release records and
+  their sources, each with the URL it was read from.
+- **Gaps.** A benchmark a model's sources do not report is `null` ("not reported"): nothing is estimated
+  or borrowed from another source.
+- **Caveat.** The response says that sources may use different evaluation settings.
+
 ## Verification status
 
 * All deterministic stages, search, RAG gating/validation and briefings were run on the ~2,800 real items

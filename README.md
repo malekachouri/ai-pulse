@@ -23,7 +23,13 @@ an AI wrote is always labelled and kept apart from the facts.
   - an explainable importance score (not CVSS);
   - "Ask AI Pulse": answers only from collected items, with citations;
   - release change detection: what changed since the previous release (version, license, benchmarks,
-    changelog), citing both releases and saying "not documented" when a source is silent.
+    changelog), citing both releases and saying "not documented" when a source is silent;
+  - Bug Intelligence for bugs and CVEs: why it occurs, impact, affected versions and fixes, only from the
+    collected official sources with citations, "insufficient information" otherwise;
+  - an AI Comparison page: models side by side with only cited benchmark scores and facts, each with its
+    source and date.
+- **Watchlist:** everything new about the models, frameworks, providers and repositories you follow, with
+  a notification when one of them has a new release.
 - **Learn:**
   - "what to learn next": collected items and official documentation, each with its reason
     ("Because you follow vLLM", "Because you read …");
@@ -34,6 +40,8 @@ an AI wrote is always labelled and kept apart from the facts.
 - **Personalised briefings:**
   - daily, weekdays or weekly, in the user's timezone;
   - a computed "what changed since last time";
+  - a weekly intelligence report as a PDF every Monday, downloadable from the Briefing page and optionally
+    emailed;
   - in-app notifications (critical alerts, releases, bugs, vulnerabilities, incidents, briefings) with per-kind preferences.
 - **Administration:**
   - system health and usage statistics;
@@ -44,7 +52,8 @@ an AI wrote is always labelled and kept apart from the facts.
   - hardened containers, Docker Compose for development and production;
   - CI/CD with security gates;
   - Prometheus, Grafana and 17 alert rules;
-  - rate limiting, secrets management, verified backups and restores.
+  - rate limiting, secrets management, verified backups and restores, with encrypted offsite copies
+    (S3-compatible) that CI restores from.
 
 ## Stack
 
@@ -158,7 +167,7 @@ Browser end-to-end tests (every page, every role, both themes, phone, accessibil
 CI runs these on every pull request, together with:
 - migrations round trip, dependency audits, Compose and Prometheus validation;
 - image builds with a Trivy gate;
-- an end-to-end smoke test of the full stack and a backup/restore drill.
+- an end-to-end smoke test of the full stack, a backup/restore drill and an offsite restore drill.
 
 See [docs/DEPLOYMENT.md §3](docs/DEPLOYMENT.md#3-cicd).
 

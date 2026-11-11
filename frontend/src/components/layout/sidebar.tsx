@@ -9,8 +9,12 @@ import { useAuth } from "@/lib/auth";
 import { BrandIcon, NAV, type NavItem } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 
+const matches = (pathname: string, href: string) =>
+  href === "/" || href === "/admin" ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
+
+/** Active when it is the most specific nav entry for the path (/models/compare is not also "AI Models"). */
 export function isActive(pathname: string, href: string) {
-  return href === "/" || href === "/admin" ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
+  return matches(pathname, href) && !NAV.some((n) => n.href.length > href.length && matches(pathname, n.href));
 }
 
 function Brand({ collapsed }: { collapsed: boolean }) {

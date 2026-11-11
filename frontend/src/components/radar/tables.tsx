@@ -4,6 +4,7 @@ import { GitPullRequest } from "lucide-react";
 import { useState } from "react";
 
 import { Pagination } from "@/components/feed/pagination";
+import { BugIntelligenceButton } from "@/components/intel/bug-intelligence";
 import { Categories, Duration, Ext, KevBadge, Sev, StateBadge, Td, Th, Verified } from "@/components/radar/shared";
 import { EmptyState, ErrorState, ListSkeleton } from "@/components/states/states";
 import { Badge } from "@/components/ui/badge";
@@ -78,6 +79,7 @@ export function BugsTable() {
                 <Td className="max-w-[320px]">
                   <Ext href={b.source_url} className="font-medium">{b.title}</Ext>
                   <p className="mt-0.5 text-xs text-muted-foreground">{b.repository ?? b.project}{b.issue_number != null && ` #${b.issue_number}`} · {titleCase(b.kind)}</p>
+                  <BugIntelligenceButton articleId={b.article_id} label={b.title} />
                 </Td>
                 <Td><Badge variant={b.status === "open" ? "default" : "secondary"}>{b.status}</Badge>{b.resolution && <p className="mt-1 text-[11px] text-muted-foreground">{titleCase(b.resolution)}</p>}</Td>
                 <Td><Sev severity={b.severity} basis={b.severity_basis} /></Td>
@@ -178,7 +180,10 @@ export function VulnsTable() {
           <tbody className="divide-y">
             {q.data?.items.map((v) => (
               <tr key={v.id}>
-                <Td className="whitespace-nowrap font-medium"><Ext href={`https://nvd.nist.gov/vuln/detail/${v.cve_id}`}>{v.cve_id}</Ext></Td>
+                <Td className="whitespace-nowrap font-medium">
+                  <Ext href={`https://nvd.nist.gov/vuln/detail/${v.cve_id}`}>{v.cve_id}</Ext>
+                  <div><BugIntelligenceButton articleId={v.article_id} label={v.cve_id} /></div>
+                </Td>
                 <Td className="tabular text-xs">{v.cvss_score != null ? <span title={v.cvss_vector ?? ""}>{v.cvss_score} <span className="text-muted-foreground">v{v.cvss_version}</span></span> : <span className="text-muted-foreground">Not published</span>}</Td>
                 <Td><Sev severity={v.severity} /></Td>
                 <Td className="max-w-[220px] text-xs">

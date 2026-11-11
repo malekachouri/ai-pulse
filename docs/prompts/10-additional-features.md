@@ -1,13 +1,13 @@
 # Next: additional features
 
-The original guide recommends these once the MVP works. **Built so far:** AI change detection, the
-Learning Assistant and personalised learning recommendations (see docs/AI.md). The others are not built
-yet. Each prompt below
-is written for the current repository, so it can be sent as is, one at a time, after `main` is green.
+The original guide recommends these once the MVP works. **All of them are built now**: see docs/AI.md
+(change detection, Bug Intelligence, AI Comparison, Learning Assistant, recommendations),
+docs/NOTIFICATIONS.md (watchlist notifications, weekly PDF report) and docs/DEPLOYMENT.md §5 (offsite
+backups). The prompts are kept as they were sent, to reuse or adapt in a new project.
 
 Previous: [09](09-final-audit.md) · [All prompts](README.md)
 
-## Technology watchlist
+## Technology watchlist (built)
 
 ~~~text
 Continue the existing AI Pulse repository. Add a Technology Watchlist: users follow specific models,
@@ -25,7 +25,7 @@ quoted by the source) and show "what changed" with citations to both sources. Ne
 if the sources do not say, show "not documented". Add tests with recorded data, update docs.
 ~~~
 
-## Bug intelligence agent
+## Bug intelligence agent (built)
 
 ~~~text
 Continue the existing AI Pulse repository. Add a Bug Intelligence explanation to bug and CVE pages: why it
@@ -34,7 +34,7 @@ sources (issue, advisory, CVE record, release notes) with citations, using the e
 Show "insufficient information" when the sources do not cover it. Add tests, update docs/AI.md.
 ~~~
 
-## AI model comparison
+## AI model comparison (built)
 
 ~~~text
 Continue the existing AI Pulse repository. Add an AI Comparison page that compares models (e.g. GPT,
@@ -50,7 +50,7 @@ and papers into short technical lessons, linked to the curated official document
 app/ai/learning.py, personalised by followed technologies. Label everything as AI-generated. Add tests.
 ~~~
 
-## Weekly intelligence report (PDF)
+## Weekly intelligence report (PDF) (built)
 
 ~~~text
 Continue the existing AI Pulse repository. Add a Weekly Intelligence Report: a PDF generated every Monday
@@ -66,7 +66,7 @@ on followed technologies, read and bookmarked items, explained ("because you fol
 Recommendations only point to collected items and curated official documentation. Add tests and docs.
 ~~~
 
-## Offsite backups (deferred)
+## Offsite backups (built)
 
 ~~~text
 Continue the existing AI Pulse repository. Copy every backup offsite (S3-compatible storage, encrypted,

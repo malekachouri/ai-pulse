@@ -6,7 +6,7 @@ request (job *Images · build, scan, end-to-end*). They cover:
 | Spec | What it checks |
 |---|---|
 | `tests/pages.spec.ts` | Every page (26) as anonymous, user and admin, on desktop in the dark and light themes and on a phone (Pixel 7). Each page must render an h1, have no JavaScript/CSP error, no unexpected API failure and no horizontal scrolling, and pass axe-core (WCAG 2.0/2.1 A and AA, plus best practices). |
-| `tests/flows.spec.ts` | User journeys: registration (validation, duplicates), session after reload, bookmark and read, feed search, search and Ask AI Pulse, settings persistence, notification tabs, keyboard skip link, sign out, wrong password, password reset **through the real email** (Mailpit), an admin changing a role, mobile navigation. |
+| `tests/flows.spec.ts` | User journeys: registration (validation, duplicates), session after reload, bookmark and read, feed search, search and Ask AI Pulse, settings persistence, notification tabs, keyboard skip link, sign out, wrong password, password reset **through the real email** (Mailpit), an admin changing a role, Learn, release changes, the watchlist, model comparison (cited numbers only), bug intelligence on the CVE table, the weekly report PDF download, mobile navigation. |
 
 ## Run locally
 

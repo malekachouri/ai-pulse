@@ -109,7 +109,7 @@ export interface Bookmark {
   article: Article;
 }
 
-export type NotificationKind = "critical_alert" | "model_release" | "vulnerability" | "bug" | "incident" | "briefing" | "system";
+export type NotificationKind = "critical_alert" | "model_release" | "vulnerability" | "bug" | "incident" | "briefing" | "system" | "watchlist";
 
 export interface Notification {
   id: string;
@@ -529,6 +529,7 @@ export type BugResolution = "fixed" | "completed" | "not_planned" | "duplicate" 
 
 export interface SoftwareBug {
   id: string;
+  article_id: string | null;
   title: string;
   project: string;
   kind: "bug" | "regression" | "performance" | "compatibility" | "security" | "other";
@@ -551,6 +552,7 @@ export interface SoftwareBug {
 
 export interface Vulnerability {
   id: string;
+  article_id: string | null;
   cve_id: string;
   description: string | null;
   cvss_score: number | null;
@@ -604,6 +606,9 @@ export interface AlertSettings {
   model_releases: boolean;
   model_providers: string[];
   briefing_ready: boolean;
+  watchlist: boolean;
+  weekly_report: boolean;
+  weekly_report_email: boolean;
 }
 
 // ---- Administration ----
@@ -741,4 +746,118 @@ export interface ConnectorInfo {
   key: string;
   description: string;
   config_schema: Record<string, unknown>;
+}
+
+// ---- Watchlist ----
+export interface WatchRelease {
+  article_id: string;
+  title: string;
+  url: string;
+  version: string | null;
+  published_at: string | null;
+  source: string;
+}
+
+export interface WatchEntry {
+  term: string;
+  kind: "technology" | "provider" | "repository";
+  total: number;
+  new_this_week: number;
+  latest_release: WatchRelease | null;
+  open_critical_bugs: number | null;
+  vulnerabilities: number;
+  items: Article[];
+}
+
+export interface Watchlist {
+  entries: WatchEntry[];
+  window_days: number;
+  note: string | null;
+  method: string;
+}
+
+// ---- Bug intelligence ----
+export interface BugFact {
+  text: string;
+  citation: number;
+}
+
+export interface BugSection {
+  status: "documented" | "insufficient";
+  text: string | null;
+  text_is_ai: boolean;
+  citations: number[];
+  facts: BugFact[];
+}
+
+export interface BugSource {
+  n: number;
+  kind: string;
+  title: string;
+  url: string;
+  published_at: string | null;
+}
+
+export interface BugIntelligence {
+  subject: { kind: string; id: string; title: string; article_id: string; url: string };
+  status: "ready" | "facts_only";
+  sections: { cause: BugSection; impact: BugSection; affected_versions: BugSection; fixes: BugSection };
+  sources: BugSource[];
+  unsupported_claims_removed: string[];
+  ai_generated: boolean;
+  provider: string | null;
+  model: string | null;
+  generated_at: string;
+  llm_available: boolean;
+}
+
+// ---- Model comparison ----
+export interface SourcedFact {
+  value: string;
+  source_url: string;
+  date: string | null;
+  basis: string | null;
+}
+
+export interface BenchmarkCell {
+  value: number;
+  quote: string;
+  version: string | null;
+  source_url: string;
+  source_title: string;
+  source: string;
+  date: string | null;
+}
+
+export interface ComparedModel {
+  id: string;
+  name: string;
+  provider: string;
+  family: string | null;
+  homepage_url: string | null;
+  is_open_weights: boolean | null;
+  latest_release: SourcedFact | null;
+  context_window: SourcedFact | null;
+  license: SourcedFact | null;
+  releases_considered: number;
+  benchmarks_reported: number;
+}
+
+export interface ModelComparison {
+  models: ComparedModel[];
+  benchmarks: { name: string; reported_by: number; cells: Record<string, BenchmarkCell | null> }[];
+  note: string | null;
+  method: string;
+}
+
+// ---- Weekly report ----
+export interface WeeklyReportItem {
+  id: string;
+  week_start: string;
+  week_end: string;
+  generated_at: string;
+  emailed_at: string | null;
+  items: number;
+  days_covered: number;
+  pdf_url: string;
 }

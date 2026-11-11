@@ -57,6 +57,28 @@ Notifications are delivered in the app. Each one has a kind, a severity, a title
 | `incident` | `outages`: currently active, impact at or above `outage_min_impact`, optionally limited to `outage_providers` | `incident:<id>` |
 | `model_release` | `model_releases`: released in the last 7 days. Limited to `model_providers`; when that list is empty, to the followed providers; when both are empty, any tracked provider. | `model:<release id>` |
 | `briefing` | `briefing_ready`: a scheduled briefing was generated | `briefing:<date>` |
+| `watchlist` | `watchlist`: a new release (model, tool or GitHub release collected in the last 48 h) of something the user follows: a whole-word mention of a followed technology or provider, or a release of a followed repository. Skipped when another rule already announced the same item. | `watch:<article id>` |
+| `briefing` | `weekly_report`: the Monday weekly report (PDF) is ready; `weekly_report_email` also emails it as an attachment (SMTP needed, off by default) | `weekly:<week start>` |
+
+## Weekly intelligence report (PDF)
+
+`app/reports/weekly.py`, Celery `aipulse.generate_due_weekly_reports` (hourly).
+
+- **When.** On Monday in the user's timezone, after their `briefing_hour`, for the week that just ended
+  (Monday to Sunday).
+- **What.** That week's briefings for the user, using the general one on days without a personal briefing.
+  The sections are merged and de-duplicated, ranked by the best personal score each item had, and
+  numbered with citations and links. The daily executive summaries come with them: AI-written ones stay
+  labelled, and nothing new is generated.
+- **Stored** in `weekly_reports`, one row per user and week. The PDF is rendered on download by a small
+  built-in writer (`app/reports/pdf.py`, standard fonts, clickable links). Non-Latin characters show as
+  "?", but every item links to its original source.
+- **Where.**
+  - On the Briefing page: *Weekly reports*, with *Download PDF* and *Build last week's report*.
+  - From the API: `GET /briefings/weekly`, `POST /briefings/weekly/generate[?week_start=]` and
+    `GET /briefings/weekly/{week_start}/pdf`.
+  - By email, as an attachment, when `weekly_report_email` is on and SMTP is configured. A retried task
+    never emails twice (`emailed_at`).
 
 ## API
 
