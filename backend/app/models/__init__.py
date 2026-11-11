@@ -18,6 +18,7 @@ from app.models.ops import (
     Bookmark,
     CollectionJob,
     DailyBriefing,
+    LearningLesson,
     Notification,
 )
 from app.models.user import PasswordResetToken, RefreshToken, Role, User, UserPreference
@@ -38,6 +39,7 @@ __all__ = [
     "GitHubIssue",
     "GitHubRepository",
     "Incident",
+    "LearningLesson",
     "Notification",
     "PasswordResetToken",
     "RefreshToken",

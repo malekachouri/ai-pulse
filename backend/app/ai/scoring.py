@@ -152,25 +152,28 @@ def score_item(
     }
 
 
+# User interests (preferences) -> the item categories they cover.
+INTEREST_CATEGORIES: dict[str, set[str]] = {
+    "ai-engineering": {"ai-tools", "llmops", "mlops"},
+    "generative-ai": {"ai-models", "ai-research"},
+    "rag": {"rag"},
+    "ai-agents": {"ai-agents"},
+    "llmops": {"llmops"},
+    "devops": {"devops"},
+    "cloud": {"cloud"},
+    "kubernetes": {"kubernetes"},
+    "cybersecurity": {"cybersecurity"},
+    "software-engineering": {"software-engineering", "bugs"},
+}
+
+
 def personalize(
     base: float, *, categories: list[str], text: str, interests: list[str], followed: list[str]
 ) -> tuple[float, list[str]]:
     """Up to +15 points for matching the user's interests / followed technologies (explained)."""
     reasons: list[str] = []
     bonus = 0.0
-    interest_map = {
-        "ai-engineering": {"ai-tools", "llmops", "mlops"},
-        "generative-ai": {"ai-models", "ai-research"},
-        "rag": {"rag"},
-        "ai-agents": {"ai-agents"},
-        "llmops": {"llmops"},
-        "devops": {"devops"},
-        "cloud": {"cloud"},
-        "kubernetes": {"kubernetes"},
-        "cybersecurity": {"cybersecurity"},
-        "software-engineering": {"software-engineering", "bugs"},
-    }
-    hits = [i for i in interests if interest_map.get(i, set()) & set(categories)]
+    hits = [i for i in interests if INTEREST_CATEGORIES.get(i, set()) & set(categories)]
     if hits:
         bonus += min(10.0, 5.0 * len(hits))
         reasons.append(f"Matches your interests: {', '.join(hits)}")
