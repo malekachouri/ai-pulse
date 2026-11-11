@@ -15,7 +15,9 @@ export function isActive(pathname: string, href: string) {
 
 function Brand({ collapsed }: { collapsed: boolean }) {
   return (
-    <Link href="/" className="flex items-center gap-2.5 px-1" aria-label="AI Pulse home">
+    // Expanded, the visible "AI Pulse · Tech intelligence" is the link's name (WCAG 2.5.3 label in name);
+    // collapsed to the icon, it needs an explicit one.
+    <Link href="/" className="flex items-center gap-2.5 px-1" aria-label={collapsed ? "AI Pulse home" : undefined}>
       <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand-blue to-brand-violet text-white shadow-md shadow-brand-violet/30">
         <BrandIcon className="size-4.5" />
       </span>

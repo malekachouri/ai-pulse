@@ -26,6 +26,7 @@ export function GlobalSearch() {
   return (
     <form
       role="search"
+      aria-label="Site search"
       className="relative w-full max-w-md"
       onSubmit={(e) => {
         e.preventDefault();

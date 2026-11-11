@@ -39,7 +39,8 @@ export function UserMenu() {
       <DropdownMenuTrigger asChild>
         <button
           className="flex size-8 items-center justify-center rounded-full bg-gradient-to-br from-brand-blue to-brand-violet text-xs font-semibold text-white outline-none ring-offset-2 ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
-          aria-label="Account menu"
+          // Starts with the visible initials (WCAG 2.5.3, label in name): "ER, account menu".
+          aria-label={`${initials(user.full_name, user.email)}, account menu`}
         >
           {initials(user.full_name, user.email)}
         </button>

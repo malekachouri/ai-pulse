@@ -28,6 +28,12 @@ Pass Playwright options after it, e.g. only the flows, with a visible browser:
 ./scripts/e2e.sh tests/flows.spec.ts --headed
 ```
 
+On a machine that cannot download Playwright's browser, point it at an installed Chromium:
+
+```bash
+E2E_CHROMIUM_PATH=/path/to/chrome ./scripts/e2e.sh
+```
+
 Open the HTML report of the last run:
 
 ```bash
