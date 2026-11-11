@@ -2,6 +2,7 @@
 
 import { BookOpen, ExternalLink, Gauge, Info, Sparkles, Tags } from "lucide-react";
 
+import { ReleaseChanges } from "@/components/intel/release-changes";
 import { ErrorState } from "@/components/states/states";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -44,6 +45,7 @@ export function AnalysisSheet({ article, open, onOpenChange }: { article: Articl
             <ErrorState error={q.error} onRetry={() => q.refetch()} />
           ) : d ? (
             <>
+              {d.changes && <ReleaseChanges c={d.changes} />}
               {d.importance && (
                 <section className="rounded-xl border bg-card p-4">
                   <div className="flex items-baseline justify-between">

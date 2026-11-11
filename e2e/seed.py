@@ -98,6 +98,17 @@ def items() -> list[NormalizedItem]:
                        repository=RepositoryPayload(full_name="example-org/e2e-agent-kit", html_url=f"{URL}/repo-1",
                                                     description="[E2E] Test repository.", language="Python",
                                                     stars=1234, forks=56)),
+        # Two releases of the same tool: the newer one gets a "what changed" comparison.
+        NormalizedItem(external_id="e2e-rel-1", item_type=ItemType.TOOL, verification=v,
+                       title="example-org/e2e-agent-kit v1.0", url=f"{URL}/release-1.0",
+                       description="[E2E] First release.", published_at=ago(240), categories=["ai-tools"],
+                       content="### Features\n- [E2E] Agent loop\n\nMMLU 70.0\n\nLicensed under the Apache 2.0 license.",
+                       canonical_key="gh-release:example-org/e2e-agent-kit:v1.0", tags=["release"]),
+        NormalizedItem(external_id="e2e-rel-2", item_type=ItemType.TOOL, verification=v,
+                       title="example-org/e2e-agent-kit v1.1", url=f"{URL}/release-1.1",
+                       description="[E2E] Second release.", published_at=ago(20), categories=["ai-tools"],
+                       content="### Breaking changes\n- [E2E] Removed the old planner\n### Bug fixes\n- [E2E] Fixed retries\n\nMMLU 72.5\n\nLicensed under the MIT license.",
+                       canonical_key="gh-release:example-org/e2e-agent-kit:v1.1", tags=["release"]),
     ]  # fmt: skip
 
 

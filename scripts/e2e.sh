@@ -41,7 +41,7 @@ from sqlalchemy.dialects.postgresql import insert
 from app.alerts.engine import AlertEngine
 from app.core.config import get_settings
 from app.db.session import create_engine, create_session_factory
-from app.models import Notification, User
+from app.models import Notification, User, UserPreference
 from app.models.enums import NotificationKind, Severity
 from app.services.auth import AuthService
 from app.services.email import ConsoleEmailSender
@@ -54,6 +54,12 @@ async def main() -> None:
         auth = AuthService(s, settings, ConsoleEmailSender())
         if await auth.users.get_by_email("e2e-reader@example.com") is None:
             await auth.register("e2e-reader@example.com", "E2e-Reader-Pass-2026", "E2E Reader")
+        reader = await auth.users.get_by_email("e2e-reader@example.com")
+        pref = await s.scalar(select(UserPreference).where(UserPreference.user_id == reader.id))
+        if pref is None:
+            pref = UserPreference(user_id=reader.id)
+            s.add(pref)
+        pref.followed_technologies = ["Kubernetes"]  # so "what to learn next" has a reason to show
         await s.commit()
         stats = await AlertEngine(s).run()
         users = (await s.scalars(select(User.id).where(User.email.like("e2e-%@example.com")))).all()

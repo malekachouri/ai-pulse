@@ -1,4 +1,5 @@
 import {
+  GraduationCap,
   BarChart3,
   Bell,
   Bookmark,
@@ -41,6 +42,7 @@ export const NAV: NavItem[] = [
   { href: "/security", label: "Security & CVEs", icon: ShieldAlert, group: "Radar" },
   { href: "/devops", label: "DevOps & Cloud", icon: Cloud, group: "Radar" },
   { href: "/briefing", label: "Daily Briefing", icon: Sunrise, group: "You" },
+  { href: "/learn", label: "Learn", icon: GraduationCap, group: "You" },
   { href: "/notifications", label: "Notifications", icon: Bell, group: "You" },
   { href: "/bookmarks", label: "Bookmarks", icon: Bookmark, group: "You" },
   { href: "/analytics", label: "Analytics", icon: BarChart3, group: "You" },

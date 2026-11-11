@@ -29,11 +29,13 @@ import type {
   GitHubRepository,
   Incident,
   IngestionOverview,
+  Lessons,
   FollowType,
   Notification,
   NotificationKind,
   Page,
   Preferences,
+  Recommendations,
   RadarIncident,
   RadarSummary,
   SoftwareBug,
@@ -369,6 +371,36 @@ export function useSearchCapabilities() {
 export function useAsk() {
   return useMutation({
     mutationFn: (question: string) => api.post<AskResponse>("/search/ask", { question }),
+    onError: (err) => toast.error(errorMessage(err)),
+  });
+}
+
+export function useRecommendations() {
+  const { status } = useAuth();
+  return useQuery({
+    queryKey: ["learning", "recommendations"],
+    queryFn: () => api.get<Recommendations>("/learning/recommendations"),
+    enabled: status === "authenticated",
+  });
+}
+
+export function useLessons() {
+  const { status } = useAuth();
+  return useQuery({
+    queryKey: ["learning", "lessons"],
+    queryFn: () => api.get<Lessons>("/learning/lessons"),
+    enabled: status === "authenticated",
+  });
+}
+
+export function useGenerateLessons() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post<Lessons>("/learning/lessons/generate"),
+    onSuccess: (data) => {
+      qc.setQueryData(["learning", "lessons"], data);
+      toast.success(data.lessons.length ? "Lessons ready" : "No important items to learn from yet today");
+    },
     onError: (err) => toast.error(errorMessage(err)),
   });
 }

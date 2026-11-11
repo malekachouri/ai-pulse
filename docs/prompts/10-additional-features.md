@@ -1,6 +1,8 @@
 # Next: additional features
 
-The original guide recommends these once the MVP works. **None of them is built yet.** Each prompt below
+The original guide recommends these once the MVP works. **Built so far:** AI change detection, the
+Learning Assistant and personalised learning recommendations (see docs/AI.md). The others are not built
+yet. Each prompt below
 is written for the current repository, so it can be sent as is, one at a time, after `main` is green.
 
 Previous: [09](09-final-audit.md) · [All prompts](README.md)
@@ -14,7 +16,7 @@ frameworks, repositories and technologies (reuse the existing followed_* prefere
 Keep every item linked to its original source. Add tests, update docs, and keep CI green.
 ~~~
 
-## AI change detection
+## AI change detection (built)
 
 ~~~text
 Continue the existing AI Pulse repository. Add AI Change Detection: when a new release of a model, tool or
@@ -40,7 +42,7 @@ Claude, Gemini, Llama) only with benchmarks and facts taken from collected, cite
 and source of each number. No number without a source. Add tests and docs.
 ~~~
 
-## Learning assistant
+## Learning assistant (built)
 
 ~~~text
 Continue the existing AI Pulse repository. Add a Learning Assistant that turns the day's important news
@@ -56,7 +58,7 @@ in the user's timezone from the week's briefings (sections, citations, links), d
 Briefing page and optionally emailed with the existing SMTP sender. Add tests and docs.
 ~~~
 
-## Personalised learning recommendations
+## Personalised learning recommendations (built)
 
 ~~~text
 Continue the existing AI Pulse repository. Add personalised recommendations of what to learn next, based

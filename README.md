@@ -21,7 +21,14 @@ an AI wrote is always labelled and kept apart from the facts.
   - summaries, impact, recommended actions and learning topics;
   - grounding checks against the sources;
   - an explainable importance score (not CVSS);
-  - "Ask AI Pulse": answers only from collected items, with citations.
+  - "Ask AI Pulse": answers only from collected items, with citations;
+  - release change detection: what changed since the previous release (version, license, benchmarks,
+    changelog), citing both releases and saying "not documented" when a source is silent.
+- **Learn:**
+  - "what to learn next": collected items and official documentation, each with its reason
+    ("Because you follow vLLM", "Because you read …");
+  - a Learning Assistant: short daily lessons from the day's important items, labelled AI-generated,
+    grounded in the source and linked to curated official documentation.
 - **Bugs & Failures radar.** Severity only with a documented basis, and incidents shown as active only
   when re-verified on the provider's status page.
 - **Personalised briefings:**
