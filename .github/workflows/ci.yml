@@ -262,6 +262,10 @@ jobs:
           cache-dependency-path: e2e/package-lock.json
       - name: Browser end-to-end tests (Playwright + axe-core; every page and role, both themes, phone; user flows)
         timeout-minutes: 30
+        env:
+          # The Trivy step's bind mount makes Docker create ~/.cache as root, so Playwright's default
+          # ~/.cache/ms-playwright is not writable: keep the browser in the runner's temp directory.
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/ms-playwright
         run: |
           npm ci --prefix e2e --no-audit --no-fund
           (cd e2e && npx playwright install --with-deps chromium)
