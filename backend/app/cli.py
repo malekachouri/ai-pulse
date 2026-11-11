@@ -123,6 +123,12 @@ async def _ai_analyze(limit: int, llm_limit: int) -> None:
         await s.commit()
     await providers.aclose()
     await engine.dispose()
+    if stats.skipped_busy:
+        print(
+            "Another analysis run is in progress (usually the background worker): nothing done. "
+            "Try again in a few minutes, or stop the worker first: docker compose stop worker beat"
+        )
+        return
     print({k: v for k, v in stats.__dict__.items() if k != "errors"}, "errors:", stats.errors[:3])
 
 

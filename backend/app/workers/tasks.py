@@ -129,12 +129,14 @@ def ai_rescore() -> int:
 
     from sqlalchemy import select
 
-    from app.ai.pipeline import AnalysisPipeline
+    from app.ai.pipeline import AnalysisPipeline, acquire_pipeline_lock
     from app.ai.providers import AIProviders
     from app.models import Article
 
     async def body(factory: async_sessionmaker[AsyncSession]) -> int:
         async with factory() as s:
+            if not await acquire_pipeline_lock(s):
+                return 0  # an analysis run is updating the same rows; the next hourly run catches up
             pipe = AnalysisPipeline(s, AIProviders(None, None))
             since = datetime.now(UTC) - timedelta(days=14)
             n = 0

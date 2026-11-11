@@ -55,7 +55,20 @@ class PipelineStats:
     analysed: int = 0
     analysis_failed: int = 0
     skipped_budget: bool = False
+    skipped_busy: bool = False  # another pipeline run (worker or CLI) holds the lock
     errors: list[str] = field(default_factory=list)
+
+
+PIPELINE_LOCK = "aipulse:ai-pipeline"
+
+
+async def acquire_pipeline_lock(session: AsyncSession) -> bool:
+    """One analysis run at a time. Two runs (a Beat tick, a run triggered by ingestion, `cli ai-analyze`)
+    would update the same articles in a different order and deadlock. Transaction-scoped: released at
+    commit or rollback, re-entrant within the same transaction."""
+    return bool(
+        await session.scalar(text("SELECT pg_try_advisory_xact_lock(hashtext(:k))"), {"k": PIPELINE_LOCK})
+    )
 
 
 def input_hash(article: Article) -> str:
@@ -257,6 +270,10 @@ class AnalysisPipeline:
 
     async def detect_changes(self, a: Article) -> None:
         """Release items: compare with the previous release of the same model/tool/repository."""
+        article_id = a.id  # read before the savepoint: a rolled-back savepoint expires loaded attributes
+        # Pending changes are flushed outside the savepoint, so a database error there (which aborts the
+        # whole transaction) propagates instead of being taken for a comparison problem.
+        await self.s.flush()
         try:
             async with self.s.begin_nested():
                 out = await changes.detect(self.s, a)
@@ -271,7 +288,9 @@ class AnalysisPipeline:
                         output=out,
                     )
         except Exception as exc:  # noqa: BLE001 - a comparison problem must not stop the pipeline
-            log.warning("change_detection_failed", article_id=str(a.id), error=f"{type(exc).__name__}: {exc}")
+            log.warning(
+                "change_detection_failed", article_id=str(article_id), error=f"{type(exc).__name__}: {exc}"
+            )
 
     async def score(self, a: Article, facts: dict[str, Any] | None = None) -> dict[str, Any]:
         facts = facts if facts is not None else await self._facts(a)
@@ -537,6 +556,10 @@ class AnalysisPipeline:
         article_ids: list[uuid.UUID] | None = None,
     ) -> PipelineStats:
         stats = PipelineStats()
+        if not await acquire_pipeline_lock(self.s):
+            stats.skipped_busy = True
+            log.info("ai_pipeline_skipped", reason="another analysis run is in progress")
+            return stats
         if article_ids:
             items = list(
                 (await self.s.scalars(select(Article).where(Article.id.in_(article_ids)))).unique().all()
