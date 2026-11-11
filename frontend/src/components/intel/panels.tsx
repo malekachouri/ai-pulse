@@ -213,7 +213,7 @@ export function ModelsPanel() {
         ) : !q.data?.items.length ? (
           <p className="text-sm text-muted-foreground">No models tracked yet.</p>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring" tabIndex={0} role="region" aria-label="Model releases table">
             <table className="w-full min-w-[520px] text-sm">
               <thead>
                 <tr className="border-b text-left text-xs text-muted-foreground">

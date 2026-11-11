@@ -54,7 +54,7 @@ function Audit() {
           <EmptyState icon={ScrollText} title="No entries" description="Administrative actions appear here as they happen." />
         ) : (
           <>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring" tabIndex={0} role="region" aria-label="Audit log table">
               <table className="w-full min-w-[760px] text-sm">
                 <thead>
                   <tr className="border-b">

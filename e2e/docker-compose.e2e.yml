@@ -1,0 +1,31 @@
+# Test-only additions for the browser end-to-end tests (scripts/e2e.sh). Never use in production.
+# - mailpit: catches outgoing email so the password-reset test can read the real message
+#   (SMTP on mailpit:1025 inside the stack, web/API on http://127.0.0.1:8025).
+# - api: sends email to mailpit, and relaxed rate limits - one browser crawls every page as three roles
+#   from a single IP, which the production limits (rightly) refuse.
+services:
+  mailpit:
+    image: axllent/mailpit:v1.27.0
+    networks: [frontend]
+    ports: ["127.0.0.1:${MAILPIT_PORT:-8025}:8025"]
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: "no"
+
+  api:
+    environment:
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      SMTP_SECURITY: none
+      SMTP_FROM: AI Pulse E2E <no-reply@e2e.example.com>
+      PUBLIC_URL: ${E2E_BASE_URL:-http://localhost:3000}
+      RATE_LIMIT_AUTH: 3000/minute
+      RATE_LIMIT_GLOBAL: 30000/minute
+      RATE_LIMIT_SEARCH: 3000/minute
+      RATE_LIMIT_AI: 600/minute
+    depends_on:
+      mailpit:
+        condition: service_healthy

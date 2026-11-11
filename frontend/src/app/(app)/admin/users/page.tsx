@@ -94,7 +94,7 @@ function UsersAdmin() {
             <EmptyState icon={Users} title="No users match" description="Try another search or filter." />
           ) : (
             <>
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring" tabIndex={0} role="region" aria-label="Users table">
                 <table className="w-full min-w-[720px] text-sm">
                   <thead>
                     <tr className="border-b">

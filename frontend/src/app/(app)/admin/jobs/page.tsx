@@ -82,7 +82,7 @@ function Jobs() {
             <EmptyState icon={History} title="No jobs" description="Runs appear here once the scheduler or an admin starts one." />
           ) : (
             <>
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring" tabIndex={0} role="region" aria-label="Jobs table">
                 <table className="w-full min-w-[860px] text-sm">
                   <thead>
                     <tr className="border-b">

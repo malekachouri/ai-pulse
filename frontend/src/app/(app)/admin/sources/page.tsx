@@ -209,7 +209,7 @@ function Sources() {
         ) : !rows.length ? (
           <EmptyState icon={Rss} title="No sources" description="Add an official source to start collecting." />
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring" tabIndex={0} role="region" aria-label="Sources table">
             <table className="w-full min-w-[820px] text-sm">
               <thead>
                 <tr className="border-b">
