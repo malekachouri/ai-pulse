@@ -137,7 +137,7 @@ let prefs: Preferences = {
   alert_settings: {
     critical_cves: true, exploited: true, critical_bugs: true, outages: true, watched_tech: true,
     min_cvss: 9.5, outage_min_impact: "major", outage_providers: [], bug_projects: [],
-    model_releases: true, model_providers: [], briefing_ready: true,
+    model_releases: true, model_providers: [], briefing_ready: true, watchlist: true, weekly_report: true, weekly_report_email: false,
   },
 };
 
@@ -467,6 +467,20 @@ export async function demoFetch<T>(
     return r({ question: String(json.question ?? ""), answer: "[DEMO] This fictional answer cites its sources [1][2].", insufficient: false,
       reason: null, citations: sources.slice(0, 2), sources, unsupported_claims_removed: [],
       retrieval: { mode: "demo", item_types: [], date_from: null, terms: [] }, generated_by: { provider: "demo", model: "demo-model" }, confidence: "low" });
+  }
+  if (path === "/watchlist")
+    return r({ entries: [], window_days: 30, note: "[DEMO] Follow technologies in Settings to build your watchlist.", method: "Demo mode." });
+  if (path === "/briefings/weekly") return r([]);
+  if (path === "/briefings/weekly/generate") throw new Error("Demo mode: weekly reports need the real API.");
+  if (path.endsWith("/bug-intelligence") && art) {
+    const none = { status: "insufficient", text: "insufficient information", text_is_ai: false, citations: [], facts: [] };
+    const a = ARTICLES.find((x) => x.id === art);
+    return r({
+      subject: { kind: "bug", id: a?.title ?? art, title: a?.title ?? "", article_id: art, url: a?.url ?? "" },
+      status: "facts_only", sections: { cause: none, impact: none, affected_versions: none, fixes: none },
+      sources: a ? [{ n: 1, kind: "issue", title: a.title, url: a.url, published_at: a.published_at }] : [],
+      unsupported_claims_removed: [], ai_generated: false, provider: null, model: null, generated_at: iso(0), llm_available: false,
+    });
   }
   if (path === "/briefings/generate") return r(BRIEFING);
   if (path === "/briefings/latest" || path === `/briefings/${BRIEFING.briefing_date}`) return r(BRIEFING);

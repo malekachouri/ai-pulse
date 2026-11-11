@@ -3,7 +3,9 @@
 import {
   AlertOctagon,
   CheckCircle2,
+  Download,
   ExternalLink,
+  FileText,
   GitCompareArrows,
   Loader2,
   RefreshCw,
@@ -14,7 +16,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
+import { toast } from "sonner";
 
 import { SeverityBadge } from "@/components/feed/badges";
 import { PageHeader } from "@/components/layout/page-header";
@@ -24,7 +27,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/lib/auth";
-import { useBriefingByDate, useBriefings, useGenerateBriefing, useLatestBriefing } from "@/lib/queries";
+import { downloadFile, errorMessage } from "@/lib/api";
+import {
+  useBriefingByDate,
+  useBriefings,
+  useGenerateBriefing,
+  useGenerateWeeklyReport,
+  useLatestBriefing,
+  useWeeklyReports,
+} from "@/lib/queries";
 import type { Briefing, BriefingMeta, BriefingSectionItem, Severity } from "@/lib/types";
 import { cn, formatDateTime, safeUrl, titleCase } from "@/lib/utils";
 
@@ -191,6 +202,83 @@ function BriefingView({ b }: { b: Briefing }) {
   );
 }
 
+const shortDate = (d: string) =>
+  new Date(`${d}T12:00:00Z`).toLocaleDateString(undefined, { day: "numeric", month: "short", timeZone: "UTC" });
+
+/** Weekly intelligence reports (PDF): built every Monday from the past week's briefings, downloadable here. */
+function WeeklyReports({ highlight }: { highlight: string | null }) {
+  const { status } = useAuth();
+  const q = useWeeklyReports();
+  const gen = useGenerateWeeklyReport();
+  const [busy, setBusy] = useState<string | null>(null);
+  if (status !== "authenticated") return null;
+  const download = async (week: string) => {
+    setBusy(week);
+    try {
+      await downloadFile(`/briefings/weekly/${week}/pdf`, `ai-pulse-weekly-${week}.pdf`);
+    } catch (err) {
+      toast.error(errorMessage(err));
+    } finally {
+      setBusy(null);
+    }
+  };
+  return (
+    <Card className="h-fit">
+      <CardHeader>
+        <div className="space-y-1.5">
+          <CardTitle className="flex items-center gap-1.5">
+            <FileText className="size-4 text-primary" aria-hidden /> Weekly reports
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            A PDF of the week&apos;s briefings, every Monday in your timezone. Email delivery can be turned on in{" "}
+            <Link href="/settings#notifications" className="text-primary underline underline-offset-2">
+              Settings
+            </Link>
+            .
+          </p>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {q.isLoading ? (
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        ) : q.isError ? (
+          <ErrorState error={q.error} onRetry={() => q.refetch()} />
+        ) : !q.data?.length ? (
+          <p className="text-sm text-muted-foreground">No weekly report yet.</p>
+        ) : (
+          <ul className="space-y-1.5 text-sm">
+            {q.data.map((r) => (
+              <li
+                key={r.id}
+                className={cn("flex items-center justify-between gap-2 rounded-md px-2 py-1", highlight === r.week_start && "bg-accent")}
+              >
+                <span>
+                  {shortDate(r.week_start)} – {shortDate(r.week_end)}
+                  <span className="block text-[11px] text-muted-foreground">
+                    {r.items} item{r.items === 1 ? "" : "s"} · {r.days_covered} briefing{r.days_covered === 1 ? "" : "s"}
+                  </span>
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => download(r.week_start)}
+                  disabled={busy === r.week_start}
+                  aria-label={`Download the weekly report of ${r.week_start} as PDF`}
+                >
+                  {busy === r.week_start ? <Loader2 className="animate-spin" /> : <Download />} PDF
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <Button variant="ghost" size="sm" className="w-full" onClick={() => gen.mutate()} disabled={gen.isPending}>
+          {gen.isPending ? <Loader2 className="animate-spin" /> : <RefreshCw />} Build last week&apos;s report
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
 function BriefingContent() {
   const params = useSearchParams();
   const router = useRouter();
@@ -228,6 +316,7 @@ function BriefingContent() {
           <BriefingView b={b} />
         )}
       </div>
+      <div className="space-y-6">
       <Card className="h-fit">
         <CardHeader>
           <CardTitle>Previous briefings</CardTitle>
@@ -262,6 +351,8 @@ function BriefingContent() {
           )}
         </CardContent>
       </Card>
+      <WeeklyReports highlight={params.get("weekly")} />
+      </div>
     </div>
   );
 }

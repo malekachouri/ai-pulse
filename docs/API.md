@@ -91,7 +91,7 @@ The table below is regenerated from the code with `cd backend && python ../scrip
 
 <!-- BEGIN GENERATED ENDPOINTS -->
 
-83 operations, generated from the OpenAPI schema.
+90 operations, generated from the OpenAPI schema.
 
 ### health
 
@@ -127,6 +127,8 @@ The table below is regenerated from the code with `cd backend && python ../scrip
 | `GET` | `/api/v1/news` | Search and filter collected items | public (personalised when signed in) |
 | `GET` | `/api/v1/news/{article_id}` | Get News | public (personalised when signed in) |
 | `GET` | `/api/v1/news/{article_id}/analysis` | AI analysis (labelled AI-generated) and the explainable importance breakdown | public (personalised when signed in) |
+| `GET` | `/api/v1/news/{article_id}/bug-intelligence` | Why a bug/CVE occurs, impact, affected versions and fixes, from cited official sources | public |
+| `POST` | `/api/v1/news/{article_id}/bug-intelligence` | Generate the AI explanation (grounded, cited); needs an LLM provider | signed in |
 | `DELETE` | `/api/v1/news/{article_id}/read` | Mark Unread | signed in |
 | `PUT` | `/api/v1/news/{article_id}/read` | Mark Read | signed in |
 
@@ -143,6 +145,7 @@ The table below is regenerated from the code with `cd backend && python ../scrip
 | Method | Path | Summary | Access |
 |---|---|---|---|
 | `GET` | `/api/v1/models` | AI models with their latest release | public |
+| `GET` | `/api/v1/models/compare` | Compare 2-4 models with cited benchmark scores and facts only | public |
 | `GET` | `/api/v1/models/releases` | Model releases, newest first by default | public |
 | `GET` | `/api/v1/models/{model_id}` | Get Model | public |
 
@@ -204,6 +207,9 @@ The table below is regenerated from the code with `cd backend && python ../scrip
 | `GET` | `/api/v1/briefings` | List Briefings | public (personalised when signed in) |
 | `POST` | `/api/v1/briefings/generate` | Generate (or refresh) today's personalised briefing now | signed in |
 | `GET` | `/api/v1/briefings/latest` | Latest | public (personalised when signed in) |
+| `GET` | `/api/v1/briefings/weekly` | Your weekly intelligence reports (PDF), newest first | signed in |
+| `POST` | `/api/v1/briefings/weekly/generate` | Build (or rebuild) a weekly report now | signed in |
+| `GET` | `/api/v1/briefings/weekly/{week_start}/pdf` | Download a weekly report as PDF | signed in |
 | `GET` | `/api/v1/briefings/{briefing_date}` | By Date | public (personalised when signed in) |
 
 ### notifications
@@ -275,5 +281,11 @@ The table below is regenerated from the code with `cd backend && python ../scrip
 | `GET` | `/api/v1/learning/lessons` | Lessons of a day (default: today, local time) | signed in |
 | `POST` | `/api/v1/learning/lessons/generate` | Generate today's lessons now | signed in |
 | `GET` | `/api/v1/learning/recommendations` | What to learn next, with the reason for each item | signed in |
+
+### watchlist
+
+| Method | Path | Summary | Access |
+|---|---|---|---|
+| `GET` | `/api/v1/watchlist` | Everything new (last 30 days) about each followed entry, linked to the original sources | signed in |
 
 <!-- END GENERATED ENDPOINTS -->

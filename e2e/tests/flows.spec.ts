@@ -208,6 +208,66 @@ test("release analysis shows what changed, citing both releases", async ({ brows
   await p.close();
 });
 
+test("watchlist: what the reader follows, with original sources", async ({ browser }) => {
+  const reader = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await login(reader, ACCOUNTS.user.email, ACCOUNTS.user.password);
+  await open(reader, "/watchlist");
+  const entry = reader.getByRole("region", { name: "Kubernetes" });
+  await expect(entry).toBeVisible();
+  const link = entry.getByRole("link", { name: "[E2E] Kubernetes release adds a new scheduler feature" }).first();
+  await expect(link).toHaveAttribute("href", "https://example.com/e2e/devops-1");
+  await reader.close();
+});
+
+test("compare models: only cited numbers, 'not reported' otherwise", async ({ browser }) => {
+  const p = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await open(p, "/models/compare");
+  // With live sources there are many tracked models: find the two test models by name, as a user would.
+  const search = p.getByRole("textbox", { name: "Search models" });
+  for (const name of ["Example-7B", "Sample-13B"]) {
+    await search.fill(name);
+    await p.getByRole("button", { name: new RegExp(`^${name}`) }).click();
+  }
+  await expect(p).toHaveURL(/ids=.*ids=/);
+  const table = p.getByRole("region", { name: "Model comparison table" });
+  const mmlu = table.getByRole("row", { name: /^MMLU/ });
+  await expect(mmlu.getByText("64.2", { exact: true })).toBeVisible();
+  await expect(mmlu.getByText("68.9", { exact: true })).toBeVisible();
+  await expect(mmlu.getByRole("link", { name: /Source of MMLU for Example-7B/ })).toHaveAttribute("href", "https://example.com/e2e/model-1");
+  const humaneval = table.getByRole("row", { name: /^HumanEval/ });
+  await expect(humaneval.getByText("not reported")).toBeVisible(); // Sample-13B's source does not say
+  await p.close();
+});
+
+test("bug intelligence on the CVE table: cited facts, insufficient information otherwise", async ({ browser }) => {
+  const p = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await open(p, "/bugs?tab=vulnerabilities");
+  await p.getByRole("searchbox", { name: "Search CVEs" }).fill("CVE-2099-0101"); // live NVD data fills page 1
+  await p.getByRole("button", { name: "Bug intelligence: CVE-2099-0101" }).click();
+  const panel = p.getByRole("region", { name: "Bug intelligence" });
+  await expect(panel).toBeVisible();
+  await expect(panel.getByText(/^CVSS 9\.8 \(critical\)/)).toBeVisible();
+  await expect(panel.getByText("Insufficient information in the collected sources.").first()).toBeVisible();
+  await expect(panel.getByText("Facts only: AI explanations need an LLM provider.")).toBeVisible();
+  await p.close();
+});
+
+test("weekly report: build last week's and download the PDF", async ({ browser }) => {
+  const reader = await browser.newPage({ viewport: { width: 1440, height: 900 }, acceptDownloads: true });
+  await login(reader, ACCOUNTS.user.email, ACCOUNTS.user.password);
+  await open(reader, "/briefing");
+  await reader.getByRole("button", { name: "Build last week's report" }).click();
+  const button = reader.getByRole("button", { name: /Download the weekly report of .* as PDF/ }).first();
+  await expect(button).toBeVisible();
+  const [download] = await Promise.all([reader.waitForEvent("download"), button.click()]);
+  expect(download.suggestedFilename()).toMatch(/^ai-pulse-weekly-\d{4}-\d{2}-\d{2}\.pdf$/);
+  const stream = await download.createReadStream();
+  const chunks: Buffer[] = [];
+  for await (const c of stream) chunks.push(c as Buffer);
+  expect(Buffer.concat(chunks).subarray(0, 8).toString()).toBe("%PDF-1.4");
+  await reader.close();
+});
+
 test("mobile: the navigation drawer opens and navigates", async ({ browser }) => {
   const ctx = await browser.newContext({ ...devices["Pixel 7"] });
   const m = await ctx.newPage();

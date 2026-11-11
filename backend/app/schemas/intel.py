@@ -227,6 +227,9 @@ class BugFilters(ListParams):
 
 class SoftwareBugOut(ORMModel):
     id: uuid.UUID
+    article_id: uuid.UUID | None = Field(
+        None, description="Collected item (bug intelligence: /news/{id}/bug-intelligence)"
+    )
     title: str
     project: str
     kind: BugKind
@@ -265,6 +268,9 @@ class VulnerabilityFilters(ListParams, DateRangeMixin):
 
 class VulnerabilityOut(ORMModel):
     id: uuid.UUID
+    article_id: uuid.UUID | None = Field(
+        None, description="Collected item (bug intelligence: /news/{id}/bug-intelligence)"
+    )
     cve_id: str
     description: str | None
     cvss_score: float | None = Field(None, description="Official CVSS base score; null if not published")

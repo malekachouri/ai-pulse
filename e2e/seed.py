@@ -23,7 +23,7 @@ from app.ingestion.normalized import (
     VulnerabilityPayload,
 )
 from app.ingestion.writer import ItemWriter
-from app.models import Source
+from app.models import Article, DailyBriefing, Source
 from app.models.enums import IncidentStatus, ItemType, Severity, VerificationStatus
 
 NOW = datetime.now(UTC)
@@ -52,9 +52,17 @@ def items() -> list[NormalizedItem]:
         NormalizedItem(external_id="e2e-model-1", item_type=ItemType.MODEL_RELEASE, verification=v,
                        title="[E2E] Example Labs releases Example-7B", url=f"{URL}/model-1",
                        description="[E2E] Test model release.", published_at=ago(4), categories=["ai-models"],
+                       content="[E2E] Example-7B scores MMLU 64.2 and reaches 41.0% on HumanEval.",
                        release=ReleasePayload(provider="Example Labs", model_name="Example-7B", version="1.0",
                                               released_at=ago(4), is_open_weights=True,
                                               source_url=f"{URL}/model-1")),
+        NormalizedItem(external_id="e2e-model-2", item_type=ItemType.MODEL_RELEASE, verification=v,
+                       title="[E2E] Sample AI releases Sample-13B", url=f"{URL}/model-2",
+                       description="[E2E] Second test model release.", published_at=ago(7), categories=["ai-models"],
+                       content="[E2E] Sample-13B results: MMLU: 68.9, GSM8K 72.4",
+                       release=ReleasePayload(provider="Sample AI", model_name="Sample-13B", version="2.0",
+                                              released_at=ago(7), is_open_weights=False,
+                                              source_url=f"{URL}/model-2")),
         NormalizedItem(external_id="e2e-paper-1", item_type=ItemType.RESEARCH, verification=v,
                        title="[E2E] Reinforcement learning for tool-using agents", url=f"{URL}/paper-1",
                        description="[E2E] Test paper abstract.", published_at=ago(10),
@@ -112,6 +120,28 @@ def items() -> list[NormalizedItem]:
     ]  # fmt: skip
 
 
+async def last_week_briefing(s, src: Source) -> None:  # type: ignore[no-untyped-def]
+    """A general briefing dated a week ago, so the weekly report (PDF) of last week has content."""
+    day = (NOW - timedelta(days=7)).date()
+    if await s.scalar(select(DailyBriefing.id).where(DailyBriefing.user_id.is_(None),
+                                                     DailyBriefing.briefing_date == day)):  # fmt: skip
+        return
+    rows = (await s.scalars(select(Article).where(Article.source_id == src.id).order_by(Article.title))).all()
+
+    def item(a: Article) -> dict:  # type: ignore[type-arg]
+        return {"article_id": str(a.id), "title": a.title, "url": a.url, "source": src.name,
+                "item_type": a.item_type.value, "published_at": a.published_at.isoformat() if a.published_at else None,
+                "importance": 50, "personal_score": 50, "why_for_you": [], "severity": None, "severity_basis": None,
+                "summary": None, "summary_is_ai": False}  # fmt: skip
+
+    start = datetime.combine(day, datetime.min.time(), UTC)
+    s.add(DailyBriefing(user_id=None, briefing_date=day, period_start=start - timedelta(days=1), period_end=start,
+                        generated_at=start, executive_summary="[E2E] Last week's test briefing.",
+                        sections={"top_ai": [item(a) for a in rows if a.item_type == ItemType.NEWS][:3],
+                                  "devops": [item(a) for a in rows if a.item_type == ItemType.DEVOPS][:2]},
+                        cited_article_ids=[str(a.id) for a in rows]))  # fmt: skip
+
+
 async def main() -> None:
     settings = get_settings()
     engine = create_engine(settings)
@@ -124,6 +154,8 @@ async def main() -> None:
             s.add(src)
             await s.flush()
         stats = await ItemWriter(s, src, NOW).save(items())
+        await s.commit()
+        await last_week_briefing(s, src)
         await s.commit()
         print(f"e2e seed: created={stats.created} updated={stats.updated} skipped={stats.skipped}")
     await engine.dispose()

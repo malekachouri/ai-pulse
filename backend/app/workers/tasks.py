@@ -211,3 +211,45 @@ def evaluate_alerts() -> dict[str, Any]:
             return {"created": stats.created, "by_rule": stats.by_rule}
 
     return _run(body)
+
+
+@celery_app.task(name="aipulse.generate_due_weekly_reports")
+def generate_due_weekly_reports() -> int:
+    """Hourly: one `generate_weekly_report` per user whose Monday (local time) has passed their hour."""
+    from app.reports.weekly import due_reports
+
+    async def body(factory: async_sessionmaker[AsyncSession]) -> int:
+        async with factory() as s:
+            due = await due_reports(s, datetime.now(UTC))
+        for d in due:
+            generate_weekly_report.delay(str(d.user_id), d.week_start.isoformat())
+        return len(due)
+
+    return _run(body)
+
+
+@celery_app.task(
+    name="aipulse.generate_weekly_report",
+    autoretry_for=(Exception,),
+    retry_backoff=60,
+    retry_backoff_max=900,
+    max_retries=3,
+)
+def generate_weekly_report(user_id: str, week_start: str) -> dict[str, Any]:
+    from datetime import date
+
+    from app.reports.weekly import run_weekly_report
+    from app.services.email import build_email_sender
+
+    settings = get_settings()
+    email = build_email_sender(settings) if settings.smtp_host else None
+
+    async def body(factory: async_sessionmaker[AsyncSession]) -> dict[str, Any]:
+        async with factory() as s:
+            out = await run_weekly_report(
+                s, uuid.UUID(user_id), date.fromisoformat(week_start), datetime.now(UTC), email
+            )
+            await s.commit()
+            return out
+
+    return _run(body)

@@ -17,6 +17,10 @@ import type {
   UsageStats,
   AIModel,
   AIStatus,
+  BugIntelligence,
+  ModelComparison,
+  Watchlist,
+  WeeklyReportItem,
   Article,
   ArticleAnalysis,
   AskResponse,
@@ -562,4 +566,70 @@ export function useSourceMutations() {
       onError: (err) => toast.error(errorMessage(err)),
     }),
   };
+}
+
+export function useWatchlist() {
+  const { status } = useAuth();
+  return useQuery({
+    queryKey: ["watchlist"],
+    queryFn: () => api.get<Watchlist>("/watchlist"),
+    enabled: status === "authenticated",
+  });
+}
+
+export function useBugIntelligence(articleId: string | null) {
+  return useQuery({
+    queryKey: ["bug-intelligence", articleId],
+    queryFn: () => api.get<BugIntelligence>(`/news/${articleId}/bug-intelligence`),
+    enabled: !!articleId,
+  });
+}
+
+export function useGenerateBugIntelligence(articleId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post<BugIntelligence>(`/news/${articleId}/bug-intelligence`),
+    onSuccess: (data) => {
+      qc.setQueryData(["bug-intelligence", articleId], data);
+      toast.success("Explanation ready");
+    },
+    onError: (err) => toast.error(errorMessage(err)),
+  });
+}
+
+export function useModelPicker(q: string) {
+  return useQuery({
+    queryKey: ["models", "picker", q],
+    queryFn: () => api.get<Page<AIModel>>("/models", { q: q || undefined, sort: "-updated_at", page_size: 30 }),
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useModelComparison(ids: string[]) {
+  return useQuery({
+    queryKey: ["models", "compare", ids],
+    queryFn: () => api.get<ModelComparison>("/models/compare", { ids }),
+    enabled: ids.length >= 2,
+  });
+}
+
+export function useWeeklyReports() {
+  const { status } = useAuth();
+  return useQuery({
+    queryKey: ["briefings", "weekly"],
+    queryFn: () => api.get<WeeklyReportItem[]>("/briefings/weekly"),
+    enabled: status === "authenticated",
+  });
+}
+
+export function useGenerateWeeklyReport() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post<WeeklyReportItem>("/briefings/weekly/generate"),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["briefings", "weekly"] });
+      toast.success("Weekly report ready");
+    },
+    onError: (err) => toast.error(errorMessage(err)),
+  });
 }

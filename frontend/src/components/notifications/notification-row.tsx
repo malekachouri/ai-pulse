@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertOctagon, Bug, Cpu, ExternalLink, Mail, MailOpen, Server, ShieldAlert, Sunrise, Trash2, type LucideIcon } from "lucide-react";
+import { AlertOctagon, Bug, Cpu, ExternalLink, Eye, Mail, MailOpen, Server, ShieldAlert, Sunrise, Trash2, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 
 import { SeverityBadge } from "@/components/feed/badges";
@@ -14,6 +14,7 @@ export const NOTIFICATION_GROUPS: { key: string; label: string; kinds: Notificat
   { key: "models", label: "Model releases", kinds: ["model_release"] },
   { key: "security", label: "Bugs & vulnerabilities", kinds: ["vulnerability", "bug"] },
   { key: "incidents", label: "Incidents", kinds: ["incident"] },
+  { key: "watchlist", label: "Watchlist", kinds: ["watchlist"] },
   { key: "briefings", label: "Briefings", kinds: ["briefing"] },
 ];
 
@@ -25,6 +26,7 @@ export const KIND_META: Record<NotificationKind, { label: string; icon: LucideIc
   incident: { label: "Incident", icon: Server, tone: "text-orange-600 dark:text-orange-400" },
   briefing: { label: "Briefing", icon: Sunrise, tone: "text-violet-600 dark:text-violet-300" },
   system: { label: "System", icon: Mail, tone: "text-muted-foreground" },
+  watchlist: { label: "Watchlist", icon: Eye, tone: "text-primary" },
 };
 
 /** Internal links (`/briefing?...`) stay in the app; anything else must be a safe external URL. */

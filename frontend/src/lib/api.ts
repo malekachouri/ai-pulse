@@ -118,6 +118,33 @@ export async function apiFetch<T>(
   return (await res.json()) as T;
 }
 
+/** Download a file the API serves to signed-in users (e.g. a PDF report) and hand it to the browser. */
+export async function downloadFile(path: string, filename: string): Promise<void> {
+  if (isDemoMode()) throw new ApiError(400, "demo", "Downloads are not available in demo mode.");
+  const url = `${API_BASE}${path}`;
+  const doFetch = (token: string | null) =>
+    fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {}, credentials: "same-origin" });
+  let res: Response;
+  try {
+    res = await doFetch(accessToken);
+  } catch {
+    throw new ApiError(0, "network_error", "Network error: could not reach the AI Pulse API.");
+  }
+  if (res.status === 401 && accessToken) {
+    const fresh = await refreshAccessToken();
+    if (fresh) res = await doFetch(fresh);
+  }
+  if (!res.ok) throw await parseError(res);
+  const href = URL.createObjectURL(await res.blob());
+  const a = document.createElement("a");
+  a.href = href;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(href), 10_000);
+}
+
 export const api = {
   get: <T>(path: string, query?: Query) => apiFetch<T>(path, { query }),
   post: <T>(path: string, body?: unknown) =>

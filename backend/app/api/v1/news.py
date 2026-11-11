@@ -4,11 +4,15 @@ from datetime import datetime
 from fastapi import APIRouter, Query, status
 from pydantic import ValidationError
 
+from app.ai.bugintel import BugIntelligence
 from app.api.deps import AIDep, CurrentUser, OptionalUser, SessionDep
-from app.core.errors import AppError
+from app.core.errors import AppError, NotFoundError
+from app.core.ratelimit import limiter
+from app.models import Article
 from app.models.enums import ItemType, Severity, VerificationStatus
 from app.schemas.ai import ArticleAnalysisOut
 from app.schemas.article import ArticleDetail, ArticleFilters, ArticleOut, SortOrder
+from app.schemas.bugintel import BugIntelligenceOut
 from app.schemas.common import ErrorResponse, Page, PageParams
 from app.services.ai import AIService
 from app.services.articles import ArticleService
@@ -107,3 +111,47 @@ async def get_analysis(
     article_id: uuid.UUID, session: SessionDep, user: OptionalUser, ai: AIDep
 ) -> ArticleAnalysisOut:
     return await AIService(session, ai).analysis(article_id, user)
+
+
+async def _bug_article(session: SessionDep, article_id: uuid.UUID) -> Article:
+    a = await session.get(Article, article_id)
+    if a is None:
+        raise NotFoundError("Article not found")
+    return a
+
+
+@router.get(
+    "/{article_id}/bug-intelligence",
+    response_model=BugIntelligenceOut,
+    summary="Why a bug/CVE occurs, impact, affected versions and fixes, from cited official sources",
+    description="Returns the stored AI explanation when one was generated, otherwise the cited facts only.",
+    responses={404: {"model": ErrorResponse}, 400: {"model": ErrorResponse}},
+)
+async def get_bug_intelligence(article_id: uuid.UUID, session: SessionDep, ai: AIDep) -> BugIntelligenceOut:
+    a = await _bug_article(session, article_id)
+    intel = BugIntelligence(session, ai)
+    try:
+        out = await intel.cached(a) or await intel.build(a, use_llm=False)
+    except ValueError as exc:
+        raise AppError(str(exc)) from exc
+    return BugIntelligenceOut.model_validate({**out, "llm_available": ai.llm is not None})
+
+
+@router.post(
+    "/{article_id}/bug-intelligence",
+    response_model=BugIntelligenceOut,
+    dependencies=[limiter("ai", per_user=True)],
+    summary="Generate the AI explanation (grounded, cited); needs an LLM provider",
+    responses={404: {"model": ErrorResponse}, 400: {"model": ErrorResponse}},
+)
+async def generate_bug_intelligence(
+    article_id: uuid.UUID, session: SessionDep, user: CurrentUser, ai: AIDep
+) -> BugIntelligenceOut:
+    a = await _bug_article(session, article_id)
+    if ai.llm is None:
+        raise AppError("Bug intelligence explanations need an LLM provider (LLM_PROVIDER / LLM_MODEL).")
+    try:
+        out = await BugIntelligence(session, ai).generate(a)
+    except ValueError as exc:
+        raise AppError(str(exc)) from exc
+    return BugIntelligenceOut.model_validate({**out, "llm_available": True})

@@ -196,3 +196,20 @@ class LearningLesson(Base, UUIDPrimaryKeyMixin):
     provider: Mapped[str] = mapped_column(String(32))
     model: Mapped[str] = mapped_column(String(100))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class WeeklyReport(Base, UUIDPrimaryKeyMixin):
+    """One user's weekly intelligence report: the week's briefings merged (rendered to PDF on download)."""
+
+    __tablename__ = "weekly_reports"
+    __table_args__ = (UniqueConstraint("user_id", "week_start", name="uq_weekly_reports_user_week"),)
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    week_start: Mapped[date] = mapped_column(Date)  # Monday, in the user's timezone
+    week_end: Mapped[date] = mapped_column(Date)  # Sunday
+    content: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    briefing_ids: Mapped[list[str]] = mapped_column(JSONB, default=list, server_default="[]")
+    generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    emailed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

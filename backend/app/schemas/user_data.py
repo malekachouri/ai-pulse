@@ -181,3 +181,14 @@ class BriefingListItem(ORMModel):
     executive_summary: str | None
     generated_at: datetime
     personalized: bool = False
+
+
+class WeeklyReportItem(ORMModel):
+    id: uuid.UUID
+    week_start: date
+    week_end: date
+    generated_at: datetime
+    emailed_at: datetime | None = None
+    items: int = 0
+    days_covered: int = 0
+    pdf_url: str = ""

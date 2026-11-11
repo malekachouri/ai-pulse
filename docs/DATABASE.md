@@ -37,8 +37,8 @@ The ER diagram and the column-level list are in [ARCHITECTURE.md §4](ARCHITECTU
 | Identity | `roles` (admin, analyst, user), `users`, `user_preferences` (interests, follows, notification rules in `alert_settings` JSONB, briefing schedule), `refresh_tokens` (SHA-256 hashes, rotation family), `password_reset_tokens` |
 | Content | `sources` (connector, config, checkpoint, health), `categories`, `articles` (canonical item, `embedding vector(768)`, generated `search_vector`), `article_categories` |
 | Intelligence | `ai_models`, `ai_model_releases`, `ai_tools`, `research_papers`, `github_repositories` (star history), `github_issues`, `software_bugs`, `security_vulnerabilities`, `incidents` |
-| AI | `ai_analyses` (summary, entities, importance, release `changes`), `ai_usage` (one row per LLM/embedding call: tokens, cost, errors), `learning_lessons` (per-user daily AI lessons, labelled) |
-| User data | `bookmarks`, `article_reads`, `notifications` (soft-deleted with `dismissed_at`, so the dedup key survives), `daily_briefings` |
+| AI | `ai_analyses` (summary, entities, importance, release `changes`, `bug_intel`), `ai_usage` (one row per LLM/embedding call: tokens, cost, errors), `learning_lessons` (per-user daily AI lessons, labelled) |
+| User data | `bookmarks`, `article_reads`, `notifications` (soft-deleted with `dismissed_at`, so the dedup key survives), `daily_briefings`, `weekly_reports` (one per user and week; PDF rendered on download) |
 | Operations | `collection_jobs` (every ingestion run), `audit_logs` (admin actions) |
 
 ### Notable indexes
@@ -65,6 +65,7 @@ The ER diagram and the column-level list are in [ARCHITECTURE.md §4](ARCHITECTU
 | 0005 | bug resolution and fix fields, verification timestamps, `alert_settings`, GitHub advisories source |
 | 0006 | `briefing_weekday`, notification `dismissed_at`, check constraints on the briefing schedule, notification index |
 | 0007 | analysis kind `changes` (release comparison), `learning_lessons` |
+| 0008 | analysis kind `bug_intel`, notification kind `watchlist`, `weekly_reports` |
 
 Workflow:
 
@@ -106,6 +107,7 @@ passwords with `scripts/rotate-db-password.sh app|metrics|postgres`.
 ## Backups, restore, retention
 
 See [DEPLOYMENT.md §5](DEPLOYMENT.md#5-backups-and-restore).
+- Every dump can also be copied offsite: encrypted on the host, uploaded to S3-compatible storage, with its own retention. Restores can come from that copy alone (`scripts/restore.sh --from-offsite`).
 - Backups are `pg_dump --format=custom`, scheduled and taken before each deployment, with checksums and a readability check.
 - A restore goes into a staging database and is swapped in only after it succeeds.
 - `wal_level=replica` is set, so point-in-time recovery (WAL archiving, pgBackRest, wal-g) can be added later without schema changes.

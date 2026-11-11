@@ -2,6 +2,7 @@
 
 import { BookOpen, ExternalLink, Gauge, Info, Sparkles, Tags } from "lucide-react";
 
+import { BUG_INTEL_TYPES, BugIntelligencePanel } from "@/components/intel/bug-intelligence";
 import { ReleaseChanges } from "@/components/intel/release-changes";
 import { ErrorState } from "@/components/states/states";
 import { Badge } from "@/components/ui/badge";
@@ -46,6 +47,7 @@ export function AnalysisSheet({ article, open, onOpenChange }: { article: Articl
           ) : d ? (
             <>
               {d.changes && <ReleaseChanges c={d.changes} />}
+              {BUG_INTEL_TYPES.includes(article.item_type) && <BugIntelligencePanel articleId={article.id} />}
               {d.importance && (
                 <section className="rounded-xl border bg-card p-4">
                   <div className="flex items-baseline justify-between">

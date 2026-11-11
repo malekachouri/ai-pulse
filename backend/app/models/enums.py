@@ -112,6 +112,7 @@ class NotificationKind(StrEnum):
     BUG = "bug"
     INCIDENT = "incident"
     BRIEFING = "briefing"
+    WATCHLIST = "watchlist"  # a followed technology, provider or repository has a new release
     SYSTEM = "system"
 
 
@@ -122,6 +123,7 @@ class AnalysisKind(StrEnum):
     IMPORTANCE = "importance"
     ENTITIES = "entities"
     CHANGES = "changes"  # release-to-release comparison (rule-based)
+    BUG_INTEL = "bug_intel"  # bug / CVE explanation from the collected official sources
 
 
 class BriefingFrequency(StrEnum):

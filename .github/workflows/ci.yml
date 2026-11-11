@@ -255,6 +255,43 @@ jobs:
           ./scripts/restore.sh "$latest" --yes
           docker compose up -d --wait --wait-timeout 180 api worker beat
           ./scripts/smoke-test.sh http://localhost:3000
+      - name: Offsite backup drill (encrypted copy on S3-compatible storage, restore from it alone)
+        env:
+          BACKUP_S3_ENDPOINT: http://offsite-s3:7070
+          BACKUP_S3_BUCKET: ai-pulse-drill
+        run: |
+          # Throwaway S3-compatible server (versitygw) on the stack's egress network, with drill-only keys.
+          key="drill-$(openssl rand -hex 6)"; secret="$(openssl rand -hex 24)"
+          printf '%s' "$key" > secrets/backup_s3_access_key_id
+          printf '%s' "$secret" > secrets/backup_s3_secret_access_key
+          chmod 644 secrets/backup_s3_access_key_id secrets/backup_s3_secret_access_key
+          docker run -d --name offsite-s3 --network ai-pulse_egress -v offsite-drill:/data \
+            -e ROOT_ACCESS_KEY="$key" -e ROOT_SECRET_KEY="$secret" \
+            versity/versitygw:v1.0.18@sha256:90f8280610a889d705ae93ae4b4064d74ffa9f3b565aacf2e3372b0614d7a796 \
+            --port :7070 posix /data
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            docker compose run --rm -T --no-deps --entrypoint /bin/bash backup /backup/offsite.sh init && break
+            [ "$attempt" = 10 ] && exit 1
+            sleep 3
+          done
+          # The backup service dumps on start; with offsite configured it encrypts and uploads the dump.
+          docker compose --profile backup up -d --no-deps --force-recreate backup
+          timeout 300 sh -c 'until docker compose logs backup | grep -q offsite_ok; do sleep 3; done'
+          docker compose logs backup | grep -E 'backup_ok|offsite_ok|offsite_pruned'
+          docker compose exec -T backup bash /backup/healthcheck.sh
+          # What is stored offsite is ciphertext: no pg_dump "PGDMP" header.
+          docker compose run --rm -T --no-deps --entrypoint /bin/bash backup -c '
+            name="$(bash /backup/offsite.sh latest)"
+            ! curl -sf --aws-sigv4 "aws:amz:us-east-1:s3" -H "x-amz-content-sha256: UNSIGNED-PAYLOAD" \
+              -K <(printf "user = \"%s:%s\"" "$(cat /run/secrets/backup_s3_access_key_id)" \
+                   "$(cat /run/secrets/backup_s3_secret_access_key)") \
+              "$BACKUP_S3_ENDPOINT/$BACKUP_S3_BUCKET/ai-pulse/$name.gpg" | head -c 5 | grep -q PGDMP'
+          # Disaster: every local copy is lost. Restore from the offsite copy only.
+          rm -rf backups
+          docker compose --profile backup stop backup
+          ./scripts/restore.sh --from-offsite latest --yes
+          docker compose up -d --wait --wait-timeout 180 api worker beat
+          ./scripts/smoke-test.sh http://localhost:3000
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -282,4 +319,7 @@ jobs:
         run: docker compose --profile monitoring --profile backup logs --no-color --tail 200
       - name: Tear down
         if: always()
-        run: docker compose --profile monitoring --profile backup down -v --remove-orphans
+        run: |
+          docker rm -f offsite-s3 || true
+          docker compose --profile monitoring --profile backup down -v --remove-orphans
+          docker volume rm offsite-drill || true
