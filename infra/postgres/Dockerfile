@@ -6,6 +6,8 @@ FROM pgvector/pgvector:0.8.7-pg16
 # the container always starts as the unprivileged postgres user, so the entrypoint never needs to drop
 # privileges, and the binary only adds attack surface (its Go runtime has its own CVE stream).
 # OS_UPGRADE=false only for air-gapped builds without a Debian mirror; CI and releases keep the default.
+# curl (AWS SigV4 signing) is added for the backup service's offsite copies (infra/backup/offsite.sh); gpg is
+# already in the base image.
 ARG OS_UPGRADE=true
 # Optional build secret "build_ca" (TLS-inspecting corporate proxy): apt then uses HTTPS mirrors with that CA
 # for the duration of this step only; the image keeps the standard Debian configuration.
@@ -17,6 +19,7 @@ RUN --mount=type=secret,id=build_ca,required=false set -eu; \
     fi; \
     apt-get update --error-on=any; \
     DEBIAN_FRONTEND=noninteractive apt-get -y --no-install-recommends upgrade; \
+    DEBIAN_FRONTEND=noninteractive apt-get -y --no-install-recommends install curl ca-certificates; \
     rm -rf /var/lib/apt/lists/* /etc/apt/apt.conf.d/99build-ca; \
     sed -i 's|https://|http://|g' /etc/apt/sources.list.d/debian.sources /etc/apt/sources.list.d/pgdg.list; \
     fi; \

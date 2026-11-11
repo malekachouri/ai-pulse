@@ -64,6 +64,8 @@ printf '%s' 'sk-...' > secrets/openai_api_key
 | `alert_webhook_url` | Slack/Teams/Discord-compatible or generic webhook for alerts |
 | `openai_api_key`, `anthropic_api_key` | LLM providers (optional) |
 | `github_token`, `nvd_api_key` | higher source rate limits (optional) |
+| `backup_s3_access_key_id`, `backup_s3_secret_access_key` | offsite backup storage (optional, §5) |
+| `backup_encryption_passphrase` | encrypts offsite backups: keep a copy off this server (§5) |
 | `smtp_password` | SMTP password for password-reset emails (optional; empty = no auth) |
 
 ```bash
@@ -214,9 +216,9 @@ docker compose logs -f api worker
   `BACKUP_RETENTION_DAYS` days. Its health check turns unhealthy when the newest dump is older than
   the interval plus one hour.
 - **On demand / before each deployment.** `./scripts/backup.sh [dir]` writes to `./backups`.
-- **Off-site.** Copy the dumps to object storage (for example a cron job running `rclone copy` or
-  `aws s3 sync`, using a bucket with versioning and object lock). Dumps contain personal data
-  (emails, preferences): encrypt them at rest.
+- **Off-site (encrypted).** Set `BACKUP_S3_ENDPOINT` and `BACKUP_S3_BUCKET` in `.env` and the
+  `backup` service copies every dump to S3-compatible storage (AWS S3, Cloudflare R2, Backblaze B2,
+  Wasabi, MinIO, Ceph...) right after taking it. Details below.
 - **Restore.** `./scripts/restore.sh backups/<file>.dump` works in four steps:
   1. it verifies the checksum;
   2. it restores into a *new* database as the application role;
@@ -225,6 +227,83 @@ docker compose logs -f api worker
 
   The previous database is kept as `<db>_pre_restore_<ts>` for rollback. A failed or corrupt
   restore leaves production untouched. CI rehearses this drill on every run.
+
+### Off-site copies
+
+What happens on each run (`infra/backup/offsite.sh`):
+
+1. The dump is encrypted **on this host** before it leaves: OpenPGP symmetric, AES-256, with the
+   passphrase in `secrets/backup_encryption_passphrase`. The storage provider only sees ciphertext.
+2. It is uploaded as `<prefix><db>-<ts>.dump.gpg`, followed by the plain `.sha256` of the dump. The
+   checksum marks the copy as complete, and `restore.sh` verifies it after decryption.
+3. Copies older than `BACKUP_OFFSITE_RETENTION_DAYS` (default 30) are deleted. This is separate from
+   local retention.
+
+Requests are signed with AWS Signature V4 (curl, path-style URLs). A failed upload never stops the
+local backups: it is logged as `offsite_failed`, and the service's health check turns unhealthy until
+an upload succeeds again.
+
+Set-up:
+
+1. Create a bucket and an access key that can only `PutObject`, `GetObject`, `ListBucket` and
+   `DeleteObject` on it.
+   - Prefer versioning or object lock with a lifecycle rule. A stolen key then cannot destroy
+     history. `DeleteObject` is only needed for the script's own retention, so drop it when the
+     bucket's lifecycle handles expiry, and set `BACKUP_OFFSITE_RETENTION_DAYS` to a large value.
+2. Put the key pair in `secrets/backup_s3_access_key_id` and `secrets/backup_s3_secret_access_key`.
+   These are Docker secrets: never put them in `.env`.
+3. `scripts/generate-secrets.sh` already created a random `secrets/backup_encryption_passphrase`.
+   **Store a copy outside this server** (for example a password manager). Without it no offsite copy
+   can be restored. Never change it while old copies are still needed.
+4. Set in `.env`:
+   - `BACKUP_S3_ENDPOINT`, e.g. `https://s3.eu-west-1.amazonaws.com` or
+     `https://<account>.r2.cloudflarestorage.com`;
+   - `BACKUP_S3_BUCKET`;
+   - optionally `BACKUP_S3_REGION` (default `us-east-1`; R2 uses `auto`) and `BACKUP_S3_PREFIX`
+     (default `ai-pulse/`).
+5. Restart the service and check that the first upload worked:
+
+   ```bash
+   docker compose --profile backup up -d backup
+   ```
+
+   ```bash
+   docker compose logs backup | grep offsite_
+   ```
+
+   On a self-hosted S3 server, create the bucket first:
+
+   ```bash
+   docker compose run --rm --no-deps --entrypoint /bin/bash backup /backup/offsite.sh init
+   ```
+
+To list the offsite copies (`list`, `latest` and `fetch` work the same way):
+
+```bash
+docker compose run --rm --no-deps --entrypoint /bin/bash backup /backup/offsite.sh list
+```
+
+**Restore from the offsite copy**, for example after losing the server and its volumes:
+
+1. Redeploy (§2).
+2. Put back `secrets/backup_encryption_passphrase` (your saved copy) and the S3 key files.
+3. Set the same `BACKUP_*` values in `.env`.
+4. Run:
+
+   ```bash
+   ./scripts/restore.sh --from-offsite latest
+   ```
+
+   Instead of `latest` you can name a copy (`aipulse-<ts>.dump`). The script downloads and decrypts
+   the copy into `backups/offsite/`, verifies its checksum, then restores it through the same safe
+   four steps.
+
+CI rehearses this on every run. It starts a throwaway S3-compatible server, lets the backup service
+encrypt and upload a dump, and checks the stored object is ciphertext. It then deletes every local
+copy, restores from the offsite copy alone and runs the smoke test.
+
+> Images built with `OS_UPGRADE=false` (air-gapped builds) lack curl, so they cannot make offsite
+> copies. Copy `/backups` with your own tooling there.
 
 Recovery objectives with the defaults: RPO ≤ 24 h (lower it with `BACKUP_INTERVAL_SECONDS`, or add
 WAL archiving: `wal_level=replica` is already set), RTO ≈ restore time (minutes for this dataset size).

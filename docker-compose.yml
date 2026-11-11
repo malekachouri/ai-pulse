@@ -322,13 +322,23 @@ services:
       PGPASSFILE_SOURCE: /run/secrets/postgres_password
       BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-86400}
       BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
-    secrets: [postgres_password]
+      # Offsite copies (encrypted, S3-compatible): enabled when endpoint and bucket are set.
+      BACKUP_S3_ENDPOINT: ${BACKUP_S3_ENDPOINT:-}
+      BACKUP_S3_BUCKET: ${BACKUP_S3_BUCKET:-}
+      BACKUP_S3_REGION: ${BACKUP_S3_REGION:-us-east-1}
+      BACKUP_S3_PREFIX: ${BACKUP_S3_PREFIX:-ai-pulse/}
+      BACKUP_OFFSITE_RETENTION_DAYS: ${BACKUP_OFFSITE_RETENTION_DAYS:-30}
+    secrets:
+      - postgres_password
+      - backup_s3_access_key_id
+      - backup_s3_secret_access_key
+      - backup_encryption_passphrase
     volumes:
       - ./infra/backup:/backup:ro
       # named volume by default; a host path also works if owned by UID 999 (postgres): chown 999:999 <dir>
       - ${BACKUP_DIR:-pgbackups}:/backups
     tmpfs: ["/tmp:size=16m"]
-    networks: [data]
+    networks: [data, egress] # egress: offsite uploads only
     restart: unless-stopped
     healthcheck:
       # healthy while the newest dump is younger than the backup interval + 1 hour
@@ -381,3 +391,6 @@ secrets:
   anthropic_api_key: { file: ./secrets/anthropic_api_key }
   github_token: { file: ./secrets/github_token }
   nvd_api_key: { file: ./secrets/nvd_api_key }
+  backup_s3_access_key_id: { file: ./secrets/backup_s3_access_key_id }
+  backup_s3_secret_access_key: { file: ./secrets/backup_s3_secret_access_key }
+  backup_encryption_passphrase: { file: ./secrets/backup_encryption_passphrase }

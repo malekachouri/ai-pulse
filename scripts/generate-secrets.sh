@@ -31,6 +31,9 @@ put redis_password "$(rand 40)" rotatable
 put jwt_secret "$(rand 64)" rotatable
 put metrics_token "$(rand 48)" rotatable
 put grafana_admin_password "$(rand 24)"
+# Encrypts the offsite backup copies. Keep a copy somewhere other than this host (a password manager):
+# a backup cannot be restored without it. Never rotated automatically (old copies need the old one).
+put backup_encryption_passphrase "$(rand 64)"
 
 # Derived connection strings (regenerated whenever their passwords change).
 app_pw="$(cat "$DIR/app_db_password")"
@@ -40,7 +43,8 @@ printf 'redis://:%s@redis:6379/0' "$redis_pw" > "$DIR/redis_url"
 printf '{"redis://redis:6379": "%s"}' "$redis_pw" > "$DIR/redis_exporter_passwords.json"
 
 # Optional: empty means "not configured".
-for f in openai_api_key anthropic_api_key github_token nvd_api_key smtp_password; do
+for f in openai_api_key anthropic_api_key github_token nvd_api_key smtp_password \
+  backup_s3_access_key_id backup_s3_secret_access_key; do
   [[ -e "$DIR/$f" ]] || { : > "$DIR/$f"; echo "  created empty $DIR/$f (optional)"; }
 done
 [[ -e "$DIR/alert_webhook_url" ]] || {
