@@ -41,6 +41,11 @@ class ArticleAnalysisOut(BaseModel):
     language: str | None
     keywords: list[str]
     entities: list[dict[str, str]]
+    changes: dict[str, Any] | None = Field(
+        None,
+        description="Release items: what changed since the previous release of the same model, tool or "
+        "repository, extracted from both sources (rule-based; 'not documented' when a source does not say).",
+    )
 
 
 class AIStatus(BaseModel):

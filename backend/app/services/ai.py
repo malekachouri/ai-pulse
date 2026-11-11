@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ai.changes import VERSION as CHANGES_VERSION
 from app.ai.pipeline import RULES_VERSION
 from app.ai.prompts import PROMPT_VERSION
 from app.ai.providers import AIProviders
@@ -72,6 +73,7 @@ class AIService:
             language=eo.get("language") or article.language,
             keywords=eo.get("keywords", []),
             entities=eo.get("entities", []),
+            changes=ch.output if (ch := rows.get((AnalysisKind.CHANGES, CHANGES_VERSION))) else None,
         )
 
     async def status(self) -> AIStatus:

@@ -1,0 +1,24 @@
+[
+  {
+    "id": 9101,
+    "tag_name": "v1.3.0",
+    "name": "Infer v1.3.0",
+    "html_url": "https://github.com/example-org/infer/releases/tag/v1.3.0",
+    "published_at": "2026-11-05T10:00:00Z",
+    "draft": false,
+    "prerelease": false,
+    "author": {"login": "release-bot"},
+    "body": "## Highlights\n- Speculative decoding is enabled by default\n- New [OpenAI-compatible](https://example.com/docs/api) batch endpoint\n\n### Breaking changes\n- Removed the deprecated `--legacy-scheduler` flag\n\n### Bug fixes\n* Fixed a memory leak when streaming long responses (#4512)\n* Fixed tokenizer caching across workers\n\n### Evaluation\nWith the default model: MMLU: 73.5, HumanEval 81.0%, GSM8K 88.2.\n\nThis release is licensed under the MIT License."
+  },
+  {
+    "id": 9001,
+    "tag_name": "v1.2.0",
+    "name": "Infer v1.2.0",
+    "html_url": "https://github.com/example-org/infer/releases/tag/v1.2.0",
+    "published_at": "2026-10-01T10:00:00Z",
+    "draft": false,
+    "prerelease": false,
+    "author": {"login": "release-bot"},
+    "body": "### Features\n- Paged attention for long contexts\n\n### Evaluation\nWith the default model: MMLU 71.2 and 88.2% on GSM8K.\n\nLicensed under the Apache 2.0 license."
+  }
+]
