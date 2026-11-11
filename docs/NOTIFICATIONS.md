@@ -52,7 +52,7 @@ Notifications are delivered in the app. Each one has a kind, a severity, a title
 | Kind | Rule (`alert_settings`) | Dedup key |
 |---|---|---|
 | `critical_alert` | `exploited`: a CVE added to CISA KEV in the last 2 days | `cve:<id>:kev` |
-| `vulnerability` | `critical_cves` (optional `min_cvss`), or `watched_tech` (at or above `min_notification_severity`) | `cve:<id>:new` |
+| `vulnerability` | `critical_cves` (CVSS ≥ `min_cvss`, default 9.5; `null` = any critical), or `watched_tech` (at or above `min_notification_severity`) | `cve:<id>:new` |
 | `bug` | `critical_bugs`: critical with a documented basis, limited to `bug_projects` or the followed repositories | `bug:<id>` |
 | `incident` | `outages`: currently active, impact at or above `outage_min_impact`, optionally limited to `outage_providers` | `incident:<id>` |
 | `model_release` | `model_releases`: released in the last 7 days. Limited to `model_providers`; when that list is empty, to the followed providers; when both are empty, any tracked provider. | `model:<release id>` |

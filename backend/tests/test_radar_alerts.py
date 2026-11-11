@@ -545,3 +545,21 @@ async def test_weekly_outage_time_ignores_inconsistent_timestamps(client, sessio
     assert all(w["outage_minutes"] >= 0 for w in d["weekly"])
     r = (await client.get("/api/v1/incidents", params={"category": "database"})).json()
     assert all("Mastercard" not in i["title"] for i in r["items"])
+
+
+def test_critical_cve_alerts_default_to_cvss_9_5():
+    """NVD publishes ~40 critical CVEs a day: by default only CVSS >= 9.5 notifies; null restores 'any'."""
+    from app.alerts.engine import AlertEngine, AlertSettings, Event
+    from app.models.enums import NotificationKind, Severity
+
+    def cve(cid, cvss):
+        return Event("cve", NotificationKind.VULNERABILITY, Severity.CRITICAL, f"New critical CVE: {cid}", None,
+                     None, None, f"cve:{cid}:new", {"cvss": cvss, "has_basis": True, "text": cid})  # fmt: skip
+
+    events = {"vuln": [cve("CVE-1", 9.1), cve("CVE-2", 9.5), cve("CVE-3", 10.0)], "kev": [], "bug": [],
+              "outage": [], "model": []}  # fmt: skip
+    engine = AlertEngine(None)  # type: ignore[arg-type] - for_user does not touch the session
+    picked = lambda s: sorted(e.dedup_key for e in engine.for_user(events, s, Severity.HIGH, [], []))  # noqa: E731
+    assert AlertSettings().min_cvss == 9.5
+    assert picked(AlertSettings()) == ["cve:CVE-2:new", "cve:CVE-3:new"]
+    assert picked(AlertSettings(min_cvss=None)) == ["cve:CVE-1:new", "cve:CVE-2:new", "cve:CVE-3:new"]
