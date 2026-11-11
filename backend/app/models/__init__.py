@@ -20,6 +20,7 @@ from app.models.ops import (
     DailyBriefing,
     LearningLesson,
     Notification,
+    WeeklyReport,
 )
 from app.models.user import PasswordResetToken, RefreshToken, Role, User, UserPreference
 
@@ -40,6 +41,7 @@ __all__ = [
     "GitHubRepository",
     "Incident",
     "LearningLesson",
+    "WeeklyReport",
     "Notification",
     "PasswordResetToken",
     "RefreshToken",

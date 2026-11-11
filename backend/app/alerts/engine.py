@@ -9,6 +9,8 @@ Rules (each can be switched off and tuned per user in `user_preferences.alert_se
   watched_tech   - new CVE mentioning a followed technology/provider, at or above the user's severity threshold
   model_releases - new release (published in the last 7 days) of a model from `model_providers`, or from the
                    followed providers when that list is empty, or from any tracked provider when both are empty
+  watchlist      - new release (model, tool or GitHub release, collected in the last 48 h) of something the user
+                   follows: a mentioned technology/provider, or a release of a followed repository
   briefing_ready - a scheduled briefing was generated (sent by app.ai.briefing, not by this engine)
 Delivery is idempotent: one notification per (user, dedup_key); a CVE yields at most one "new CVE" alert.
 """
@@ -36,7 +38,7 @@ from app.models import (
     User,
     UserPreference,
 )
-from app.models.enums import IssueState, NotificationKind, Severity
+from app.models.enums import IssueState, ItemType, NotificationKind, Severity
 from app.repositories.intel import incident_is_active
 
 log = get_logger(__name__)
@@ -82,6 +84,9 @@ class AlertSettings(BaseModel):
         description="Empty = followed providers, or every tracked provider if none is followed",
     )
     briefing_ready: bool = True
+    watchlist: bool = True
+    weekly_report: bool = True  # generate the weekly PDF report on Mondays (app/reports/weekly.py)
+    weekly_report_email: bool = False  # also email it (needs SMTP)
 
 
 def settings_for(pref: UserPreference | None) -> AlertSettings:
@@ -164,7 +169,9 @@ class AlertEngine:
             )
         ).all()
         arts = await self._articles([v.article_id for v in vulns])
-        out: dict[str, list[Event]] = {"vuln": [], "kev": [], "bug": [], "outage": [], "model": []}
+        out: dict[str, list[Event]] = {
+            "vuln": [], "kev": [], "bug": [], "outage": [], "model": [], "watch": []
+        }  # fmt: skip
         for v in vulns:
             a = arts.get(v.article_id) if v.article_id else None
             link = a.url if a else f"https://nvd.nist.gov/vuln/detail/{v.cve_id}"
@@ -279,6 +286,44 @@ class AlertEngine:
                 )
             )
 
+        from app.services.watchlist import RELEASE_TYPES, repo_from_key
+
+        watch = (
+            (
+                await self.s.scalars(
+                    select(Article).where(
+                        Article.collected_at >= since,
+                        Article.item_type.in_(RELEASE_TYPES),
+                        Article.duplicate_of_id.is_(None),
+                        or_(
+                            Article.published_at.is_(None), Article.published_at >= self.now - RELEASE_MAX_AGE
+                        ),
+                    )
+                )
+            )
+            .unique()
+            .all()
+        )
+        for a in watch:
+            kind = "model" if a.item_type == ItemType.MODEL_RELEASE else "release"
+            out["watch"].append(
+                Event(
+                    "watchlist",
+                    NotificationKind.WATCHLIST,
+                    Severity.INFO,
+                    a.title,
+                    (a.description or "")[:280] or None,
+                    a.url,
+                    a.id,
+                    f"watch:{a.id}",
+                    {
+                        "text": " ".join([a.title, a.description or "", " ".join(a.tags or [])]),
+                        "repo": repo_from_key(a.canonical_key),
+                        "kind": kind,
+                    },
+                )
+            )
+
         incidents = (await self.s.scalars(select(Incident).where(incident_is_active(self.now)))).all()
         for i in incidents:
             impact = incident_impact(i)
@@ -355,6 +400,26 @@ class AlertEngine:
                 prov = e.facts["provider"].lower()
                 if not wanted or any(w in prov or prov in w for w in wanted):
                     picked[e.dedup_key] = e
+        if s.watchlist:
+            already = {e.article_id for e in picked.values() if e.article_id}
+            followed_repos = {r.lower() for r in repos}
+            for e in events.get("watch", []):
+                if e.article_id in already:
+                    continue  # e.g. the model-release rule already announced it
+                repo = e.facts["repo"]
+                hits = [repo] if repo and repo in followed_repos else _mentions(e.facts["text"], followed)
+                if hits:
+                    picked[e.dedup_key] = Event(
+                        e.rule,
+                        e.kind,
+                        e.severity,
+                        f"Watchlist · {hits[0]}: {e.title}"[:480],
+                        e.body,
+                        e.link,
+                        e.article_id,
+                        e.dedup_key,
+                        e.facts,
+                    )
         return list(picked.values())
 
     async def run(self) -> AlertStats:

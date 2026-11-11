@@ -33,9 +33,11 @@ SEEDED: dict[str, int] = {}
 class CapturingEmail:
     def __init__(self) -> None:
         self.sent: list[tuple[str, str, str]] = []
+        self.attachments: list[list[tuple[str, bytes, str]]] = []
 
-    async def send(self, to: str, subject: str, body: str) -> None:
+    async def send(self, to: str, subject: str, body: str, attachments=None) -> None:  # type: ignore[no-untyped-def]
         self.sent.append((to, subject, body))
+        self.attachments.append(list(attachments or []))
 
 
 def _alembic_config() -> Config:

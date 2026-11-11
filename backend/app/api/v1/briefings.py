@@ -4,16 +4,24 @@
 import uuid
 from datetime import UTC, date, datetime, timedelta
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Response
 from sqlalchemy import or_, select
 
 from app.ai.briefing import BriefingGenerator, local_now
 from app.api.deps import AIDep, CurrentUser, OptionalUser, SessionDep
 from app.core.errors import NotFoundError
 from app.core.ratelimit import limiter
-from app.models import DailyBriefing, UserPreference
+from app.models import DailyBriefing, UserPreference, WeeklyReport
+from app.reports.weekly import (
+    NoBriefingsError,
+    WeeklyReportBuilder,
+    pdf_filename,
+    previous_week,
+    render_pdf,
+    week_of,
+)
 from app.schemas.common import ErrorResponse
-from app.schemas.user_data import BriefingListItem, BriefingOut
+from app.schemas.user_data import BriefingListItem, BriefingOut, WeeklyReportItem
 
 router = APIRouter(prefix="/briefings", tags=["briefings"], responses={404: {"model": ErrorResponse}})
 
@@ -79,6 +87,78 @@ async def generate(session: SessionDep, user: CurrentUser, ai: AIDep) -> Briefin
         return BriefingOut.model_validate(recent)
     b = await BriefingGenerator(session, ai, now).generate(user, today)
     return BriefingOut.model_validate(b)
+
+
+def _weekly_item(r: WeeklyReport) -> WeeklyReportItem:
+    item = WeeklyReportItem.model_validate(r)
+    item.items = int(r.content.get("stats", {}).get("items", 0))
+    item.days_covered = len(r.content.get("days_covered", []))
+    item.pdf_url = f"/api/v1/briefings/weekly/{r.week_start.isoformat()}/pdf"
+    return item
+
+
+@router.get(
+    "/weekly",
+    response_model=list[WeeklyReportItem],
+    summary="Your weekly intelligence reports (PDF), newest first",
+)
+async def list_weekly(
+    session: SessionDep, user: CurrentUser, limit: int = Query(12, ge=1, le=52)
+) -> list[WeeklyReportItem]:
+    rows = await session.scalars(
+        select(WeeklyReport)
+        .where(WeeklyReport.user_id == user.id)
+        .order_by(WeeklyReport.week_start.desc())
+        .limit(limit)
+    )
+    return [_weekly_item(r) for r in rows]
+
+
+@router.post(
+    "/weekly/generate",
+    response_model=WeeklyReportItem,
+    dependencies=[limiter("ai", per_user=True)],
+    summary="Build (or rebuild) a weekly report now",
+    description="Defaults to the last complete week (Monday-Sunday, your timezone). `week_start` may be any "
+    "day of the wanted week; the current week gives a report of the week so far.",
+)
+async def generate_weekly(
+    session: SessionDep, user: CurrentUser, week_start: date | None = None
+) -> WeeklyReportItem:
+    pref = await session.scalar(select(UserPreference).where(UserPreference.user_id == user.id))
+    today = local_now(pref, datetime.now(UTC)).date()
+    start = week_of(week_start)[0] if week_start else previous_week(today)[0]
+    if start > today:
+        raise NotFoundError("That week has not started yet")
+    try:
+        report = await WeeklyReportBuilder(session).build(user, start)
+    except NoBriefingsError as exc:
+        raise NotFoundError(f"No briefing in the week of {start.isoformat()}: nothing to report") from exc
+    return _weekly_item(report)
+
+
+@router.get(
+    "/weekly/{week_start}/pdf",
+    response_class=Response,
+    responses={200: {"content": {"application/pdf": {}}}, 404: {"model": ErrorResponse}},
+    summary="Download a weekly report as PDF",
+)
+async def weekly_pdf(week_start: date, session: SessionDep, user: CurrentUser) -> Response:
+    report = await session.scalar(
+        select(WeeklyReport).where(
+            WeeklyReport.user_id == user.id, WeeklyReport.week_start == week_of(week_start)[0]
+        )
+    )
+    if report is None:
+        raise NotFoundError("No weekly report for this week")
+    return Response(
+        render_pdf(report),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{pdf_filename(report)}"',
+            "Cache-Control": "private, no-store",
+        },
+    )
 
 
 @router.get("/{briefing_date}", response_model=BriefingOut)

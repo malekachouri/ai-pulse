@@ -19,13 +19,21 @@ if TYPE_CHECKING:
 log = get_logger(__name__)
 
 
+# (filename, content, MIME type), e.g. ("report.pdf", b"%PDF...", "application/pdf")
+Attachment = tuple[str, bytes, str]
+
+
 class EmailSender(Protocol):
-    async def send(self, to: str, subject: str, body: str) -> None: ...
+    async def send(
+        self, to: str, subject: str, body: str, attachments: list[Attachment] | None = None
+    ) -> None: ...
 
 
 class ConsoleEmailSender:
-    async def send(self, to: str, subject: str, body: str) -> None:
-        log.info("email_not_sent_console_backend", to=to, subject=subject)
+    async def send(
+        self, to: str, subject: str, body: str, attachments: list[Attachment] | None = None
+    ) -> None:
+        log.info("email_not_sent_console_backend", to=to, subject=subject, attachments=len(attachments or []))
 
 
 class EmailDeliveryError(Exception):
@@ -62,12 +70,17 @@ class SmtpEmailSender:
                 smtp.login(self.username, self._password or "")
             smtp.send_message(msg)
 
-    async def send(self, to: str, subject: str, body: str) -> None:
+    async def send(
+        self, to: str, subject: str, body: str, attachments: list[Attachment] | None = None
+    ) -> None:
         msg = EmailMessage()
         msg["From"], msg["To"], msg["Subject"] = self.sender, to, subject
         msg["Date"] = formatdate(localtime=False)
         msg["Message-ID"] = make_msgid(domain=self.sender.rsplit("@", 1)[-1].strip("> "))
         msg.set_content(body)
+        for filename, data, mime in attachments or []:
+            maintype, _, subtype = mime.partition("/")
+            msg.add_attachment(data, maintype=maintype, subtype=subtype or "octet-stream", filename=filename)
         try:
             await asyncio.to_thread(self._send_sync, msg)
         except (OSError, smtplib.SMTPException) as exc:
@@ -101,15 +114,17 @@ class DeferredEmailSender:
 
     def __init__(self, inner: EmailSender) -> None:
         self.inner = inner
-        self.outbox: list[tuple[str, str, str]] = []
+        self.outbox: list[tuple[str, str, str, list[Attachment] | None]] = []
 
-    async def send(self, to: str, subject: str, body: str) -> None:
-        self.outbox.append((to, subject, body))
+    async def send(
+        self, to: str, subject: str, body: str, attachments: list[Attachment] | None = None
+    ) -> None:
+        self.outbox.append((to, subject, body, attachments))
 
     async def flush(self) -> None:
-        for to, subject, body in self.outbox:
+        for to, subject, body, attachments in self.outbox:
             try:
-                await self.inner.send(to, subject, body)
+                await self.inner.send(to, subject, body, attachments)
             except Exception:  # noqa: BLE001 - logged by the sender; never surfaces to the requester
                 log.warning("deferred_email_failed", subject=subject)
         self.outbox.clear()
