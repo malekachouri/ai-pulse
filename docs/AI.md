@@ -33,6 +33,10 @@ call is logged in `ai_usage` (purpose, provider, model, tokens, cost, ok/error) 
 
 ## Pipeline (`app/ai/pipeline.py`) — runs every 2 minutes and right after each ingestion
 
+Only one run at a time: a run takes a PostgreSQL advisory lock for its transaction, and any other run
+(a Beat tick, a run triggered by ingestion, `cli ai-analyze`, the hourly rescore) is skipped while it is
+held. Two runs used to update the same articles in a different order and deadlock.
+
 | # | Step | How |
 |---|---|---|
 | 1 | Content cleaning | HTML/markdown/code/boilerplate removed; original content untouched |
