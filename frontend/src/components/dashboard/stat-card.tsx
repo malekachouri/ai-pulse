@@ -26,7 +26,7 @@ export function StatCard({
         <span
           className={cn(
             "rounded-lg p-1.5",
-            tone === "critical" ? "bg-sev-critical/12 text-sev-critical" : "bg-primary/10 text-primary dark:text-blue-300",
+            tone === "critical" ? "bg-sev-critical/12 text-sev-critical" : "bg-primary/10 text-primary-tint-fg",
           )}
         >
           <Icon className="size-4" />

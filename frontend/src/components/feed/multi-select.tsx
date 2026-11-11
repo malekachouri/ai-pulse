@@ -27,7 +27,7 @@ export function MultiSelect({
         <Button variant="outline" size="sm" className={cn("h-9", value.length && "border-primary/50")}>
           {label}
           {value.length > 0 && (
-            <span className="rounded bg-primary/15 px-1.5 text-[11px] font-semibold text-primary">{value.length}</span>
+            <span className="rounded bg-primary/15 px-1.5 text-[11px] font-semibold text-primary-tint-fg">{value.length}</span>
           )}
           <ChevronDown className="text-muted-foreground" />
         </Button>

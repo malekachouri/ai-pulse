@@ -31,7 +31,7 @@ export function NotificationCenter() {
         >
           <Bell />
           {unread > 0 && (
-            <span className="absolute right-1.5 top-1.5 flex min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold leading-4 text-white">
+            <span className="absolute right-1.5 top-1.5 flex min-w-4 items-center justify-center rounded-full bg-destructive-solid px-1 text-[10px] font-semibold leading-4 text-white">
               {unread > 9 ? "9+" : unread}
             </span>
           )}
