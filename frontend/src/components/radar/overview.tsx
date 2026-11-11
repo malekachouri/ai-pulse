@@ -121,7 +121,7 @@ export function RadarOverview() {
 
       <Card>
         <CardHeader><div><CardTitle>Weekly failure statistics</CardTitle><CardDescription>Last 8 weeks (ISO weeks starting Monday)</CardDescription></div></CardHeader>
-        <CardContent className="overflow-x-auto">
+        <CardContent className="overflow-x-auto rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring" tabIndex={0} role="region" aria-label="Radar summary table">
           <table className="w-full min-w-[640px] text-sm">
             <thead><tr className="border-b text-left text-xs text-muted-foreground">
               {["Week", "Incidents", "Outage time", "Critical/high CVEs", "Added to KEV", "Bugs reported", "Bugs fixed"].map((h) => <th key={h} className="py-2 font-medium">{h}</th>)}

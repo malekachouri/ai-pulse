@@ -1,0 +1,17 @@
+{
+  "name": "ai-pulse-e2e",
+  "private": true,
+  "description": "Browser end-to-end tests (Playwright + axe-core) against a running AI Pulse stack. See README.md.",
+  "scripts": {
+    "test": "playwright test",
+    "report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.11.0",
+    "@playwright/test": "1.63.0",
+    "@types/node": "26.6.6"
+  },
+  "engines": {
+    "node": ">=26"
+  }
+}

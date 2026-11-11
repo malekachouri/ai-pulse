@@ -37,14 +37,16 @@ function fmtValue(v: unknown): string {
 
 function CheckCard({ c }: { c: HealthCheck }) {
   const data = Object.entries(c.data).filter(([k]) => k !== "size_bytes");
+  // min-w-0: grid and flex children default to min-width:auto, so one long value (a version string,
+  // an error) would widen the whole card and the page on phones instead of being truncated.
   return (
-    <Card>
+    <Card className="min-w-0">
       <CardContent className="space-y-2 pt-5 text-sm">
         <div className="flex items-center justify-between gap-2">
           <p className="font-medium">{CHECK_LABEL[c.name] ?? titleCase(c.name)}</p>
           <HealthPill status={c.status} />
         </div>
-        {c.detail && <p className="text-xs text-muted-foreground">{c.detail}</p>}
+        {c.detail && <p className="break-words text-xs text-muted-foreground">{c.detail}</p>}
         <dl className="space-y-0.5 text-xs">
           {c.latency_ms != null && (
             <div className="flex justify-between gap-3">
@@ -61,7 +63,7 @@ function CheckCard({ c }: { c: HealthCheck }) {
           {data.map(([k, v]) => (
             <div key={k} className="flex justify-between gap-3">
               <dt className="shrink-0 text-muted-foreground">{titleCase(k.replace(/_/g, " "))}</dt>
-              <dd className="tabular truncate text-right" title={fmtValue(v)}>
+              <dd className="tabular min-w-0 truncate text-right" title={fmtValue(v)}>
                 {fmtValue(v)}
               </dd>
             </div>

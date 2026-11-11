@@ -152,6 +152,13 @@ docker compose --profile monitoring --profile backup up -d --build --wait
 ./scripts/smoke-test.sh http://localhost:3000
 ```
 
+Browser end-to-end tests (every page, every role, both themes, phone, axe-core, user flows; see
+[e2e/README.md](../e2e/README.md)):
+
+```bash
+cd e2e && npm ci && npx playwright install chromium && cd .. && ./scripts/e2e.sh --build
+```
+
 Security:
 
 ```bash

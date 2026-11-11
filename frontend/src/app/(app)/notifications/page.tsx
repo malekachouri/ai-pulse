@@ -52,7 +52,7 @@ function Center() {
               <TabsTrigger key={g.key} value={g.key} className="gap-1.5">
                 {g.label}
                 {n > 0 && (
-                  <span className="tabular rounded-full bg-primary/15 px-1.5 text-[10px] font-semibold text-primary" aria-label={`${n} unread`}>
+                  <span className="tabular rounded-full bg-primary/15 px-1.5 text-[10px] font-semibold text-primary-tint-fg" aria-label={`${n} unread`}>
                     {n}
                   </span>
                 )}

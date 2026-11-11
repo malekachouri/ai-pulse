@@ -38,7 +38,7 @@ function Shell({ q, empty, children, page, setPage }: {
   if (!q.data?.items.length) return <EmptyState title={empty} description="Nothing matches these filters in the collected data." />;
   return (
     <>
-      <Card><CardContent className="overflow-x-auto p-0">{children}</CardContent></Card>
+      <Card><CardContent className="overflow-x-auto rounded-xl p-0 outline-none focus-visible:ring-2 focus-visible:ring-ring" tabIndex={0} role="region" aria-label="Results table">{children}</CardContent></Card>
       <Pagination page={page} pages={q.data.pages} total={q.data.total} pageSize={q.data.page_size} onChange={setPage} />
     </>
   );

@@ -20,6 +20,10 @@
   --primary-foreground: #ffffff;
   /* solid fills behind white text (buttons): >= 4.5:1 against --primary-foreground in both themes */
   --primary-solid: #2563eb;
+  /* text on primary tints (bg-primary/10-25): 5.3:1 light */
+  --primary-tint-fg: #1d4ed8;
+  /* solid red behind white text (counters, destructive buttons): 6.5:1 */
+  --destructive-solid: #b91c1c;
   --secondary: #eef1f7;
   --secondary-foreground: #1e293b;
   --muted: #eef1f7;
@@ -61,6 +65,8 @@
   --primary: #3b82f6; /* text/accents on navy: 5.1:1 */
   --primary-foreground: #ffffff;
   --primary-solid: #2563eb; /* white on it: 5.2:1 (#3b82f6 would be 3.7:1) */
+  --primary-tint-fg: #93c5fd; /* blue-300 on navy tints */
+  --destructive-solid: #b91c1c;
   --secondary: #1a2540;
   --secondary-foreground: #dbe2f0;
   --muted: #17213a;
@@ -98,6 +104,8 @@
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary-solid: var(--primary-solid);
+  --color-primary-tint-fg: var(--primary-tint-fg);
+  --color-destructive-solid: var(--destructive-solid);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);

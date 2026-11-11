@@ -12,7 +12,8 @@ import { cn } from "@/lib/utils";
 export function SeverityBadge({ severity, basis }: { severity: Severity; basis?: string | null }) {
   const badge = (
     <span
-      className="inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[11px] font-semibold"
+      // Own text colour: inherited muted text (e.g. a notification's meta line) fails contrast on the tint.
+      className="inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[11px] font-semibold text-foreground"
       style={{
         borderColor: `color-mix(in oklab, ${SEVERITY_COLOR[severity]} 45%, transparent)`,
         backgroundColor: `color-mix(in oklab, ${SEVERITY_COLOR[severity]} 14%, transparent)`,

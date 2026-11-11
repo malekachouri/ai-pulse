@@ -22,11 +22,39 @@ Thank you for helping improve AI Pulse. This guide covers how changes flow from 
 3. Develop with the Docker dev stack or natively ([docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)).
 4. Run the checks locally (below), then open a pull request. CI must be green: lint, types, tests,
    migrations, dependency audit, Compose/Prometheus validation, image build, Trivy, end-to-end smoke
-   test, backup/restore drill, CodeQL.
+   test, backup/restore drill, browser end-to-end tests (Playwright + axe-core), CodeQL.
 5. At least one review. Changes to `infra/`, `.github/`, auth, or the database schema need a review
    from a maintainer who owns that area.
 6. Squash-merge with a [Conventional Commit](https://www.conventionalcommits.org/) title
    (`feat(radar): …`, `fix(auth): …`, `ops(ci): …`). Releases are tags `vX.Y.Z` (semantic versioning).
+
+## Protecting `main` (repository settings, once)
+
+`main` should only accept merges whose CI is green. A repository admin sets this on GitHub:
+
+1. **Settings → Rules → Rulesets → New ruleset → New branch ruleset.**
+2. Name it `main`, set **Enforcement status** to *Active*, and under **Target branches** choose
+   *Include default branch*.
+3. Enable these rules:
+   - **Restrict deletions** and **Block force pushes**.
+   - **Require a pull request before merging**. Set *Required approvals* to 1 if a second person
+     reviews; leave it at 0 for a single-maintainer repository, where GitHub does not let authors
+     approve their own pull requests.
+   - **Require status checks to pass**, with *Require branches to be up to date before merging*.
+     Add the checks below (they appear in the list once CI has run on a pull request):
+
+     | Check | Workflow |
+     |---|---|
+     | `Frontend · lint, types, tests, build` | CI |
+     | `Backend · lint, migrations, tests` | CI |
+     | `Dependency audit` | CI |
+     | `Compose configuration` | CI |
+     | `Images · build, scan, end-to-end` | CI (includes the browser tests) |
+     | `Analyze (python)`, `Analyze (javascript-typescript)`, `Analyze (actions)` | CodeQL |
+4. **Create.** Dependabot pull requests then also merge only when green.
+
+If a check is renamed in a workflow, update the ruleset in the same pull request, or merges block on a
+check that no longer runs.
 
 ## Checks before pushing
 
@@ -40,6 +68,12 @@ Frontend:
 
 ```bash
 cd frontend && npm run lint && npm run typecheck && npm test && npm run build
+```
+
+Browser end-to-end tests for UI changes (see [e2e/README.md](e2e/README.md)):
+
+```bash
+./scripts/e2e.sh --build
 ```
 
 Generated files: the dashboards, and the API reference when routes change.

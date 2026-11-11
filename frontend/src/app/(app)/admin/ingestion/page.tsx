@@ -103,7 +103,7 @@ export default function IngestionPage() {
         ) : status === "anonymous" ? (
           <SignInRequired what="ingestion dashboard" description="Administration pages are for admins and analysts." />
         ) : (
-          <EmptyState icon={ShieldAlert} title="Admins and analysts only" description="Ask an administrator for access." />
+          <EmptyState icon={ShieldAlert} title="Administrators and analysts only" description="Ask an administrator for access. The API enforces the same rule." />
         )}
       </>
     );
@@ -185,7 +185,7 @@ export default function IngestionPage() {
               {!sources.length ? (
                 <p className="px-5 py-8 text-center text-sm text-muted-foreground">No sources match.</p>
               ) : (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring" tabIndex={0} role="region" aria-label="Source health table">
                   <table className="w-full min-w-[920px] text-sm">
                     <thead>
                       <tr className="border-b text-left text-xs text-muted-foreground">

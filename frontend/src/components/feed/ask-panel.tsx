@@ -29,7 +29,7 @@ function WithCitations({ text, sources }: { text: string; sources: AskCitation[]
         const src = m ? sources.find((s) => s.n === Number(m[1])) : undefined;
         return src ? (
           <a key={i} href={safeUrl(src.url)} target="_blank" rel="noopener noreferrer" title={src.title}
-             className="mx-0.5 rounded bg-primary/15 px-1 text-[11px] font-semibold text-primary hover:bg-primary/25">
+             className="mx-0.5 rounded bg-primary/15 px-1 text-[11px] font-semibold text-primary-tint-fg hover:bg-primary/25">
             {src.n}
           </a>
         ) : (

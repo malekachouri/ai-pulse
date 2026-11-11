@@ -166,7 +166,7 @@ function AIAdmin() {
               {!u.ai_by_model.length ? (
                 <p className="text-sm text-muted-foreground">No AI calls in this window.</p>
               ) : (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring" tabIndex={0} role="region" aria-label="AI usage table">
                   <table className="w-full min-w-[640px] text-sm">
                     <thead>
                       <tr className="border-b">

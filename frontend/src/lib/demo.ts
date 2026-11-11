@@ -136,7 +136,7 @@ let prefs: Preferences = {
   theme: "dark",
   alert_settings: {
     critical_cves: true, exploited: true, critical_bugs: true, outages: true, watched_tech: true,
-    min_cvss: null, outage_min_impact: "major", outage_providers: [], bug_projects: [],
+    min_cvss: 9.5, outage_min_impact: "major", outage_providers: [], bug_projects: [],
     model_releases: true, model_providers: [], briefing_ready: true,
   },
 };

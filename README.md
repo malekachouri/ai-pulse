@@ -125,6 +125,8 @@ deterministic analysis, ranking and keyword search still work.
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | server setup, secrets, CI/CD, monitoring and alerts, backups and restore, upgrades, scaling |
 | [SECURITY.md](SECURITY.md) | reporting, threat model, controls, secret rotation, scanning |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | workflow, rules, checks, what a good pull request contains |
+| [docs/prompts/](docs/prompts/README.md) | the nine build prompts, one per phase, ready to reuse, plus next-feature prompts |
+| [e2e/README.md](e2e/README.md) | browser end-to-end tests (Playwright + axe-core) and how to run them |
 | [docs/AUDIT_REPORT.md](docs/AUDIT_REPORT.md) | final audit: verified features, fixed bugs, test results, security findings, limitations, credentials |
 | [docs/INGESTION.md](docs/INGESTION.md) · [docs/AI.md](docs/AI.md) · [docs/RADAR.md](docs/RADAR.md) · [docs/NOTIFICATIONS.md](docs/NOTIFICATIONS.md) | module guides |
 
@@ -138,6 +140,12 @@ cd backend && pytest -q
 
 ```bash
 cd frontend && npm run lint && npm run typecheck && npm test && npm run build
+```
+
+Browser end-to-end tests (every page, every role, both themes, phone, accessibility, user flows):
+
+```bash
+./scripts/e2e.sh --build
 ```
 
 CI runs these on every pull request, together with:

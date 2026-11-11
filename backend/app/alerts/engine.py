@@ -41,6 +41,7 @@ from app.repositories.intel import incident_is_active
 
 log = get_logger(__name__)
 LOOKBACK = timedelta(hours=48)
+DEFAULT_MIN_CVSS = 9.5
 RELEASE_MAX_AGE = timedelta(days=7)  # backfilled old releases never notify
 SEVERITY_RANK = {
     Severity.CRITICAL: 5,
@@ -60,8 +61,10 @@ class AlertSettings(BaseModel):
     critical_bugs: bool = True
     outages: bool = True
     watched_tech: bool = True
+    # Default 9.5: NVD publishes ~40 critical CVEs a day; alerting on all of them drowned the rest
+    # (84 per user in 48 h on live data, 56 with 9.5). Users can choose "any critical" (null) or stricter.
     min_cvss: float | None = Field(
-        None, ge=0, le=10, description="Only alert on critical CVEs with CVSS >= this"
+        DEFAULT_MIN_CVSS, ge=0, le=10, description="Only alert on critical CVEs with CVSS >= this"
     )
     outage_min_impact: Literal["minor", "major", "critical"] = "major"
     outage_providers: list[str] = Field(

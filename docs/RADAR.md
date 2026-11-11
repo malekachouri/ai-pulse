@@ -67,7 +67,7 @@ Celery runs `aipulse.evaluate_alerts` every 5 minutes, and again after each succ
 
 | Rule | Fires when |
 |---|---|
-| `critical_cves` | A new critical CVE has a documented basis, optionally with CVSS ≥ `min_cvss`. |
+| `critical_cves` | A new critical CVE has a documented basis and CVSS ≥ `min_cvss` (default **9.5**; `null` = any critical CVE). |
 | `exploited` | A CVE was added to CISA KEV in the last 2 days. |
 | `critical_bugs` | A critical bug has a basis, in `bug_projects` or in the user's followed repositories. |
 | `outages` | An incident is **currently active**, its impact is ≥ `outage_min_impact`, and it is from one of `outage_providers` (all providers when that list is empty). Unknown impact passes only at the "minor" threshold. |

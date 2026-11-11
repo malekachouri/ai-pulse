@@ -50,7 +50,7 @@ export function ChartCard({
         {view === "chart" ? (
           children
         ) : (
-          <div className="max-h-64 overflow-y-auto">
+          <div className="max-h-64 overflow-y-auto rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring" tabIndex={0} role="region" aria-label={`${title} (data table)`}>
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b text-left text-xs text-muted-foreground">
