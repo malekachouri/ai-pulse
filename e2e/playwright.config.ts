@@ -22,6 +22,8 @@ export default defineConfig({
     trace: "off",
     navigationTimeout: 30_000,
     actionTimeout: 15_000,
+    // Optional: an already installed Chromium (machines that cannot download Playwright's browser).
+    launchOptions: process.env.E2E_CHROMIUM_PATH ? { executablePath: process.env.E2E_CHROMIUM_PATH } : {},
     screenshot: "only-on-failure",
   },
   projects: [

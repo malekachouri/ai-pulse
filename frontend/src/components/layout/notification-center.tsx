@@ -17,6 +17,8 @@ export function NotificationCenter() {
   const { status } = useAuth();
   const [open, setOpen] = useState(false);
   const unread = useUnreadCount().data?.unread ?? 0;
+  // The badge text starts the button's name ("15 unread notifications"): WCAG 2.5.3, label in name.
+  const shown = unread > 99 ? "99+" : String(unread);
   const list = useNotifications(open);
   const mark = useMarkNotificationRead();
 
@@ -27,12 +29,12 @@ export function NotificationCenter() {
           variant="ghost"
           size="icon"
           className="relative"
-          aria-label={unread ? `Notifications, ${unread} unread` : "Notifications"}
+          aria-label={unread ? `${shown} unread notifications` : "Notifications"}
         >
           <Bell />
           {unread > 0 && (
-            <span className="absolute right-1.5 top-1.5 flex min-w-4 items-center justify-center rounded-full bg-destructive-solid px-1 text-[10px] font-semibold leading-4 text-white">
-              {unread > 9 ? "9+" : unread}
+            <span aria-hidden className="absolute right-1.5 top-1.5 flex min-w-4 items-center justify-center rounded-full bg-destructive-solid px-1 text-[10px] font-semibold leading-4 text-white">
+              {shown}
             </span>
           )}
         </Button>

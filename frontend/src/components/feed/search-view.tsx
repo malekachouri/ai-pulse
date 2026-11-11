@@ -70,6 +70,7 @@ export function SearchView() {
       <form
         className="relative mb-3 flex gap-2"
         role="search"
+        aria-label="Search intelligence"
         onSubmit={(e) => {
           e.preventDefault();
           go({ q: draft.trim(), page: 1 });
