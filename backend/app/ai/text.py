@@ -49,7 +49,16 @@ STOPWORDS: dict[str, set[str]] = {
     "it": set("il lo la i gli le un una e o di del in per con è sono che si non al della".split()),
     "pt": set("o a os as um uma e ou de do da em para com é são por que se não no na".split()),
 }
-WORD = re.compile(r"[a-zà-ÿ][a-zà-ÿ0-9+#.\-]*[a-z0-9+#]|[a-z]", re.I)
+# A word starts with a letter and runs over letters, digits and + # . - ("c++", "node.js", "gpt-4o").
+# Deliberately no required final character: "[...]*[a-z0-9+#]" made the engine backtrack through every
+# run it could not end (quadratic on input such as "a" + "ÿ" * n, from collected text). Trailing "." and
+# "-" are trimmed in Python instead, which keeps matching linear.
+_WORD_RUN = re.compile(r"[a-zà-ÿ][a-zà-ÿ0-9+#.\-]*", re.I)
+
+
+def words(text: str) -> list[str]:
+    """Words of `text` in order (linear time), without trailing "." or "-"."""
+    return [w for w in (m.rstrip(".-") for m in _WORD_RUN.findall(text)) if w]
 
 
 def detect_language(text: str) -> str | None:
@@ -82,17 +91,17 @@ def detect_language(text: str) -> str | None:
                     else "zh"
                 )
             return script
-    words = [w.lower() for w in WORD.findall(sample)]
-    if len(words) < 5:
+    sample_words = [w.lower() for w in words(sample)]
+    if len(sample_words) < 5:
         return None
-    scores = {lang: sum(w in sw for w in words) / len(words) for lang, sw in STOPWORDS.items()}
+    scores = {lang: sum(w in sw for w in sample_words) / len(sample_words) for lang, sw in STOPWORDS.items()}
     best, score = max(scores.items(), key=lambda kv: kv[1])
     return best if score >= 0.05 else None
 
 
 def tokens(text: str) -> list[str]:
     sw = STOPWORDS["en"]
-    return [w.lower().strip(".-") for w in WORD.findall(text) if w.lower() not in sw and len(w) > 1]
+    return [w.lower() for w in words(text) if w.lower() not in sw and len(w) > 1]
 
 
 # Technology lexicon: boosts and canonical spelling for keywords/entities.
