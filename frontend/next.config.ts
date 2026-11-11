@@ -34,6 +34,12 @@ const config: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
   reactStrictMode: true,
+  experimental: {
+    // The /api/v1 proxy gives up after 30 s by default. AI requests (Ask AI Pulse, lessons, bug
+    // intelligence) can take minutes with a local model on a CPU, waiting behind the background
+    // analysis: the browser then got "API unreachable" while the API was still working.
+    proxyTimeout: 10 * 60 * 1000,
+  },
   async rewrites() {
     return [{ source: "/api/v1/:path*", destination: `${backend}/api/v1/:path*` }];
   },
