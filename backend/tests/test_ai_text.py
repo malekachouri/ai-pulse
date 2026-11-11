@@ -128,3 +128,27 @@ def test_learning_links_are_curated_only():
     assert all(r["url"] is None or r["url"].startswith("https://") for r in res)
     assert {r["source"] for r in res} == {"curated", "ai-suggested topic"}
     assert [r for r in res if r["source"] == "ai-suggested topic"][0]["url"] is None
+
+
+def test_tokenizer_is_linear_on_hostile_input():
+    """CodeQL py/polynomial-redos: "a" + "ÿ" * n used to take quadratic time (16k chars: ~1.7 s)."""
+    import time
+
+    from app.ai.text import tokens, words
+
+    hostile = "a" + "ÿ" * 200_000
+    start = time.perf_counter()
+    words(hostile)
+    tokens(hostile)
+    detect_language(hostile)
+    assert time.perf_counter() - start < 1.0
+
+
+def test_words_keep_technical_spellings():
+    from app.ai.text import words
+
+    assert words("Use c++ and node.js, gpt-4o; see CVE-2026-1234. Done.") == [
+        "Use", "c++", "and", "node.js", "gpt-4o", "see", "CVE-2026-1234", "Done",
+    ]  # fmt: skip
+    assert words("café — résumé") == ["café", "résumé"]  # accented endings are kept (were cut to "caf")
+    assert words("trailing- dots... a") == ["trailing", "dots", "a"]
