@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { BugIntelligenceFindings } from "@/components/intel/bug-intelligence";
+import { BugIntelligenceFindings, footer } from "@/components/intel/bug-intelligence";
 import type { BugIntelligence, BugSection } from "@/lib/types";
 
 const none: BugSection = { status: "insufficient", text: "insufficient information", text_is_ai: false, citations: [], facts: [] };
@@ -43,5 +43,22 @@ describe("BugIntelligenceFindings", () => {
     expect(notes[0]?.getAttribute("href")).toBe("https://github.com/acme/widget/releases/tag/v2.4.1");
     expect(screen.getAllByRole("link", { name: /^Source 2:/ })).toHaveLength(3); // cause fact, cause text, impact fact
     expect(screen.getByText("Release notes:")).toBeTruthy();
+  });
+});
+
+describe("footer", () => {
+  const noAi = { ...intel, sections: { cause: none, impact: none, affected_versions: none, fixes: none }, unsupported_claims_removed: [] };
+
+  it("says when the AI model added nothing the sources support", () => {
+    expect(footer(noAi, true)).toMatch(/^The AI model \(fake \/ m, .*\) added nothing that the cited sources support/);
+    expect(footer(intel, true)).toMatch(/^Explanation by fake \/ m, .*1 unsupported claim\(s\) removed\.$/);
+  });
+
+  it("tells signed-out readers how to get an explanation, and says when no LLM is configured", () => {
+    const facts = { ...noAi, status: "facts_only" as const };
+    expect(footer(facts, false)).toBe("Facts only. Sign in to generate an AI explanation.");
+    expect(footer(facts, true)).toBe("Facts only. An AI explanation can be generated from these sources.");
+    expect(footer({ ...facts, llm_available: false }, true)).toBe("Facts only: AI explanations need an LLM provider.");
+    expect(footer(facts, true, true)).toMatch(/can take a few minutes/);
   });
 });

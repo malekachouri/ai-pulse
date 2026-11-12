@@ -88,6 +88,22 @@ function Section({ label, s, intel }: { label: string; s: BugSection; intel: Int
   );
 }
 
+/** What the panel says about the AI layer: generated, nothing usable, possible, or unavailable. */
+export function footer(d: Intel, signedIn: boolean, pending = false): string {
+  if (pending) return "The AI model is reading the sources. With a local model this can take a few minutes.";
+  const removed = d.unsupported_claims_removed.length
+    ? ` ${d.unsupported_claims_removed.length} unsupported claim(s) removed.`
+    : "";
+  if (d.status === "ready") {
+    const by = `${d.provider} / ${d.model}, ${formatDateTime(d.generated_at)}`;
+    return Object.values(d.sections).some((s) => s.text_is_ai)
+      ? `Explanation by ${by}, checked against the cited sources.${removed}`
+      : `The AI model (${by}) added nothing that the cited sources support, so only the facts are shown.${removed}`;
+  }
+  if (!d.llm_available) return "Facts only: AI explanations need an LLM provider.";
+  return signedIn ? "Facts only. An AI explanation can be generated from these sources." : "Facts only. Sign in to generate an AI explanation.";
+}
+
 /** The cited findings (pure: rendered from the API response). */
 export function BugIntelligenceFindings({ d }: { d: Intel }) {
   return (
@@ -142,16 +158,12 @@ export function BugIntelligencePanel({ articleId }: { articleId: string }) {
           <BugIntelligenceFindings d={d} />
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t pt-3 text-[11px] text-muted-foreground">
             <span>
-              {d.status === "ready"
-                ? `Explanation by ${d.provider} / ${d.model}, ${formatDateTime(d.generated_at)}, checked against the cited sources` +
-                  (d.unsupported_claims_removed.length ? ` (${d.unsupported_claims_removed.length} unsupported claim(s) removed).` : ".")
-                : d.llm_available
-                  ? "Facts only. Generate an AI explanation from these sources."
-                  : "Facts only: AI explanations need an LLM provider."}
+              {footer(d, status === "authenticated", gen.isPending)}
             </span>
             {d.llm_available && status === "authenticated" && (
               <Button variant="outline" size="sm" onClick={() => gen.mutate()} disabled={gen.isPending}>
-                {gen.isPending ? <Loader2 className="animate-spin" /> : <Sparkles />} {d.status === "ready" ? "Regenerate" : "Explain"}
+                {gen.isPending ? <Loader2 className="animate-spin" /> : <Sparkles />}{" "}
+                {d.status === "ready" ? "Regenerate with AI" : "Explain with AI"}
               </Button>
             )}
           </div>
