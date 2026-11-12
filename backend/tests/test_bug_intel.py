@@ -137,3 +137,49 @@ async def test_insufficient_information_when_sources_are_silent(client, session_
 def test_product_lines_keep_the_source_ranges():
     assert product_line({"vendor": "acme", "product": "x", "version": "1.2"}) == "acme x 1.2"
     assert product_line({"ecosystem": "pip", "product": "y", "vulnerable_range": "< 3.1"}) == "pip y < 3.1"
+
+
+async def test_versions_and_fixes_stated_in_the_record_become_quoted_facts(client, session_factory):
+    cve = "CVE-2026-41999"
+    text = ("HarnessRouter is a self-hosted API for agent harnesses. Prior to 0.31.8, a missing authorization "
+            "check lets anyone read sessions. This issue has been patched in version 0.31.8.")  # fmt: skip
+    async with session_factory() as s:
+        nvd = await fd.source(s, "nvd-stated", connector="nvd", name="NVD")
+        item = await fd.article(s, nvd, cve, item_type=ItemType.VULNERABILITY, title=f"{cve}: HarnessRouter",
+                                description=text, canonical_key=f"cve:{cve}")  # fmt: skip
+        s.add(SecurityVulnerability(article_id=item.id, cve_id=cve, severity=Severity.CRITICAL, cvss_score=9.1,
+                                    description=text))  # no CPE ranges, no remediation field  # fmt: skip
+        windows = await fd.article(s, nvd, "win", item_type=ItemType.VULNERABILITY, title="CVE-2026-41998",
+                                   description="Heap-based buffer overflow in Windows Graphics Kernel.")  # fmt: skip
+        await s.commit()
+
+    out = (await client.get(f"/api/v1/news/{item.id}/bug-intelligence")).json()
+    sec = out["sections"]
+    assert sec["affected_versions"]["facts"] == [
+        {"text": "Stated by the record: “Prior to 0.31.8, a missing authorization check lets anyone read "
+                 "sessions.”", "citation": 1}
+    ]  # fmt: skip
+    assert sec["fixes"]["facts"] == [
+        {"text": "Stated by the record: “This issue has been patched in version 0.31.8.”", "citation": 1}
+    ]
+    # The record documents a fix, so a cited AI sentence about it is kept.
+    reply = {"fixes": {"text": "Upgrade to 0.31.8.", "citations": [1]}}
+    async with session_factory() as s:
+        a = await s.get(Article, item.id)
+        built = await BugIntelligence(s, providers(chat=ScriptedChat(default=reply))).build(a, use_llm=True)
+    assert built["sections"]["fixes"]["text"] == "Upgrade to 0.31.8."
+
+    # A record that states no version keeps saying so.
+    other = (await client.get(f"/api/v1/news/{windows.id}/bug-intelligence")).json()["sections"]
+    assert other["affected_versions"]["text"] == INSUFFICIENT and other["fixes"]["text"] == INSUFFICIENT
+
+
+def test_stated_versions_are_linear_on_hostile_input():
+    import time
+
+    from app.ai.bugintel import _AFFECTED_RE, _FIX_RE, stated
+
+    start = time.perf_counter()
+    stated("before " + "1." * 200_000 + "x", _AFFECTED_RE)
+    stated("fixed in " + "9" * 300_000, _FIX_RE)
+    assert time.perf_counter() - start < 1.0

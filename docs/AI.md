@@ -177,6 +177,8 @@ Each section has two layers:
 
 - **Facts** are copied from structured fields, each citing its source: CWE, CVSS and vector, KEV listing,
   affected product ranges, official remediation, fixed-in version, linked fix, release-note mentions.
+  When a record has no structured ranges or fix, the sentences of the official text that state versions
+  ("before 0.11.0", "prior to 0.31.8", "patched in version 2.4.1", "upgrade to 3.2.1") are quoted as facts.
 - **Text** is an optional LLM explanation (`POST`, signed in, rate-limited like *Ask*). The model must cite
   the numbered sources. Uncited text is dropped. Sentences with numbers, versions or ids that the cited
   sources do not contain are removed and listed. A fix is kept only when a cited source documents one.

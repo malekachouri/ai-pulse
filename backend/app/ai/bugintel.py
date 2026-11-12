@@ -32,7 +32,7 @@ from app.ai.providers import AIProviders, ProviderError
 from app.models import AIAnalysis, Article, SecurityVulnerability, SoftwareBug
 from app.models.enums import AnalysisKind, ItemType
 
-VERSION = "bugintel-v1"
+VERSION = "bugintel-v2"  # v2: versions and fixes stated in the official text become quoted facts
 INSUFFICIENT = "insufficient information"
 SECTIONS = ("cause", "impact", "affected_versions", "fixes")
 BUG_TYPES = (ItemType.BUG, ItemType.VULNERABILITY, ItemType.GITHUB_ISSUE)
@@ -104,6 +104,41 @@ def product_line(p: dict[str, Any]) -> str:
 
 def _fact(text: str, n: int) -> dict[str, Any]:
     return {"text": text, "citation": n}
+
+
+# Versions an official text states: "before 0.11.0", "prior to 0.31.8", "fixed in 2.4.1", "upgrade to 3.0".
+# Bounded repetitions only (linear on any input).
+_VER = r"v?\d{1,4}(?:\.\d{1,6}){1,3}(?:[-+][0-9A-Za-z.]{1,20})?"
+_AFFECTED_RE = re.compile(
+    rf"\b(?:before|prior to|earlier than|older than|up to and including|through)\s{{1,3}}"
+    rf"(?:version\s{{1,3}}|v\s{{0,1}})?{_VER}",
+    re.I,
+)
+_FIX_RE = re.compile(
+    rf"\b(?:(?:fixed|patched|resolved|addressed|remediated)\s{{1,3}}in|(?:upgrade|update)\s{{1,3}}to)\s{{1,3}}"
+    rf"(?:version\s{{1,3}})?{_VER}",
+    re.I,
+)
+_SENTENCE_RE = re.compile(r"(?<=[.!?])\s{1,5}(?=[A-Z])")
+MAX_STATED = 3
+
+
+def stated(text: str, pattern: re.Pattern[str]) -> list[str]:
+    """Sentences of an official text that state affected or fixed versions, quoted (shortened when long)."""
+    out: list[str] = []
+    for sentence in _SENTENCE_RE.split(text or ""):
+        sentence = " ".join(sentence.split())
+        m = pattern.search(sentence[:2000])
+        if not m:
+            continue
+        if len(sentence) > 240:  # keep the part around the version
+            start = max(0, m.start() - 140)
+            sentence = ("…" if start else "") + sentence[start : m.end() + 80].strip() + "…"
+        if sentence not in out:
+            out.append(sentence)
+        if len(out) >= MAX_STATED:
+            break
+    return out
 
 
 class BugIntelligence:
@@ -257,6 +292,19 @@ class BugIntelligence:
                 src = add(kind="release_notes", title=o.title, url=o.url, text=_article_text(o)[:4000],
                           published_at=o.published_at, documents_fix=True)  # fmt: skip
                 facts["fixes"].append(_fact(f"Mentioned in the release notes of {o.title}", src.n))
+
+        # Without structured ranges or fixes, quote what the official records say ("before 0.11.0").
+        official = [s for s in sources if s.kind in ("cve_record", "advisory", "issue", "bug_record")]
+        for key, pattern in (("affected_versions", _AFFECTED_RE), ("fixes", _FIX_RE)):
+            if facts[key]:
+                continue
+            for src in official:
+                quotes = stated(src.text, pattern)
+                if quotes:
+                    facts[key] += [_fact(f"Stated by the record: \u201c{q}\u201d", src.n) for q in quotes]
+                    if key == "fixes":
+                        src.documents_fix = True
+                    break
 
         subject = {
             "kind": "vulnerability" if vuln is not None or a.item_type == ItemType.VULNERABILITY else "bug",
