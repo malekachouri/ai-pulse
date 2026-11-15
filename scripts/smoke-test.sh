@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
 # End-to-end smoke test of a running Compose stack, through the public web entrypoint.
-#   scripts/smoke-test.sh [base-url]        (default http://localhost:3000; https://<DOMAIN> with the edge)
+#   scripts/smoke-test.sh [base-url]        (default http://localhost:<WEB_PORT>, from the environment or .env,
+#                                            else 3000; https://<DOMAIN> with the edge)
 # Checks: web serves pages, the API answers through the same-origin rewrite, auth round trip (register,
 # login, refresh cookie, /me), rate limiting answers 429, security headers, /metrics is not public,
 # and (inside the stack) every container is healthy, runs as non-root with a read-only root filesystem.
 set -euo pipefail
-BASE="${1:-http://localhost:3000}"
+cd "$(dirname "$0")/.."
+# The web port Compose publishes: WEB_PORT from the environment, else from .env, else 3000.
+web_port="${WEB_PORT:-$(sed -n 's/^WEB_PORT=\([0-9]*\).*/\1/p' .env 2>/dev/null | tail -1)}"
+BASE="${1:-http://localhost:${web_port:-3000}}"
 read -r -a COMPOSE_EXTRA <<< "${COMPOSE_FILES:-}"  # e.g. "-f docker-compose.yml -f docker-compose.prod.yml"
 COMPOSE=(docker compose "${COMPOSE_EXTRA[@]}")
 EMAIL="smoke-$(date +%s)-$RANDOM@example.com"
@@ -45,9 +49,11 @@ auth_post() {  # auth_post <path> <json> [extra curl args...]
   done
 }
 
-[[ "$(code "$BASE/login")" == 200 ]] || fail "web /login"
+status="$(code "$BASE/login")" || true  # curl fails (000) when nothing listens
+[[ "$status" == 200 ]] || fail "web /login answered $status at $BASE (is the stack running on this port? WEB_PORT in .env)"
 ok "web serves /login"
-[[ "$(code "$BASE/api/v1/categories")" == 200 ]] || fail "API through the web rewrite"
+status="$(code "$BASE/api/v1/categories")" || true
+[[ "$status" == 200 ]] || fail "API through the web rewrite: $BASE/api/v1/categories answered $status (another program on this port? WEB_PORT in .env; else docker compose logs --tail 50 api web)"
 ok "API reachable through the web origin"
 
 hdrs="$(curl -s -D - -o /dev/null "$BASE/api/v1/categories")"

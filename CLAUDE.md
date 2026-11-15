@@ -25,7 +25,8 @@ rules; the module guides are in `docs/`.
 
 The user runs AI Pulse on Windows 11 in WSL2 with Docker Engine (no Docker Desktop, no Python or Node on the
 host) and Ollama on the host with a small model (`qwen2.5:3b`). Prefer commands that need only Docker, and
-remember that local AI calls can take minutes.
+remember that local AI calls can take minutes. The app is served on `http://localhost:<WEB_PORT>` (`WEB_PORT` in
+`.env`; it may not be 3000 when another program uses that port).
 
 ## Rules that matter most
 
