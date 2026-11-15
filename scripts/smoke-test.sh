@@ -1,17 +1,22 @@
 #!/usr/bin/env bash
 # End-to-end smoke test of a running Compose stack, through the public web entrypoint.
-#   scripts/smoke-test.sh [base-url]        (default http://localhost:<WEB_PORT>, from the environment or .env,
-#                                            else 3000; https://<DOMAIN> with the edge)
+#   scripts/smoke-test.sh [base-url]        (default http://localhost:<port Docker publishes for web>, else
+#                                            WEB_PORT from the environment or .env, else 3000; https://<DOMAIN>
+#                                            with the edge)
 # Checks: web serves pages, the API answers through the same-origin rewrite, auth round trip (register,
 # login, refresh cookie, /me), rate limiting answers 429, security headers, /metrics is not public,
 # and (inside the stack) every container is healthy, runs as non-root with a read-only root filesystem.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-# The web port Compose publishes: WEB_PORT from the environment, else from .env, else 3000.
-web_port="${WEB_PORT:-$(sed -n 's/^WEB_PORT=\([0-9]*\).*/\1/p' .env 2>/dev/null | tail -1)}"
-BASE="${1:-http://localhost:${web_port:-3000}}"
 read -r -a COMPOSE_EXTRA <<< "${COMPOSE_FILES:-}"  # e.g. "-f docker-compose.yml -f docker-compose.prod.yml"
 COMPOSE=(docker compose "${COMPOSE_EXTRA[@]}")
+# The web port: the one Docker actually publishes for the running web container (whatever .env or an
+# override file says), else WEB_PORT from the environment or .env, else 3000.
+web_port="$("${COMPOSE[@]}" port web 3000 2>/dev/null | tail -1 | sed -n 's/.*:\([0-9][0-9]*\)[[:space:]]*$/\1/p' || true)"
+if [[ -z "$web_port" ]]; then
+  web_port="${WEB_PORT:-$(sed -n 's/^[[:space:]]*\(export[[:space:]]\{1,\}\)\{0,1\}WEB_PORT[[:space:]]*=[[:space:]]*["'"'"']\{0,1\}\([0-9][0-9]*\).*/\2/p' .env 2>/dev/null | tail -1)}"
+fi
+BASE="${1:-http://localhost:${web_port:-3000}}"
 EMAIL="smoke-$(date +%s)-$RANDOM@example.com"
 PASS="Smoke-test-Passw0rd!"
 JAR="$(mktemp)"
