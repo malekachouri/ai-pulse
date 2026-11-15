@@ -528,7 +528,8 @@ class AnalysisPipeline:
             .all()
         )
 
-    async def pending_llm(self, limit: int) -> list[Article]:
+    async def pending_llm(self, limit: int, article_ids: list[uuid.UUID] | None = None) -> list[Article]:
+        """Items still waiting for an LLM analysis, most important first; only `article_ids` when given."""
         ok = select(AIAnalysis.article_id).where(
             AIAnalysis.kind == AnalysisKind.SUMMARY,
             AIAnalysis.prompt_version == PROMPT_VERSION,
@@ -541,7 +542,11 @@ class AnalysisPipeline:
             (
                 await self.s.scalars(
                     select(Article)
-                    .where(Article.duplicate_of_id.is_(None), Article.id.not_in(ok))
+                    .where(
+                        Article.duplicate_of_id.is_(None),
+                        Article.id.not_in(ok),
+                        Article.id.in_(article_ids) if article_ids else true(),
+                    )
                     .order_by(Article.importance_score.desc().nulls_last(), Article.collected_at.desc())
                     .limit(limit)
                 )
@@ -604,7 +609,7 @@ class AnalysisPipeline:
             ):
                 stats.skipped_budget = True
             else:
-                for a in await self.pending_llm(llm_limit):
+                for a in await self.pending_llm(llm_limit, article_ids):
                     f = facts.get(a.id) or await self._facts(a)
                     if await self.analyse(a, f, stats):
                         await self.score(a, f)  # impact level now known
