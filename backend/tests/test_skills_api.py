@@ -54,7 +54,9 @@ async def test_list_filters_and_order(client, session_factory):
     first = body["items"][0]
     assert first["source"] == {"slug": "plugins", "name": "Claude Code plugins"}
     assert first["install"] == [{"label": "Install", "command": "install brand-new", "notes": []}]
-    assert "facts" not in first
+    assert "facts" not in first and first["is_new"] is True
+    flags = {i["name"]: i["is_new"] for i in body["items"]}
+    assert flags["security-guidance"] is False and flags["com.example/old"] is False  # baseline, too old
 
     assert await _names(client, kind="plugin") == ["brand-new", "security-guidance"]
     assert set(await _names(client, kind=["skill", "plugin"])) == {"brand-new", "security-guidance", "pdf"}

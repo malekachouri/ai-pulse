@@ -15,6 +15,14 @@ These help most on a PC that runs a small model (for example `qwen2.5:3b`) on th
 | 1.4 | **No duplicate AI sentence**: drop AI text that only repeats a fact already shown with its citation | The same version or fix sometimes appears twice in Bug intelligence | none (cosmetic) |
 | 1.5 | **Stricter AI categories**: keep a category suggested by the model only when its keywords appear in the text | Unrelated "Learn more" links (Kubernetes, Docker, AWS) appear on some CVEs | none |
 
+## 1b. Skills Radar
+
+| # | Suggestion | Why |
+|---|---|---|
+| 1b.1 | **"How would this help AI Pulse?"** on demand: an AI explanation of one radar entry, grounded in its listing and README, labelled AI-generated | The tags say which technologies match, not what to do with the tool |
+| 1b.2 | **Retention for registry entries**: delete inactive MCP servers not updated for 180 days | The registry adds more than a thousand entries a day |
+| 1b.3 | **More marketplaces** in the catalog (official vendor marketplaces as they appear) | Today: Anthropic's plugin and skills marketplaces |
+
 ## 2. Operations and backups
 
 | # | Suggestion | Why |

@@ -65,6 +65,7 @@ class SkillOut(ORMModel):
     source_updated_at: datetime | None
     first_seen_at: datetime
     initial: bool = Field(description="Already listed when AI Pulse started watching the source (not new)")
+    is_new: bool = Field(False, description="First seen in the last 7 days and not part of the baseline")
 
 
 class SkillDetail(SkillOut):

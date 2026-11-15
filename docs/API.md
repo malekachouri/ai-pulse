@@ -91,7 +91,7 @@ The table below is regenerated from the code with `cd backend && python ../scrip
 
 <!-- BEGIN GENERATED ENDPOINTS -->
 
-90 operations, generated from the OpenAPI schema.
+93 operations, generated from the OpenAPI schema.
 
 ### health
 
@@ -281,6 +281,14 @@ The table below is regenerated from the code with `cd backend && python ../scrip
 | `GET` | `/api/v1/learning/lessons` | Lessons of a day (default: today, local time) | signed in |
 | `POST` | `/api/v1/learning/lessons/generate` | Generate today's lessons now | signed in |
 | `GET` | `/api/v1/learning/recommendations` | What to learn next, with the reason for each item | signed in |
+
+### skills
+
+| Method | Path | Summary | Access |
+|---|---|---|---|
+| `GET` | `/api/v1/skills` | List Skills | public |
+| `GET` | `/api/v1/skills/facets` | Skill Facets | public |
+| `GET` | `/api/v1/skills/{skill_id}` | Get Skill | public |
 
 ### watchlist
 

@@ -8,7 +8,7 @@ export const ACCOUNTS = {
 export type Role = "anon" | "user" | "admin";
 
 export const ROUTES = [
-  "/", "/news", "/models", "/tools", "/research", "/github", "/bugs", "/security", "/devops", "/analytics",
+  "/", "/news", "/models", "/tools", "/skills", "/research", "/github", "/bugs", "/security", "/devops", "/analytics",
   "/search", "/briefing", "/learn", "/watchlist", "/models/compare", "/bookmarks", "/notifications", "/settings",
   "/admin", "/admin/ai", "/admin/audit", "/admin/ingestion", "/admin/jobs", "/admin/sources", "/admin/users",
   "/login", "/register", "/forgot-password", "/reset-password",

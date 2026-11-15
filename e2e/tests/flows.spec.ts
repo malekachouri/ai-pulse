@@ -281,3 +281,24 @@ test("mobile: the navigation drawer opens and navigates", async ({ browser }) =>
 test("no unexpected errors during the flows", async () => {
   expect(problems).toEqual([]);
 });
+
+test("skills radar: install commands from the listing, baseline not counted as new", async ({ browser }) => {
+  const p = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await open(p, "/skills");
+  // Live radar sources may list many entries: narrow down as a user would.
+  await p.getByRole("searchbox", { name: /search name, description or publisher/i }).fill("[E2E]");
+  const card = p.getByRole("region", { name: "[E2E] Postgres helper" });
+  await expect(card).toBeVisible();
+  await expect(card.getByText("New", { exact: true })).toBeVisible();
+  await expect(card.getByText("PostgreSQL", { exact: true })).toBeVisible();
+  await card.getByText(/how to install/i).click();
+  await expect(card.getByText("claude mcp add e2e-postgres-helper -e 'DATABASE_URL=<DATABASE_URL>' -- npx -y e2e-postgres-helper@1.0.0")).toBeVisible();
+  await expect(card.getByRole("button", { name: "Copy: Run locally from npm" })).toBeVisible();
+  await expect(card.getByRole("link", { name: /official listing/i })).toHaveAttribute("href", "https://example.com/e2e/registry/e2e-postgres-helper");
+  // "New in 7 days" (the default) leaves out what a marketplace already listed; "Everything" shows it.
+  await expect(p.getByRole("region", { name: "[E2E] Baseline plugin" })).toHaveCount(0);
+  await p.getByRole("combobox", { name: "Period" }).selectOption("");
+  await expect(p.getByRole("region", { name: "[E2E] Baseline plugin" })).toBeVisible();
+  await p.close();
+});
+

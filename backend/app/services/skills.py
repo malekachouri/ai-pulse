@@ -13,6 +13,7 @@ from app.schemas.common import Page
 from app.schemas.skills import FacetCount, SkillDetail, SkillFacets, SkillFilters, SkillOut, SourceStatus
 
 ACTIVE = "active"
+NEW_DAYS = 7
 SKILL_SORT = SortSpec(
     {"first_seen_at": AISkill.first_seen_at, "published_at": AISkill.published_at, "name": AISkill.name,
      "updated_at": AISkill.source_updated_at},
@@ -51,13 +52,18 @@ class SkillsService:
         rows, total = await paginate(
             self.s, self._filtered(f), SKILL_SORT.order_by(f.sort), f.paging.offset, f.page_size
         )
-        return Page.build([SkillOut.model_validate(r) for r in rows], total, f.paging)
+        return Page.build([self._out(SkillOut, r) for r in rows], total, f.paging)
 
     async def get(self, skill_id: uuid.UUID) -> SkillDetail:
         row = await self.s.get(AISkill, skill_id)
         if row is None:
             raise NotFoundError("Skill not found")
-        return SkillDetail.model_validate(row)
+        return self._out(SkillDetail, row)
+
+    def _out[T: SkillOut](self, schema: type[T], row: AISkill) -> T:
+        out = schema.model_validate(row)
+        out.is_new = not row.initial and row.first_seen_at >= self.now - timedelta(days=NEW_DAYS)
+        return out
 
     async def facets(self) -> SkillFacets:
         active = AISkill.status == ACTIVE
@@ -86,7 +92,9 @@ class SkillsService:
         new = await self.s.scalar(
             select(func.count()).where(
                 and_(
-                    active, AISkill.initial.is_(False), AISkill.first_seen_at >= self.now - timedelta(days=7)
+                    active,
+                    AISkill.initial.is_(False),
+                    AISkill.first_seen_at >= self.now - timedelta(days=NEW_DAYS),
                 )
             )
         )

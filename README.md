@@ -28,6 +28,9 @@ an AI wrote is always labelled and kept apart from the facts.
     collected official sources with citations, "insufficient information" otherwise;
   - an AI Comparison page: models side by side with only cited benchmark scores and facts, each with its
     source and date.
+- **Skills Radar:** new MCP servers, Claude Code plugins and Agent Skills from the official MCP Registry
+  and Anthropic's marketplaces, with install commands built from each listing and which AI Pulse
+  technologies they cover ([SKILLS.md](docs/SKILLS.md)).
 - **Watchlist:** everything new about the models, frameworks, providers and repositories you follow, with
   a notification when one of them has a new release.
 - **Learn:**
@@ -146,7 +149,7 @@ deterministic analysis, ranking and keyword search still work.
 | [e2e/README.md](e2e/README.md) | browser end-to-end tests (Playwright + axe-core) and how to run them |
 | [docs/AUDIT_REPORT.md](docs/AUDIT_REPORT.md) | final audit: verified features, fixed bugs, test results, security findings, limitations, credentials |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | suggestions for later: AI on small local models, operations, features, tests to add |
-| [docs/INGESTION.md](docs/INGESTION.md) · [docs/AI.md](docs/AI.md) · [docs/RADAR.md](docs/RADAR.md) · [docs/NOTIFICATIONS.md](docs/NOTIFICATIONS.md) | module guides |
+| [docs/INGESTION.md](docs/INGESTION.md) · [docs/AI.md](docs/AI.md) · [docs/RADAR.md](docs/RADAR.md) · [docs/NOTIFICATIONS.md](docs/NOTIFICATIONS.md) · [docs/SKILLS.md](docs/SKILLS.md) | module guides |
 
 ## Tests and checks
 

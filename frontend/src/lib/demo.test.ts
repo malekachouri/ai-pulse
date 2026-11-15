@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { demoFetch } from "@/lib/demo";
-import type { Article, DashboardSummary, Page } from "@/lib/types";
+import type { Article, DashboardSummary, Page, Skill } from "@/lib/types";
 
 describe("demo data", () => {
   it("is always visibly fictional", async () => {
@@ -12,6 +12,15 @@ describe("demo data", () => {
       expect(new URL(a.url).hostname).toBe("example.com");
       expect(a.source.name.startsWith("Demo source")).toBe(true);
       if (a.severity) expect(a.severity_basis).toMatch(/Demo/);
+    }
+  });
+
+  it("labels radar entries as fictional", async () => {
+    const skills = await demoFetch<Page<Skill>>("/skills", "GET");
+    expect(skills.items.length).toBeGreaterThan(0);
+    for (const s of skills.items) {
+      expect(s.title?.startsWith("[DEMO]")).toBe(true);
+      expect(new URL(s.listing_url).hostname).toBe("example.com");
     }
   });
 
