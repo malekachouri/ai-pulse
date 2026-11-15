@@ -63,6 +63,8 @@ per (item, kind, version) in `ai_analyses`, always flagged AI-generated in the A
 * **Remediation:** for vulnerabilities, upgrade/patch instructions are kept only when an official remediation
   exists (CISA KEV required action / NVD-embedded KEV action); otherwise they are removed and replaced with
   "No official remediation was published in the collected sources; follow the vendor advisory."
+  An official remediation is the record's remediation field (KEV required action, advisory fix) or, when
+  that is empty, a sentence of the CVE description that states the fixed version ("fixed in 0.31.8").
 * `source_references` are attached by AI Pulse (article URL + official references) — never by the model.
 
 ## Importance score (`app/ai/scoring.py`) — AI Pulse importance 0–100, **not CVSS**

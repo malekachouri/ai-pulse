@@ -454,3 +454,30 @@ async def test_rag_two_term_question_needs_both_terms(session_factory, corpus):
             "What is the RAG capital of France?", ArticleFilters(), None
         )
     assert r.insufficient and r.answer is None
+
+
+async def test_a_fix_stated_in_the_cve_description_counts_as_official_remediation(session_factory):
+    from app.models import SecurityVulnerability
+    from app.models.enums import ItemType, Severity
+    from tests import feature_data as fd
+
+    text = ("HarnessRouter lets a remote caller rewrite another organization's provider connection. "
+            "This issue is fixed in version 0.31.8.")  # fmt: skip
+    async with session_factory() as s:
+        nvd = await fd.source(s, "nvd-fix", connector="nvd", name="NVD")
+        item = await fd.article(s, nvd, "CVE-2026-41777", item_type=ItemType.VULNERABILITY,
+                                title="CVE-2026-41777: HarnessRouter", description=text)  # fmt: skip
+        s.add(SecurityVulnerability(article_id=item.id, cve_id="CVE-2026-41777", severity=Severity.CRITICAL,
+                                    cvss_score=9.1, description=text))  # fmt: skip
+        await s.commit()
+    chat = ScriptedChat(default=analysis_reply(recommended_actions=["Upgrade HarnessRouter to 0.31.8."]))
+    async with session_factory() as s:
+        await AnalysisPipeline(s, providers(chat)).run(article_ids=[item.id], llm_limit=1)
+        await s.commit()
+        row = await s.scalar(
+            select(AIAnalysis).where(
+                AIAnalysis.article_id == item.id, AIAnalysis.kind == AnalysisKind.SUMMARY
+            )
+        )
+    assert "This issue is fixed in version 0.31.8." in chat.calls[0]["user"]
+    assert row.output["recommended_actions"] == ["Upgrade HarnessRouter to 0.31.8."]  # backed by the record

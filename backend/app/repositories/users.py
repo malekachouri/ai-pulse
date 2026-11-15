@@ -46,6 +46,19 @@ class TokenRepository:
             stmt = stmt.with_for_update()
         return await self.s.scalar(stmt)
 
+    async def family_has_live(self, family_id: uuid.UUID, now: datetime) -> bool:
+        """True while the family has a token that is neither revoked nor expired (not logged out / killed)."""
+        found = await self.s.scalar(
+            select(RefreshToken.id)
+            .where(
+                RefreshToken.family_id == family_id,
+                RefreshToken.revoked_at.is_(None),
+                RefreshToken.expires_at > now,
+            )
+            .limit(1)
+        )
+        return found is not None
+
     async def revoke_family(self, family_id: uuid.UUID, now: datetime) -> None:
         await self.s.execute(
             update(RefreshToken)

@@ -1,4 +1,5 @@
 import re
+from datetime import timedelta
 
 import pytest
 
@@ -63,7 +64,7 @@ async def test_me_requires_valid_token(client):
     assert r.headers["www-authenticate"] == "Bearer"
 
 
-async def test_refresh_rotation_and_reuse_detection(client):
+async def test_refresh_rotation_and_reuse_detection(client, monkeypatch):
     await register_and_login(client, "r@example.com")
     first = client.cookies.get("aipulse_refresh")
 
@@ -72,7 +73,11 @@ async def test_refresh_rotation_and_reuse_detection(client):
     second = client.cookies.get("aipulse_refresh")
     assert second and second != first
 
-    # Replaying the old (rotated) token is detected and kills the whole family.
+    # Replaying the old (rotated) token after the grace period is detected and kills the whole family.
+    from app.services import auth as auth_service
+
+    later = auth_service._now() + timedelta(minutes=2)
+    monkeypatch.setattr(auth_service, "_now", lambda: later)
     client.cookies.set("aipulse_refresh", first, path="/api/v1/auth")
     r = await client.post(f"{AUTH}/refresh")
     assert r.status_code == 401
@@ -81,6 +86,33 @@ async def test_refresh_rotation_and_reuse_detection(client):
     client.cookies.set("aipulse_refresh", second, path="/api/v1/auth")
     r = await client.post(f"{AUTH}/refresh")
     assert r.status_code == 401
+
+
+async def test_concurrent_refreshes_within_the_grace_period_keep_the_session(client):
+    """Two tabs refreshing at once send the same token: the second one must not sign the user out."""
+    await register_and_login(client, "tabs@example.com")
+    shared = client.cookies.get("aipulse_refresh")
+
+    def use(token: str) -> None:
+        client.cookies.clear()
+        client.cookies.set("aipulse_refresh", token, path="/api/v1/auth")
+
+    r = await client.post(f"{AUTH}/refresh")  # tab A rotates the shared token
+    assert r.status_code == 200
+    tab_a = r.cookies["aipulse_refresh"]
+    use(shared)
+    r = await client.post(f"{AUTH}/refresh")  # tab B, a moment later, with the token tab A just rotated
+    assert r.status_code == 200 and r.json()["access_token"]
+    tab_b = r.cookies["aipulse_refresh"]
+
+    for token in (tab_a, tab_b):  # both sessions keep working
+        use(token)
+        assert (await client.post(f"{AUTH}/refresh")).status_code == 200
+
+    # After logout the grace period does not bring the session back.
+    await client.post(f"{AUTH}/logout")
+    use(shared)
+    assert (await client.post(f"{AUTH}/refresh")).status_code == 401
 
 
 async def test_logout_revokes_refresh_token(client):

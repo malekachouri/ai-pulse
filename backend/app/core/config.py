@@ -55,6 +55,10 @@ class Settings(BaseSettings):
     jwt_issuer: str = "ai-pulse"
     access_token_ttl_minutes: int = 15
     refresh_token_ttl_days: int = 14
+    # A rotated refresh token presented again within this many seconds is a race (two tabs refreshing at
+    # once, a response lost during a restart), not theft: a new token is issued in the same family. Later
+    # reuse still revokes the whole family. 0 = no grace.
+    refresh_reuse_grace_seconds: int = Field(30, ge=0, le=300)
     password_reset_ttl_minutes: int = 30
     refresh_cookie_name: str = "aipulse_refresh"
     cookie_secure: bool = True

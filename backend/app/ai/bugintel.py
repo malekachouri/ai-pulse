@@ -29,10 +29,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.ai import claims
 from app.ai.pipeline import _article_text, record_usage, upsert_analysis
 from app.ai.providers import AIProviders, ProviderError
+from app.ai.versions import _AFFECTED_RE, _FIX_RE, stated  # noqa: F401 - re-exported for tests
 from app.models import AIAnalysis, Article, SecurityVulnerability, SoftwareBug
 from app.models.enums import AnalysisKind, ItemType
 
-VERSION = "bugintel-v2"  # v2: versions and fixes stated in the official text become quoted facts
+VERSION = "bugintel-v3"  # v3: cut-off headline fragments are not quoted; duplicates dropped
 INSUFFICIENT = "insufficient information"
 SECTIONS = ("cause", "impact", "affected_versions", "fixes")
 BUG_TYPES = (ItemType.BUG, ItemType.VULNERABILITY, ItemType.GITHUB_ISSUE)
@@ -104,41 +105,6 @@ def product_line(p: dict[str, Any]) -> str:
 
 def _fact(text: str, n: int) -> dict[str, Any]:
     return {"text": text, "citation": n}
-
-
-# Versions an official text states: "before 0.11.0", "prior to 0.31.8", "fixed in 2.4.1", "upgrade to 3.0".
-# Bounded repetitions only (linear on any input).
-_VER = r"v?\d{1,4}(?:\.\d{1,6}){1,3}(?:[-+][0-9A-Za-z.]{1,20})?"
-_AFFECTED_RE = re.compile(
-    rf"\b(?:before|prior to|earlier than|older than|up to and including|through)\s{{1,3}}"
-    rf"(?:version\s{{1,3}}|v\s{{0,1}})?{_VER}",
-    re.I,
-)
-_FIX_RE = re.compile(
-    rf"\b(?:(?:fixed|patched|resolved|addressed|remediated)\s{{1,3}}in|(?:upgrade|update)\s{{1,3}}to)\s{{1,3}}"
-    rf"(?:version\s{{1,3}})?{_VER}",
-    re.I,
-)
-_SENTENCE_RE = re.compile(r"(?<=[.!?])\s{1,5}(?=[A-Z])")
-MAX_STATED = 3
-
-
-def stated(text: str, pattern: re.Pattern[str]) -> list[str]:
-    """Sentences of an official text that state affected or fixed versions, quoted (shortened when long)."""
-    out: list[str] = []
-    for sentence in _SENTENCE_RE.split(text or ""):
-        sentence = " ".join(sentence.split())
-        m = pattern.search(sentence[:2000])
-        if not m:
-            continue
-        if len(sentence) > 240:  # keep the part around the version
-            start = max(0, m.start() - 140)
-            sentence = ("…" if start else "") + sentence[start : m.end() + 80].strip() + "…"
-        if sentence not in out:
-            out.append(sentence)
-        if len(out) >= MAX_STATED:
-            break
-    return out
 
 
 class BugIntelligence:

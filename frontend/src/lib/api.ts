@@ -44,7 +44,11 @@ export async function refreshAccessToken(): Promise<string | null> {
   }
   refreshInFlight ??= (async () => {
     try {
-      const res = await fetch(`${API_BASE}/auth/refresh`, { method: "POST", credentials: "same-origin" });
+      // Tabs take turns: the refresh token rotates on every use, and two tabs sending the same one at
+      // once look like token theft to the API. Inside the lock, the cookie already holds the newest token.
+      const send = () => fetch(`${API_BASE}/auth/refresh`, { method: "POST", credentials: "same-origin" });
+      const locks = typeof navigator !== "undefined" ? navigator.locks : undefined;
+      const res = locks ? await locks.request("aipulse-auth-refresh", send) : await send();
       if (!res.ok) {
         setAccessToken(null);
         return null;
