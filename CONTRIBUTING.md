@@ -58,6 +58,8 @@ check that no longer runs.
 
 ## Checks before pushing
 
+With Docker only, everything below except the browser tests: `./scripts/check.sh` (or `/check` in Claude Code).
+
 Backend:
 
 ```bash

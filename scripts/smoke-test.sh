@@ -18,6 +18,13 @@ read -r -a CURL_EXTRA <<< "${SMOKE_CURL_OPTS:-}"
 curl() { command curl "${CURL_EXTRA[@]}" "$@"; }
 ok() { echo "ok   $*"; }
 
+# The browser tests (scripts/e2e.sh) leave the stack running with relaxed rate limits on purpose, and the
+# rate-limit check below would then fail for that reason alone: say so instead.
+api_id="$("${COMPOSE[@]}" ps -q api 2>/dev/null | head -1 || true)"
+if [[ -n "$api_id" ]] && docker inspect "$api_id" --format '{{index .Config.Labels "com.docker.compose.project.config_files"}}' 2>/dev/null | grep -q 'docker-compose.e2e.yml'; then
+  fail "the stack runs with the e2e test settings (relaxed rate limits). Restart it normally first: docker compose up -d --wait (or use ./scripts/check.sh smoke, which does it)"
+fi
+
 code() { curl -s -o /dev/null -w '%{http_code}' "$@"; }
 
 # POST JSON to an auth endpoint and print "<body>\n<status>". The smoke test itself exhausts the auth rate

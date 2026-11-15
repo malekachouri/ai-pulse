@@ -99,6 +99,7 @@ Live-checked on 2026-11-09 against the real endpoints unless noted.
 python -m app.cli sources          # list sources, failures and last success
 python -m app.cli ingest nvd-cve   # run one source now, in-process (no Celery)
 python -m app.cli sync-sources     # add catalog sources missing from the DB (never overwrites edits)
+python -m app.cli reanalyse CVE-2026-12345   # analyse one item again with the AI model now
 celery -A app.workers.celery_app worker -Q ingestion -l info
 celery -A app.workers.celery_app beat -l info
 ```

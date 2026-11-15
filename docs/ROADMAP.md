@@ -37,7 +37,4 @@ The current suites and how to run them are in [DEVELOPMENT.md](DEVELOPMENT.md) a
 
 - an end-to-end test against a real (small) Ollama model, run manually or nightly, not on every pull
   request;
-- make `scripts/smoke-test.sh` warn when the stack still runs with the e2e override: that override relaxes
-  the login rate limit on purpose, so the smoke test's rate-limit check fails right after `scripts/e2e.sh`
-  (restart with `docker compose up -d --wait` first);
 - a restore drill in CI: restore the latest backup into a throwaway database and run the migrations check.
