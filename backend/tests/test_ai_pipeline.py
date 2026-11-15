@@ -221,8 +221,7 @@ async def test_llm_analysis_grounded_and_idempotent(session_factory, corpus):
         assert await s.scalar(select(func.count(AIUsage.id)).where(AIUsage.purpose == "analysis")) == 1
     async with session_factory() as s:  # second run: nothing pending for this article
         await AnalysisPipeline(s, providers(chat)).run(article_ids=[corpus["k8s-cve"]], llm_limit=1)
-    assert len(chat.calls) == 2  # the next pending article was analysed; this one was not re-sent
-    assert all("CVE-2026-116472: ingress" not in c["user"].split("Title:")[1][:60] for c in chat.calls[1:])
+    assert len(chat.calls) == 1  # already analysed, and other pending items are not taken instead
 
 
 async def test_llm_errors_are_recorded_and_pipeline_continues(session_factory, corpus):
@@ -481,3 +480,28 @@ async def test_a_fix_stated_in_the_cve_description_counts_as_official_remediatio
         )
     assert "This issue is fixed in version 0.31.8." in chat.calls[0]["user"]
     assert row.output["recommended_actions"] == ["Upgrade HarnessRouter to 0.31.8."]  # backed by the record
+
+
+async def test_reanalysing_a_chosen_item_analyses_that_item_not_the_most_important_pending_one(
+    session_factory, corpus
+):
+    """`run(article_ids=...)` (the re-analyse script) must not spend the LLM call on another item."""
+    async with session_factory() as s:
+        await AnalysisPipeline(s, providers()).run()  # rules stage for all: every item gets its importance
+        await s.commit()
+        pending = await AnalysisPipeline(s, providers()).pending_llm(50)
+    assert len(pending) >= 2 and (pending[0].importance_score or 0) > (pending[-1].importance_score or 0)
+    least = pending[-1]  # the least important item still waiting
+    chat = ScriptedChat(default=analysis_reply())
+    async with session_factory() as s:
+        stats = await AnalysisPipeline(s, providers(chat)).run(article_ids=[least.id], llm_limit=1)
+        await s.commit()
+        analysed = set(
+            await s.scalars(
+                select(AIAnalysis.article_id).where(
+                    AIAnalysis.kind == AnalysisKind.SUMMARY, AIAnalysis.valid.is_(True)
+                )
+            )
+        )
+    assert stats.analysed == 1 and analysed == {least.id}
+    assert least.title[:40] in chat.calls[0]["user"]
