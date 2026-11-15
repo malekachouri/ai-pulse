@@ -2,7 +2,7 @@
 
 import uuid
 from datetime import date, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import (
     Boolean,
@@ -30,6 +30,9 @@ from app.models.enums import (
     SkillKind,
     enum_column,
 )
+
+if TYPE_CHECKING:
+    from app.models.content import Source
 
 
 def _article_fk(unique: bool = True) -> Mapped[uuid.UUID | None]:
@@ -264,3 +267,5 @@ class AISkill(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     # Found by the source's first collection: already listed before AI Pulse watched it, so not "new".
     initial: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+
+    source: Mapped[Source] = relationship(lazy="joined")
