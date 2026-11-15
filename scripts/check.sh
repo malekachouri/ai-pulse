@@ -69,7 +69,7 @@ smoke() {
     return 1
   fi
   step "smoke: the running stack"
-  ./scripts/smoke-test.sh "${SMOKE_URL:-http://localhost:3000}"
+  ./scripts/smoke-test.sh ${SMOKE_URL:+"$SMOKE_URL"}
 }
 
 parts=()

@@ -33,7 +33,7 @@ step "rebuilding and restarting (only what changed is rebuilt; the first build t
 docker compose up -d --build --wait --wait-timeout 600
 
 step "checking the running app"
-./scripts/smoke-test.sh "${SMOKE_URL:-http://localhost:3000}"
+./scripts/smoke-test.sh ${SMOKE_URL:+"$SMOKE_URL"}
 
 step "services"
 docker compose ps --format 'table {{.Service}}\t{{.Status}}'

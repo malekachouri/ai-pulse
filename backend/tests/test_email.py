@@ -89,6 +89,23 @@ async def test_smtp_failure_is_an_email_delivery_error():
         await sender.send("a@example.com", "s", "b")
 
 
+async def test_smtp_tls_requires_tls_1_2(monkeypatch):
+    import smtplib
+    import ssl
+
+    seen = []
+
+    def capture(*args, context=None, **kwargs):  # type: ignore[no-untyped-def]
+        seen.append(context)
+        raise OSError("stop before connecting")
+
+    monkeypatch.setattr(smtplib, "SMTP_SSL", capture)
+    sender = SmtpEmailSender("smtp.example.test", 465, "x@pulse.test", security="ssl", timeout=2)
+    with pytest.raises(EmailDeliveryError):
+        await sender.send("a@example.com", "s", "b")
+    assert seen[0].minimum_version == ssl.TLSVersion.TLSv1_2 and seen[0].verify_mode == ssl.CERT_REQUIRED
+
+
 async def test_deferred_sender_swallows_failures():
     outbox = DeferredEmailSender(SmtpEmailSender("127.0.0.1", 9, "x@pulse.test", security="none", timeout=2))
     await outbox.send("a@example.com", "s", "b")

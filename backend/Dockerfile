@@ -49,7 +49,7 @@ HEALTHCHECK --interval=60s --timeout=30s --start-period=60s --retries=3 CMD ["py
 CMD ["celery", "-A", "app.workers.celery_app", "worker", "-Q", "ingestion", "--concurrency", "4", "--loglevel", "INFO", "--without-mingle", "--max-tasks-per-child", "200"]
 
 FROM runtime AS beat
-HEALTHCHECK --interval=60s --timeout=10s --start-period=120s --retries=3 CMD ["python", "/usr/local/bin/healthcheck.py", "beat"]
+HEALTHCHECK --interval=60s --timeout=30s --start-period=120s --retries=3 CMD ["python", "/usr/local/bin/healthcheck.py", "beat"]
 CMD ["celery", "-A", "app.workers.celery_app", "beat", "--loglevel", "INFO", "--schedule", "/tmp/celerybeat-schedule"]
 
 FROM runtime AS migrate
