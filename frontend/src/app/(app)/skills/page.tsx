@@ -56,7 +56,7 @@ export default function SkillsRadarPage() {
       {f && (
         <p className="mb-4 text-xs text-muted-foreground">
           {f.new_last_7_days} new this week ·{" "}
-          {f.kinds.map((k) => `${k.count} ${KIND[k.value]?.plural ?? k.value}`).join(" · ")}
+          {f.kinds.map((k) => `${k.count} ${(k.count === 1 ? KIND[k.value]?.label : KIND[k.value]?.plural) ?? k.value}`).join(" · ")}
           {f.sources.length > 0 && (
             <>
               {" · "}
