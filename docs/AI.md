@@ -34,8 +34,8 @@ call is logged in `ai_usage` (purpose, provider, model, tokens, cost, ok/error) 
 ## Pipeline (`app/ai/pipeline.py`) — runs every 2 minutes and right after each ingestion
 
 Only one run at a time: a run takes a PostgreSQL advisory lock for its transaction, and any other run
-(a Beat tick, a run triggered by ingestion, `cli ai-analyze`, the hourly rescore) is skipped while it is
-held. Two runs used to update the same articles in a different order and deadlock.
+(a Beat tick, a run triggered by ingestion, `cli ai-analyze`, `cli reanalyse`, the hourly rescore) is
+skipped while it is held. Two runs used to update the same articles in a different order and deadlock.
 
 Work that waits on an AI provider (this pipeline, bug intelligence, lessons, Ask AI Pulse, the briefing
 summary) raises PostgreSQL's 5-minute `idle_in_transaction_session_timeout` to 30 minutes for its own

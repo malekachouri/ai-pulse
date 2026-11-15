@@ -51,6 +51,13 @@ docker compose exec api python -m app.cli ai-analyze --limit 200
 ```
 
 ```bash
+docker compose exec -T api python -m app.cli reanalyse CVE-2026-12345
+```
+
+The last one forgets the AI summary of one item (a CVE id, an item id or a canonical key) and analyses it
+again now. Exit codes: 0 done, 1 the model failed, 2 not found, 3 another analysis run is in progress.
+
+```bash
 docker compose --profile monitoring up -d
 ```
 
@@ -116,6 +123,26 @@ permanent banner says so. Never enable it in production; production images are b
 ## Tests and checks
 
 The CI pipeline runs all of these (see [DEPLOYMENT.md §3](DEPLOYMENT.md#3-cicd)).
+
+**With Docker only** (no Python or Node on the computer, for example Windows with WSL2):
+
+```bash
+./scripts/check.sh
+```
+
+It runs the backend (ruff, migrations round trip, pytest), the frontend (ESLint, TypeScript, Vitest,
+build) and the smoke test of the running stack. `./scripts/check.sh backend`, `frontend` or `smoke` runs
+one part, and `./scripts/check.sh backend -k cli` passes arguments to pytest. The backend and frontend run
+on a copy of the code in throwaway containers with their own test database: the running stack and its data
+are not touched. The first run downloads the packages (a few minutes); later runs reuse a cache.
+
+To update a local stack to the latest `main` (pull, rebuild what changed, restart, smoke test):
+
+```bash
+./scripts/update.sh
+```
+
+**Natively**, with Python 3.15 and Node 26 installed, the same checks one by one:
 
 Backend: the tests run against a real PostgreSQL + pgvector database, built from the Alembic
 migrations, with a downgrade/upgrade round trip.
@@ -196,3 +223,19 @@ CI fails when a generated file is out of date.
   in `scripts/build-dashboards.py`, and an alert with a unit test in `infra/prometheus/` if it
   deserves one.
 - See [CONTRIBUTING.md](../CONTRIBUTING.md) for branches, commits and reviews.
+
+## Working with Claude Code
+
+The repository includes a [CLAUDE.md](../CLAUDE.md) (what Claude Code reads first about the project) and
+three project skills in `.claude/skills/`. In Claude Code, opened in this folder, type:
+
+| Command | What it does |
+|---|---|
+| `/check` | runs `./scripts/check.sh` (all of it, or `/check backend`, `/check frontend`, `/check smoke`) and explains any failure: the test, the file and the likely cause |
+| `/update` | runs `./scripts/update.sh` after checking your branch and local changes, then summarises what changed and the health of every service |
+| `/reanalyse CVE-2026-12345` | analyses one item again with the AI model and explains the result (done, not found, worker busy, model timeout) |
+
+`/check` may also be used by Claude on its own after changing code; `/update` and `/reanalyse` change your
+running stack, so they only run when you type them. Write new skills the same way: a folder with a
+`SKILL.md` (a short description, the allowed commands, then the steps).
+

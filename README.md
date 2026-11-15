@@ -137,7 +137,8 @@ deterministic analysis, ranking and keyword search still work.
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | principles, system overview, layers, schema, API overview, security architecture, roadmap |
 | [docs/API.md](docs/API.md) | conventions (auth, errors, pagination, rate limits) and the full endpoint reference |
 | [docs/DATABASE.md](docs/DATABASE.md) | schema by domain, indexes, migrations workflow, roles, backups, configuration |
-| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | dev stack, native setup, demo mode, tests and checks, generated files |
+| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | dev stack, native setup, demo mode, tests and checks (Docker-only `scripts/check.sh`), Claude Code skills, generated files |
+| [CLAUDE.md](CLAUDE.md) | project notes for Claude Code; skills `/check`, `/update`, `/reanalyse` in `.claude/skills/` |
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | server setup, secrets, CI/CD, monitoring and alerts, backups and restore, upgrades, scaling |
 | [SECURITY.md](SECURITY.md) | reporting, threat model, controls, secret rotation, scanning |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | workflow, rules, checks, what a good pull request contains |

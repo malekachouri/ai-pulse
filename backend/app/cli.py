@@ -4,6 +4,8 @@
     python -m app.cli sources
     python -m app.cli ingest nvd-cve
     python -m app.cli sync-sources
+    python -m app.cli ai-analyze --limit 200
+    python -m app.cli reanalyse CVE-2026-12345
 
 The password is read from the ADMIN_PASSWORD env var or prompted interactively (never a CLI arg).
 """
@@ -12,6 +14,9 @@ import argparse
 import asyncio
 import getpass
 import os
+import re
+import uuid
+from typing import TYPE_CHECKING
 
 from app.core.config import get_settings
 from app.db.session import create_engine, create_session_factory
@@ -19,6 +24,14 @@ from app.models.enums import RoleName
 from app.schemas.auth import RegisterRequest
 from app.services.auth import AuthService
 from app.services.email import ConsoleEmailSender
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    from app.ai.pipeline import PipelineStats
+    from app.ai.providers import AIProviders
+
+_CVE_RE = re.compile(r"^CVE-\d{4}-\d{4,}$", re.IGNORECASE)
 
 
 async def _create_admin(email: str, full_name: str | None) -> None:
@@ -132,6 +145,77 @@ async def _ai_analyze(limit: int, llm_limit: int) -> None:
     print({k: v for k, v in stats.__dict__.items() if k != "errors"}, "errors:", stats.errors[:3])
 
 
+async def reanalyse(
+    session: AsyncSession, providers: AIProviders, target: str, *, daily_budget: int | None = None
+) -> tuple[list[uuid.UUID], PipelineStats | None]:
+    """Forget the AI summary of one item and analyse it again now.
+
+    ``target`` is a CVE id (every copy of it, from every source), an item id (UUID) or a canonical key such
+    as ``gh-release:acme/tool:v2.0``. Returns the items found and the run's stats (None when none was found).
+    """
+    from sqlalchemy import delete, or_, select
+
+    from app.ai.pipeline import AnalysisPipeline
+    from app.models import AIAnalysis, Article
+    from app.models.enums import AnalysisKind
+
+    target = target.strip()
+    if _CVE_RE.match(target):
+        where = Article.canonical_key == f"cve:{target.upper()}"
+    else:
+        try:
+            item_id = uuid.UUID(target)
+        except ValueError:
+            where = Article.canonical_key == target
+        else:
+            key = await session.scalar(select(Article.canonical_key).where(Article.id == item_id))
+            where = or_(Article.id == item_id, Article.canonical_key == key) if key else Article.id == item_id
+    ids = list(await session.scalars(select(Article.id).where(where)))
+    if not ids:
+        return [], None
+    await session.execute(
+        delete(AIAnalysis).where(AIAnalysis.article_id.in_(ids), AIAnalysis.kind == AnalysisKind.SUMMARY)
+    )
+    stats = await AnalysisPipeline(session, providers, daily_budget=daily_budget).run(
+        article_ids=ids, llm_limit=len(ids)
+    )
+    return ids, stats
+
+
+async def _reanalyse(target: str) -> int:
+    from app.ai.providers import build_providers
+
+    settings = get_settings()
+    engine = create_engine(settings)
+    providers = build_providers(settings)
+    for problem in providers.problems:
+        print(f"note: {problem}")
+    try:
+        async with create_session_factory(engine)() as s:
+            ids, stats = await reanalyse(s, providers, target, daily_budget=settings.ai_daily_token_budget)
+            if stats is None:
+                print(f"No item found for '{target}' (a CVE id, an item id or a canonical key)")
+                return 2
+            if stats.skipped_busy:
+                await s.rollback()  # keep the current summary
+                print(
+                    "Another analysis run is in progress (usually the background worker): nothing changed. "
+                    "Try again in a few minutes, or stop the worker first: docker compose stop worker beat"
+                )
+                return 3
+            await s.commit()
+    finally:
+        await providers.aclose()
+        await engine.dispose()
+    print(f"items found: {len(ids)}  analysed: {stats.analysed}  failed: {stats.analysis_failed}  "
+          f"errors: {stats.errors[:1]}")  # fmt: skip
+    if providers.llm is None:
+        print("note: no AI model is configured, so only the rule-based analysis ran")
+    elif stats.skipped_budget:
+        print("note: today's AI token budget (AI_DAILY_TOKEN_BUDGET) is used up: try again tomorrow")
+    return 1 if stats.analysis_failed else 0
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="app.cli")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -145,6 +229,8 @@ def main() -> None:
     p = sub.add_parser("ai-analyze", help="Run the AI pipeline once")
     p.add_argument("--limit", type=int, default=5000)
     p.add_argument("--llm-limit", type=int, default=20)
+    p = sub.add_parser("reanalyse", help="Analyse one item again now (CVE id, item id or canonical key)")
+    p.add_argument("target")
     args = parser.parse_args()
     if args.cmd == "create-admin":
         asyncio.run(_create_admin(args.email, args.full_name))
@@ -156,6 +242,8 @@ def main() -> None:
         asyncio.run(_sync_sources())
     elif args.cmd == "ai-analyze":
         asyncio.run(_ai_analyze(args.limit, args.llm_limit))
+    elif args.cmd == "reanalyse":
+        raise SystemExit(asyncio.run(_reanalyse(args.target)))
 
 
 if __name__ == "__main__":
