@@ -19,7 +19,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from prometheus_client import Counter
-from sqlalchemy import Integer, func, or_, select, text
+from sqlalchemy import Integer, func, or_, select, text, true
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -32,6 +32,7 @@ from app.ai.scoring import score_item
 from app.ai.text import clean_text, detect_language, extract_entities, extract_keywords
 from app.ai.versions import stated_fix
 from app.core.logging import get_logger
+from app.db.session import allow_slow_external_calls
 from app.ingestion.classify import classify
 from app.models import AIAnalysis, AIUsage, Article, Category, Incident, SecurityVulnerability
 from app.models.enums import AnalysisKind, ItemType, Severity
@@ -562,6 +563,8 @@ class AnalysisPipeline:
             stats.skipped_busy = True
             log.info("ai_pipeline_skipped", reason="another analysis run is in progress")
             return stats
+        if self.p.embedder is not None or self.p.llm is not None:
+            await allow_slow_external_calls(self.s)
         if article_ids:
             items = list(
                 (await self.s.scalars(select(Article).where(Article.id.in_(article_ids)))).unique().all()
@@ -580,7 +583,11 @@ class AnalysisPipeline:
                 (
                     await self.s.scalars(
                         select(Article)
-                        .where(Article.embedding.is_(None))
+                        .where(
+                            Article.embedding.is_(None),
+                            # Re-analysing chosen items does not take on the background backlog.
+                            Article.id.in_(article_ids) if article_ids else true(),
+                        )
                         .order_by(Article.collected_at.desc())
                         .limit(embed_limit)
                     )

@@ -21,6 +21,7 @@ from app.ai.prompts import SYSTEM_RAG, RagAnswer
 from app.ai.providers import AIProviders, ProviderError
 from app.ai.search import Hit, Retriever
 from app.ai.text import TECH, clean_text, tokens
+from app.db.session import allow_slow_external_calls
 from app.models import AIAnalysis, User
 from app.models.enums import AnalysisKind, ItemType, Severity
 from app.schemas.article import ArticleFilters
@@ -256,6 +257,7 @@ class RagService:
         )
         today = self.now.date().isoformat()
         prompt = f"QUESTION: {question}\nTODAY: {today}\n\nSOURCES:\n{context}\n\nAnswer as JSON."
+        await allow_slow_external_calls(self.s)
         try:
             result = await llm.complete_json(SYSTEM_RAG, prompt, RagAnswer)
         except ProviderError as exc:

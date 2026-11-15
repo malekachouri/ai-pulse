@@ -37,6 +37,11 @@ Only one run at a time: a run takes a PostgreSQL advisory lock for its transacti
 (a Beat tick, a run triggered by ingestion, `cli ai-analyze`, the hourly rescore) is skipped while it is
 held. Two runs used to update the same articles in a different order and deadlock.
 
+Work that waits on an AI provider (this pipeline, bug intelligence, lessons, Ask AI Pulse, the briefing
+summary) raises PostgreSQL's 5-minute `idle_in_transaction_session_timeout` to 30 minutes for its own
+transaction (`SET LOCAL`), so a slow local model on a CPU does not get the connection closed mid-work.
+Re-analysing chosen items (`run(article_ids=...)`) embeds only those items, not the background backlog.
+
 | # | Step | How |
 |---|---|---|
 | 1 | Content cleaning | HTML/markdown/code/boilerplate removed; original content untouched |

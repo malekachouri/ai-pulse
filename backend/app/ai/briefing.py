@@ -21,6 +21,7 @@ from app.ai.pipeline import record_usage
 from app.ai.prompts import SYSTEM_BRIEFING, BriefingSummary
 from app.ai.providers import AIProviders, ProviderError
 from app.ai.scoring import personalize
+from app.db.session import allow_slow_external_calls
 from app.models import (
     AIAnalysis,
     Article,
@@ -429,6 +430,7 @@ class BriefingGenerator:
             f"{(a.description or '')[:300]}"
             for i, (a, _) in enumerate(numbered)
         )
+        await allow_slow_external_calls(self.s)
         try:
             result = await llm.complete_json(
                 SYSTEM_BRIEFING, f"ITEMS:\n{listing}\n\nWrite the executive summary.", BriefingSummary
