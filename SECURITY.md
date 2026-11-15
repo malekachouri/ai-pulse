@@ -11,7 +11,7 @@ issues within 14 days. We credit reporters who wish to be credited.
 
 | Asset | Threats considered | Main controls |
 |---|---|---|
-| User accounts | credential stuffing, brute force, session theft, token replay | Argon2id, auth rate limits per IP, short-lived JWT in memory, rotating httpOnly refresh cookie with reuse detection, revocation on password change |
+| User accounts | credential stuffing, brute force, session theft, token replay | Argon2id, auth rate limits per IP, short-lived JWT in memory, rotating httpOnly refresh cookie with reuse detection (a 30 s grace period absorbs two tabs refreshing at once; `REFRESH_REUSE_GRACE_SECONDS`), revocation on password change |
 | Admin functions | privilege escalation, unaudited changes | server-side RBAC on every route, last-admin and self-lockout protection, audit log with actor and IP |
 | Secrets (DB, JWT, API keys) | leakage through code, images, logs, CI | Docker secret files (`/run/secrets`), never in images, env files or git; CI secrets scoped to GitHub environments; Trivy secret scanning; logs never include tokens |
 | Data integrity | invented facts, tampering, SQL injection | provenance on every item, facts and AI output stored separately, ORM with bound parameters, strict Pydantic validation |

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { apiFetch, ApiError, buildQuery, errorMessage, getAccessToken, setAccessToken } from "@/lib/api";
+import { apiFetch, ApiError, buildQuery, errorMessage, getAccessToken, refreshAccessToken, setAccessToken } from "@/lib/api";
 import { safeUrl } from "@/lib/utils";
 
 const json = (status: number, body: unknown) =>
@@ -56,5 +56,23 @@ describe("safeUrl", () => {
     expect(safeUrl("javascript:alert(1)")).toBeUndefined();
     expect(safeUrl("data:text/html,hi")).toBeUndefined();
     expect(safeUrl("not a url")).toBeUndefined();
+  });
+});
+
+describe("refreshAccessToken", () => {
+  it("refreshes under a cross-tab lock, so two tabs never send the same rotating token at once", async () => {
+    const names: string[] = [];
+    const request = vi.fn(async (name: string, cb: () => Promise<Response>) => {
+      names.push(name);
+      return cb();
+    });
+    vi.stubGlobal("navigator", { ...navigator, locks: { request } });
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(json(200, { access_token: "fresh" }));
+
+    const [a, b] = await Promise.all([refreshAccessToken(), refreshAccessToken()]);
+    expect([a, b]).toEqual(["fresh", "fresh"]); // one request per tab: concurrent callers share it
+    expect(names).toEqual(["aipulse-auth-refresh"]);
+    expect(getAccessToken()).toBe("fresh");
+    vi.unstubAllGlobals();
   });
 });

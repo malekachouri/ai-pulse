@@ -30,6 +30,7 @@ from app.ai.providers import AIProviders, ProviderError
 from app.ai.scoring import VERSION as SCORE_VERSION
 from app.ai.scoring import score_item
 from app.ai.text import clean_text, detect_language, extract_entities, extract_keywords
+from app.ai.versions import stated_fix
 from app.core.logging import get_logger
 from app.ingestion.classify import classify
 from app.models import AIAnalysis, AIUsage, Article, Category, Incident, SecurityVulnerability
@@ -195,7 +196,8 @@ class AnalysisPipeline:
                     cvss_version=v.cvss_version,
                     severity=v.severity.value,
                     known_exploited=v.known_exploited,
-                    remediation=v.remediation,
+                    # Official remediation field, else a fix the CVE description itself states.
+                    remediation=v.remediation or stated_fix(v.description),
                     patch_available=v.patch_available,
                     affected=[f"{p.get('vendor')}/{p.get('product')}" for p in (v.affected_products or [])][
                         :10

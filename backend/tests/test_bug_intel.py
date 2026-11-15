@@ -145,7 +145,9 @@ async def test_versions_and_fixes_stated_in_the_record_become_quoted_facts(clien
             "check lets anyone read sessions. This issue has been patched in version 0.31.8.")  # fmt: skip
     async with session_factory() as s:
         nvd = await fd.source(s, "nvd-stated", connector="nvd", name="NVD")
-        item = await fd.article(s, nvd, cve, item_type=ItemType.VULNERABILITY, title=f"{cve}: HarnessRouter",
+        # The collected title is cut off mid-sentence, as NVD headlines are: its fragment must not be quoted.
+        item = await fd.article(s, nvd, cve, item_type=ItemType.VULNERABILITY,
+                                title=f"{cve}: HarnessRouter is a self-hosted API. Prior to 0.31.8, a...",
                                 description=text, canonical_key=f"cve:{cve}")  # fmt: skip
         s.add(SecurityVulnerability(article_id=item.id, cve_id=cve, severity=Severity.CRITICAL, cvss_score=9.1,
                                     description=text))  # no CPE ranges, no remediation field  # fmt: skip

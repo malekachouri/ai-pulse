@@ -100,13 +100,23 @@ class AuthService:
         return issued
 
     async def refresh(self, raw_token: str | None, user_agent: str | None = None) -> IssuedTokens:
-        """Rotate a refresh token. Re-use of an already-rotated token revokes the whole family."""
+        """Rotate a refresh token. Re-use of an already-rotated token revokes the whole family, except within
+        a short grace period after its rotation (concurrent refreshes from two tabs, a lost response)."""
         if not raw_token:
             raise AuthenticationError("Missing refresh token")
         now = _now()
         record = await self.tokens.get_refresh_by_hash(hash_token(raw_token), for_update=True)
         if record is None:
             raise AuthenticationError("Invalid refresh token")
+        if record.revoked_at is not None and await self._within_grace(record, now):
+            user = await self.users.get(record.user_id)
+            if user is None or not user.is_active:
+                raise AuthenticationError("Account is disabled")
+            log.info(
+                "refresh_token_reuse_within_grace", user_id=str(record.user_id), family=str(record.family_id)
+            )
+            issued, _ = await self.issue_tokens(user, family_id=record.family_id, user_agent=user_agent)
+            return issued
         if record.revoked_at is not None:
             log.warning(
                 "refresh_token_reuse_detected", user_id=str(record.user_id), family=str(record.family_id)
@@ -123,6 +133,17 @@ class AuthService:
         record.revoked_at = now
         record.replaced_by_id = new_record.id
         return issued
+
+    async def _within_grace(self, record: RefreshToken, now: datetime) -> bool:
+        """Rotated (not logged out or revoked) moments ago, and the session it belongs to is still live."""
+        grace = timedelta(seconds=self.settings.refresh_reuse_grace_seconds)
+        return (
+            record.replaced_by_id is not None
+            and record.revoked_at is not None
+            and now - record.revoked_at <= grace
+            and record.expires_at > now
+            and await self.tokens.family_has_live(record.family_id, now)
+        )
 
     async def logout(self, raw_token: str | None) -> None:
         if not raw_token:
