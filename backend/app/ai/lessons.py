@@ -23,6 +23,7 @@ from app.ai.prompts import LESSON_VERSION, SYSTEM_LESSON, Lesson, lesson_prompt
 from app.ai.providers import AIProviders, ProviderError
 from app.ai.scoring import INTEREST_CATEGORIES
 from app.core.logging import get_logger
+from app.db.session import allow_slow_external_calls
 from app.models import AIAnalysis, Article, LearningLesson, User, UserPreference
 from app.models.enums import AnalysisKind, ItemType
 from app.services.recommendations import mentions
@@ -117,6 +118,7 @@ class LessonGenerator:
                 followed=followed,
                 topics=TOPICS,
             )
+            await allow_slow_external_calls(self.s)
             try:
                 result = await llm.complete_json(SYSTEM_LESSON, prompt, Lesson)
             except ProviderError as exc:

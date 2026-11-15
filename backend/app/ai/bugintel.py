@@ -30,6 +30,7 @@ from app.ai import claims
 from app.ai.pipeline import _article_text, record_usage, upsert_analysis
 from app.ai.providers import AIProviders, ProviderError
 from app.ai.versions import _AFFECTED_RE, _FIX_RE, stated  # noqa: F401 - re-exported for tests
+from app.db.session import allow_slow_external_calls
 from app.models import AIAnalysis, Article, SecurityVulnerability, SoftwareBug
 from app.models.enums import AnalysisKind, ItemType
 
@@ -327,6 +328,7 @@ class BugIntelligence:
                 [f"Subject: {subject['id']} - {subject['title']}"]
                 + [f"[{s.n}] {s.kind}: {s.title} ({s.url})\n{s.text}" for s in sources]
             )
+            await allow_slow_external_calls(self.s)
             try:
                 result = await llm.complete_json(SYSTEM_BUG_INTEL, prompt[:24000], BugExplanation)
             except ProviderError as exc:
