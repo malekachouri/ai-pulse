@@ -44,7 +44,9 @@ def _redis_get(url: str, key: str, timeout: float = 5.0) -> bytes | None:
         raise ValueError(f"unsupported Redis URL scheme {u.scheme!r}")
     sock = socket.create_connection((u.hostname or "localhost", u.port or 6379), timeout=timeout)
     if u.scheme == "rediss":
-        sock = ssl.create_default_context().wrap_socket(sock, server_hostname=u.hostname)
+        ctx = ssl.create_default_context()
+        ctx.minimum_version = ssl.TLSVersion.TLSv1_2  # never TLS 1.0 / 1.1
+        sock = ctx.wrap_socket(sock, server_hostname=u.hostname)
     with sock, sock.makefile("rb") as f:
 
         def call(*args: str) -> bytes | None:

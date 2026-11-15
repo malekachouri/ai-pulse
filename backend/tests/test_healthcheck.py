@@ -103,3 +103,19 @@ def test_beat_healthcheck_errors_and_url_sources(redis_server, monkeypatch, tmp_
     assert hc._redis_url() == "redis://from-secret:6379/0"
     monkeypatch.setenv("SECRETS_DIR", str(tmp_path / "none"))
     assert hc._redis_url() == "redis://localhost:6379/0"
+
+
+def test_tls_redis_requires_tls_1_2(monkeypatch):  # type: ignore[no-untyped-def]
+    import ssl
+
+    seen = {}
+
+    def wrap(self, sock, server_hostname=None):  # type: ignore[no-untyped-def]
+        seen["min"], seen["host"], seen["verify"] = self.minimum_version, server_hostname, self.verify_mode
+        raise ConnectionAbortedError("stop before the handshake")
+
+    monkeypatch.setattr(socket, "create_connection", lambda *a, **k: socket.socket())
+    monkeypatch.setattr(ssl.SSLContext, "wrap_socket", wrap)
+    with pytest.raises(ConnectionAbortedError):
+        hc._redis_get("rediss://redis.example.test:6380/0", BEAT_HEARTBEAT_KEY)
+    assert seen == {"min": ssl.TLSVersion.TLSv1_2, "host": "redis.example.test", "verify": ssl.CERT_REQUIRED}

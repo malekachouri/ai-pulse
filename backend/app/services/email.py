@@ -58,6 +58,7 @@ class SmtpEmailSender:
 
     def _send_sync(self, msg: EmailMessage) -> None:
         context = ssl.create_default_context()
+        context.minimum_version = ssl.TLSVersion.TLSv1_2  # never TLS 1.0 / 1.1
         smtp: smtplib.SMTP
         if self.security == "ssl":
             smtp = smtplib.SMTP_SSL(self.host, self.port, timeout=self.timeout, context=context)
