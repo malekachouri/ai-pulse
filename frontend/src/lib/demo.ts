@@ -471,12 +471,12 @@ export async function demoFetch<T>(
   if (path === "/watchlist")
     return r({ entries: [], window_days: 30, note: "[DEMO] Follow technologies in Settings to build your watchlist.", method: "Demo mode." });
   if (path === "/skills/facets")
-    return r({ kinds: [{ value: "mcp_server", count: 1 }, { value: "plugin", count: 1 }], stack: [{ value: "postgresql", count: 1 }],
+    return r({ llm_available: false, kinds: [{ value: "mcp_server", count: 1 }, { value: "plugin", count: 1 }], stack: [{ value: "postgresql", count: 1 }],
       sources: [{ slug: "demo-registry", name: "Demo source: MCP registry", entries: 2, last_success_at: new Date().toISOString(), last_error: null }], new_last_7_days: 2 });
   if (path === "/skills") {
     const now = new Date().toISOString();
     const base = { version: "1.0.0", category: null, status: "active", source: { slug: "demo-registry", name: "Demo source: MCP registry" },
-      homepage_url: null, repository_url: null, published_at: now, source_updated_at: null, first_seen_at: now, initial: false, is_new: true };
+      homepage_url: null, repository_url: null, published_at: now, source_updated_at: null, first_seen_at: now, initial: false, is_new: true, explained_at: null };
     return r(page([
       { ...base, id: "demo-skill-1", kind: "mcp_server", name: "com.example/demo-postgres", title: "[DEMO] Postgres helper",
         description: "[DEMO] Fictional MCP server that would query a PostgreSQL database.", publisher: "com.example",

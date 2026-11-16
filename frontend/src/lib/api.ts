@@ -37,6 +37,9 @@ export function onAccessTokenChange(listener: (token: string | null) => void) {
   return () => listeners.delete(listener);
 }
 
+/** Waits before retrying a refresh that failed on the network or with a 5xx (then it gives up). */
+export const REFRESH_RETRY_MS = [400, 1200];
+
 export async function refreshAccessToken(): Promise<string | null> {
   if (isDemoMode()) {
     setAccessToken("demo");
@@ -46,9 +49,23 @@ export async function refreshAccessToken(): Promise<string | null> {
     try {
       // Tabs take turns: the refresh token rotates on every use, and two tabs sending the same one at
       // once look like token theft to the API. Inside the lock, the cookie already holds the newest token.
-      const send = () => fetch(`${API_BASE}/auth/refresh`, { method: "POST", credentials: "same-origin" });
+      // A dropped connection or a 5xx is not a sign-out: retry a little, and keep the session as it is if
+      // it still fails. Only an answer from the API (401/403) ends the session. Retrying is safe: the API
+      // accepts the same refresh token again within its grace period.
+      const send = async () => {
+        for (let attempt = 0; ; attempt++) {
+          try {
+            const r = await fetch(`${API_BASE}/auth/refresh`, { method: "POST", credentials: "same-origin" });
+            if (r.status < 500 || attempt >= REFRESH_RETRY_MS.length) return r;
+          } catch (err) {
+            if (attempt >= REFRESH_RETRY_MS.length) throw err;
+          }
+          await new Promise((resolve) => setTimeout(resolve, REFRESH_RETRY_MS[attempt]));
+        }
+      };
       const locks = typeof navigator !== "undefined" ? navigator.locks : undefined;
       const res = locks ? await locks.request("aipulse-auth-refresh", send) : await send();
+      if (res.status >= 500) return null; // still unavailable: not signed out
       if (!res.ok) {
         setAccessToken(null);
         return null;

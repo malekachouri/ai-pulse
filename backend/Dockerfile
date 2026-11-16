@@ -42,7 +42,9 @@ EXPOSE 8000
 # Only trust X-Forwarded-For from these proxies (the web container network in docker-compose).
 ENV FORWARDED_ALLOW_IPS=127.0.0.1
 HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=3 CMD ["python", "/usr/local/bin/healthcheck.py", "api"]
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--no-server-header", "--timeout-graceful-shutdown", "20"]
+# Keep-alive longer than the web proxy's idle timeout, so the proxy (not uvicorn) closes idle connections:
+# otherwise uvicorn can close one just as the proxy reuses it (ECONNRESET on a request in flight).
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--no-server-header", "--timeout-graceful-shutdown", "20", "--timeout-keep-alive", "75"]
 
 FROM runtime AS worker
 HEALTHCHECK --interval=60s --timeout=30s --start-period=60s --retries=3 CMD ["python", "/usr/local/bin/healthcheck.py", "worker"]

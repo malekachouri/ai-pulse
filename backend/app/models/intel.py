@@ -267,5 +267,7 @@ class AISkill(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     # Found by the source's first collection: already listed before AI Pulse watched it, so not "new".
     initial: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    # "How would this help AI Pulse?": generated on demand (app/skills/explain.py), labelled AI-generated.
+    explanation: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
     source: Mapped[Source] = relationship(lazy="joined")

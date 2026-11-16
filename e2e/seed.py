@@ -23,7 +23,7 @@ from app.ingestion.normalized import (
     VulnerabilityPayload,
 )
 from app.ingestion.writer import ItemWriter
-from app.models import Article, DailyBriefing, Source
+from app.models import AISkill, Article, DailyBriefing, Source
 from app.models.enums import IncidentStatus, ItemType, Severity, SkillKind, VerificationStatus
 from app.skills import install
 from app.skills.store import SkillRecord, upsert
@@ -166,6 +166,21 @@ async def skills(s) -> None:  # type: ignore[no-untyped-def]
                             listing_url=f"{URL}/marketplace", install=install.plugin("e2e-baseline-plugin", "e2e", "example/e2e"))]  # fmt: skip
     await upsert(s, src.id, new, NOW, initial=False)
     await upsert(s, src.id, baseline, NOW, initial=True)
+    # A stored explanation, so the panel can be tested without an AI model in the stack under test.
+    row = await s.scalar(select(AISkill).where(AISkill.source_id == src.id, AISkill.name == new[0].name))
+    part = {"insufficient": False, "citations": [1]}
+    row.explanation = {
+        "status": "ready", "ai_generated": True, "provider": "e2e", "model": "e2e-model",
+        "generated_at": NOW.isoformat(), "listing_version": "1.0.0", "unsupported_claims_removed": [],
+        "sources": [{"n": 1, "kind": "listing", "title": "Official listing: [E2E] Postgres helper",
+                     "url": f"{URL}/registry/e2e-postgres-helper"}],
+        "sections": {
+            "what_it_does": {**part, "text": "[E2E] It queries a PostgreSQL database.", "citations": [1]},
+            "use_cases": {**part, "text": "[E2E] Any project that keeps its data in PostgreSQL."},
+            "how_to_try": {"text": "insufficient information", "insufficient": True, "citations": []},
+            "cautions": {**part, "text": "[E2E] It needs a DATABASE_URL secret.", "citations": [1]},
+        },
+    }  # fmt: skip
 
 
 async def main() -> None:

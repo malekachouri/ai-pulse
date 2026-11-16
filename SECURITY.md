@@ -33,6 +33,8 @@ issues within 14 days. We credit reporters who wish to be credited.
   - 384-bit random value, stored only as a SHA-256 hash;
   - delivered as a `HttpOnly; Secure; SameSite=Strict; Path=/api/v1/auth` cookie;
   - rotated on every use. Replaying a rotated token revokes the whole token family.
+  - The browser ends the session only when the API refuses a refresh (4xx). A network error or 5xx is
+    retried twice, then the session is left as it is; retries stay within the reuse grace period.
 - Password change and reset revoke every session. Deactivating a user revokes their sessions.
 
 ### Authorization
@@ -52,6 +54,11 @@ what a role cannot do, but the API enforces it.
   `postgres`, and - without an outbound proxy - names that resolve to such addresses
   (`app/ingestion/netguard.py`). The admin API rejects such URLs up front.
   `INGESTION_ALLOW_PRIVATE_HOSTS=true` lifts this for intranet-only deployments.
+- The Skills Radar explanation (`POST /api/v1/skills/{id}/explanation`, signed in, AI rate limit) reads
+  one README with the same guarded client, only from `raw.githubusercontent.com/<owner>/<repo>/HEAD/README.md`
+  built from a `https://github.com/<owner>/<repo>` repository link; nothing else in the listing is fetched.
+  README and listing text are third-party content: they only reach the model as numbered sources, and the
+  output is grounded and shown as text, labelled AI-generated.
 - SQL goes through SQLAlchemy with bound parameters. The few raw statements use bind parameters only.
 - Errors use one envelope and never leak stack traces (unhandled errors are logged server-side with
   the request path).

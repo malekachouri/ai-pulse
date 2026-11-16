@@ -19,7 +19,6 @@ These help most on a PC that runs a small model (for example `qwen2.5:3b`) on th
 
 | # | Suggestion | Why |
 |---|---|---|
-| 1b.1 | **"How would this help AI Pulse?"** on demand: an AI explanation of one radar entry, grounded in its listing and README, labelled AI-generated | The tags say which technologies match, not what to do with the tool |
 | 1b.2 | **Retention for registry entries**: delete inactive MCP servers not updated for 180 days | The registry adds more than a thousand entries a day |
 | 1b.3 | **More marketplaces** in the catalog (official vendor marketplaces as they appear) | Today: Anthropic's plugin and skills marketplaces |
 

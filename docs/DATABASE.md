@@ -67,6 +67,7 @@ The ER diagram and the column-level list are in [ARCHITECTURE.md §4](ARCHITECTU
 | 0007 | analysis kind `changes` (release comparison), `learning_lessons` |
 | 0008 | analysis kind `bug_intel`, notification kind `watchlist`, `weekly_reports` |
 | 0009 | `ai_skills` (Skills Radar) and its three catalog sources |
+| 0010 | `ai_skills.explanation` (on-demand AI explanation) |
 
 Workflow:
 

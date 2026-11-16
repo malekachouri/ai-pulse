@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { SkillExplanationPanel } from "@/components/skills/skill-explanation";
 import { Card, CardContent } from "@/components/ui/card";
 import type { Skill, SkillKind } from "@/lib/types";
 import { formatDateTime, safeUrl, timeAgo } from "@/lib/utils";
@@ -16,7 +17,7 @@ export const KIND: Record<SkillKind, { label: string; plural: string; icon: Luci
   skill: { label: "Agent Skill", plural: "Agent Skills", icon: Sparkles, hint: "Instructions and scripts an AI agent loads when a task needs them (a SKILL.md folder)." },
 };
 
-/** AI Pulse technologies, as named on the page. */
+/** The technologies the radar tags entries with, as named on the page. */
 export const STACK_LABEL: Record<string, string> = {
   postgresql: "PostgreSQL",
   redis: "Redis",
@@ -74,7 +75,7 @@ export function seenLine(s: Pick<Skill, "published_at" | "first_seen_at" | "init
   return parts.join(" · ");
 }
 
-export function SkillCard({ s }: { s: Skill }) {
+export function SkillCard({ s, llmAvailable = false }: { s: Skill; llmAvailable?: boolean }) {
   const k = KIND[s.kind];
   const id = `skill-${s.id}`;
   return (
@@ -100,7 +101,7 @@ export function SkillCard({ s }: { s: Skill }) {
           {s.description && <p className="line-clamp-4 whitespace-pre-line text-sm">{s.description}</p>}
           {s.stack_tags.length > 0 && (
             <p className="flex flex-wrap items-center gap-1.5 text-xs">
-              <span className="font-medium">Fits AI Pulse:</span>
+              <span className="font-medium">Technologies:</span>
               {s.stack_tags.map((t) => <Badge key={t} variant="outline">{STACK_LABEL[t] ?? t}</Badge>)}
             </p>
           )}
@@ -128,6 +129,7 @@ export function SkillCard({ s }: { s: Skill }) {
               <p className="mt-2 text-xs text-muted-foreground">Built from the official listing. Read what a server or plugin does before installing it: AI Pulse does not review third-party code.</p>
             </details>
           )}
+          <SkillExplanationPanel s={s} llmAvailable={llmAvailable} />
           <p className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
             <Link href={s.listing_url}>Official listing</Link>
             <Link href={s.homepage_url}>Website</Link>

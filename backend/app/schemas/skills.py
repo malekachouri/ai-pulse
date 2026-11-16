@@ -17,7 +17,9 @@ class SkillFilters(ListParams):
     kind: list[SkillKind] | None = None
     source: list[str] | None = Field(None, description="Source slugs, e.g. mcp-registry")
     stack: list[str] | None = Field(None, description=f"Any of: {', '.join(STACK)}")
-    fits: bool = Field(False, description="Only entries that mention a technology AI Pulse uses")
+    fits: bool = Field(
+        False, description="Only entries that mention one of the tracked technologies (see stack)"
+    )
     days: int | None = Field(
         None, ge=1, le=365, description="New in the last N days (first seen by AI Pulse; baseline excluded)"
     )
@@ -66,6 +68,7 @@ class SkillOut(ORMModel):
     first_seen_at: datetime
     initial: bool = Field(description="Already listed when AI Pulse started watching the source (not new)")
     is_new: bool = Field(False, description="First seen in the last 7 days and not part of the baseline")
+    explained_at: datetime | None = Field(None, description="When an AI explanation was generated, if any")
 
 
 class SkillDetail(SkillOut):
@@ -86,7 +89,44 @@ class SourceStatus(BaseModel):
 
 
 class SkillFacets(BaseModel):
+    llm_available: bool = False
     kinds: list[FacetCount]
     stack: list[FacetCount]
     sources: list[SourceStatus]
     new_last_7_days: int
+
+
+class ExplanationPart(BaseModel):
+    text: str = Field(description='AI-written, grounded and cited, or "insufficient information"')
+    insufficient: bool
+    citations: list[int]
+
+
+class ExplanationSections(BaseModel):
+    what_it_does: ExplanationPart
+    use_cases: ExplanationPart = Field(description="The kinds of projects and tasks it is useful for")
+    how_to_try: ExplanationPart
+    cautions: ExplanationPart
+
+
+class ExplanationSource(BaseModel):
+    n: int
+    kind: str = Field(description="listing | readme")
+    title: str
+    url: str | None
+
+
+class SkillExplanationOut(BaseModel):
+    status: str = Field(description="none (not generated yet) | ready | insufficient | failed (model error)")
+    error: str | None = Field(None, description="Why the AI model did not answer (status failed)")
+    sections: ExplanationSections | None = None
+    sources: list[ExplanationSource] = []
+    unsupported_claims_removed: list[str] = []
+    ai_generated: bool = False
+    provider: str | None = None
+    model: str | None = None
+    generated_at: datetime | None = None
+    listing_version: str | None = Field(
+        None, description="The listing version the explanation was written for"
+    )
+    llm_available: bool

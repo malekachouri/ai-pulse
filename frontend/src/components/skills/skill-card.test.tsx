@@ -32,10 +32,11 @@ const base: Skill = {
   first_seen_at: new Date().toISOString(),
   initial: false,
   is_new: true,
+  explained_at: null,
 };
 
 describe("SkillCard", () => {
-  it("shows the listing facts, what fits AI Pulse and copyable install commands", async () => {
+  it("shows the listing facts, the technologies and copyable install commands", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.assign(navigator, { clipboard: { writeText } });
     render(<SkillCard s={base} />);
@@ -64,7 +65,7 @@ describe("SkillCard", () => {
     render(<SkillCard s={{ ...base, status: "deprecated", initial: true, is_new: false, stack_tags: [], install: [] }} />);
     expect(screen.getByText("deprecated")).toBeTruthy();
     expect(screen.queryByText("New")).toBeNull();
-    expect(screen.queryByText(/Fits AI Pulse/)).toBeNull();
+    expect(screen.queryByText(/Technologies:/)).toBeNull();
     expect(screen.queryByText(/How to install/)).toBeNull();
     expect(screen.getByText(/Listed before AI Pulse started watching this source/)).toBeTruthy();
   });
