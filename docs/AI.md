@@ -14,6 +14,7 @@ Configured only through environment variables — no model names or keys in code
 | `LLM_MODEL` | model id for that provider (required when a provider is set) |
 | `EMBEDDING_PROVIDER` | `auto` (same as LLM when it can embed) · `openai` · `ollama` · `none` |
 | `EMBEDDING_MODEL` | must produce **768-dim** vectors (pgvector column). OpenAI `text-embedding-3-*` are requested with `dimensions=768`; Ollama `nomic-embed-text` is 768 natively |
+| `EMBEDDING_BATCH_SIZE`, `EMBEDDING_PER_RUN` | texts per embedding request and per scheduled run. Empty = provider default: Ollama 8 / 40 (a CPU times out on large batches), OpenAI 64 / 200. Each batch is saved as soon as it succeeds; a timeout stops that run's embedding and the rest waits for the next run |
 | `OPENAI_API_KEY`, `OPENAI_BASE_URL` | key, and any OpenAI-compatible endpoint |
 | `ANTHROPIC_API_KEY`, `ANTHROPIC_API_URL` | Anthropic has no embeddings API — pair with OpenAI or Ollama embeddings |
 | `OLLAMA_BASE_URL` | local models, e.g. `http://host.docker.internal:11434` from Docker |

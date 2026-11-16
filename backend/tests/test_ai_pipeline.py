@@ -255,6 +255,59 @@ async def test_embeddings_semantic_dedup(session_factory, corpus):
         assert await s.scalar(select(func.count(Article.id)).where(Article.embedding.is_not(None))) == 7
 
 
+async def test_embeddings_in_small_batches_keep_progress_on_a_timeout(session_factory, corpus):
+    """Local models: a few texts per request, a cap per run, and a timeout keeps the batches already done."""
+    from app.ai.providers import AIProviders, Embedder
+    from tests.ai_fakes import HashEmbeddings
+
+    class Flaky(HashEmbeddings):
+        def __init__(self, fail_on: int) -> None:
+            super().__init__()
+            self.fail_on, self.sizes = fail_on, []
+
+        async def embed(self, texts):  # type: ignore[no-untyped-def]
+            self.sizes.append(len(texts))
+            if len(self.sizes) == self.fail_on:
+                raise ProviderError("Ollama timed out", retryable=True)
+            return await super().embed(texts)
+
+    inner = Flaky(fail_on=3)
+    async with session_factory() as s:
+        stats = await AnalysisPipeline(s, AIProviders(None, Embedder(inner, batch_size=2, per_run=6))).run()
+        await s.commit()
+    assert inner.sizes == [
+        2,
+        2,
+        2,
+    ]  # 6 of the 7 items this run (per_run), 2 per request; the 3rd request failed
+    assert stats.embedded == 4 and any("timed out" in e for e in stats.errors)
+    async with session_factory() as s:
+        assert await s.scalar(select(func.count(Article.id)).where(Article.embedding.is_not(None))) == 4
+        oks = sorted(await s.scalars(select(AIUsage.ok).where(AIUsage.purpose == "embedding")))
+        assert oks == [False, True]  # one failure, one row for the batches that worked
+
+    inner2 = Flaky(fail_on=99)
+    async with session_factory() as s:
+        stats = await AnalysisPipeline(s, AIProviders(None, Embedder(inner2, batch_size=2, per_run=6))).run()
+        await s.commit()
+    assert stats.embedded == 3 and inner2.sizes == [2, 1]  # the next run picks up the rest
+
+
+def test_embedding_batch_defaults_follow_the_provider():
+    from app.ai.providers import build_providers
+    from app.core.config import Settings
+
+    base = {"environment": "test", "jwt_secret": "x" * 40, "embedding_model": "m"}
+    local = build_providers(Settings(**base, embedding_provider="ollama")).embedder
+    assert local is not None and (local.batch_size, local.per_run) == (8, 40)
+    hosted = build_providers(Settings(**base, embedding_provider="openai", openai_api_key="k")).embedder
+    assert hosted is not None and (hosted.batch_size, hosted.per_run) == (64, 200)
+    tuned = build_providers(
+        Settings(**base, embedding_provider="ollama", embedding_batch_size=4, embedding_per_run=12)
+    ).embedder
+    assert tuned is not None and (tuned.batch_size, tuned.per_run) == (4, 12)
+
+
 # ------------------------------------------------------------------ RAG
 async def _prepare(session_factory, embed=False):
     async with session_factory() as s:

@@ -340,19 +340,29 @@ class AnalysisPipeline:
         emb = self.p.embedder
         if emb is None or not articles:
             return
-        texts = [clean_text(f"{a.title}\n{a.description or ''}\n{a.content or ''}", 4000) for a in articles]
-        try:
-            vectors, usage = await emb.embed(texts)
-        except ProviderError as exc:
-            stats.errors.append(f"embedding: {exc}")
-            await record_usage(self.s, "embedding", emb.provider, emb.model, ok=False, error=str(exc))
+        # One request per batch, keeping each batch that succeeds: a timeout (a local model on a CPU) stops
+        # this run's embedding there, and the remaining items wait for the next run.
+        done: list[Article] = []
+        tokens = 0
+        for i in range(0, len(articles), emb.batch_size):
+            batch = articles[i : i + emb.batch_size]
+            texts = [clean_text(f"{a.title}\n{a.description or ''}\n{a.content or ''}", 4000) for a in batch]
+            try:
+                vectors, usage = await emb.embed(texts)
+            except ProviderError as exc:
+                stats.errors.append(f"embedding: {exc}")
+                await record_usage(self.s, "embedding", emb.provider, emb.model, ok=False, error=str(exc))
+                break
+            tokens += usage.input_tokens
+            for a, v in zip(batch, vectors, strict=True):
+                a.embedding = v
+                stats.embedded += 1
+                done.append(a)
+        if not done:
             return
-        await record_usage(self.s, "embedding", emb.provider, emb.model, input_tokens=usage.input_tokens)
-        for a, v in zip(articles, vectors, strict=True):
-            a.embedding = v
-            stats.embedded += 1
+        await record_usage(self.s, "embedding", emb.provider, emb.model, input_tokens=tokens)
         await self.s.flush()
-        for a in articles:
+        for a in done:
             if a.duplicate_of_id is None:
                 when = a.published_at or a.collected_at
                 hit = await self.s.scalar(
@@ -594,7 +604,7 @@ class AnalysisPipeline:
                             Article.id.in_(article_ids) if article_ids else true(),
                         )
                         .order_by(Article.collected_at.desc())
-                        .limit(embed_limit)
+                        .limit(min(embed_limit, self.p.embedder.per_run))
                     )
                 )
                 .unique()

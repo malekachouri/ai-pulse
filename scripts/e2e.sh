@@ -16,8 +16,9 @@ echo "==> starting the stack (with mailpit and test rate limits)"
 "${COMPOSE[@]}" up -d "${BUILD[@]}" --wait --wait-timeout 300 mailpit api worker beat web
 
 echo "==> seeding labelled test data"
+# The seed script also analyses exactly the seeded items, waiting for the analysis lock if the worker
+# holds it (with live sources it is busy, and it processes the newest items first).
 "${COMPOSE[@]}" exec -T api python - < e2e/seed.py
-"${COMPOSE[@]}" exec -T api python -m app.cli ai-analyze --limit 100 > /dev/null
 
 # A new admin per run: its password only exists in this process.
 E2E_ADMIN_EMAIL="e2e-admin-$(date +%s)@example.com"

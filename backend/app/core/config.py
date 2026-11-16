@@ -86,6 +86,14 @@ class Settings(BaseSettings):
     llm_price_output_per_mtok: float | None = None
     ai_batch_size: int = 20  # articles analysed per scheduled run
     ai_daily_token_budget: int | None = None  # stop LLM analysis for the day once reached (None = unlimited)
+    # Texts per embedding request, and per scheduled run. Empty = provider default: Ollama on a CPU times
+    # out on large batches (8 per request, 40 per run), hosted APIs take more (64 per request, 200 per run).
+    embedding_batch_size: int | None = Field(None, ge=1, le=256)
+    embedding_per_run: int | None = Field(None, ge=1, le=5000)
+
+    # Retention (daily cleanup task; 0 keeps everything)
+    retention_inactive_skills_days: int = Field(180, ge=0)  # deprecated/deleted/removed radar entries
+    retention_jobs_days: int = Field(90, ge=0)  # finished collection job logs
 
     # Ingestion
     # Collectors refuse internal destinations (metadata service, localhost, private networks, service names)

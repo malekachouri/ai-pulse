@@ -45,6 +45,8 @@ docker compose exec api python -m app.cli ingest nvd-cve
 ```
 
 The second one runs one source now, in-process.
+`ai-analyze` exits with code 3 when another analysis run (usually the worker) holds the lock: nothing was
+done, try again or stop the worker first.
 
 ```bash
 docker compose exec api python -m app.cli ai-analyze --limit 200
@@ -56,6 +58,13 @@ docker compose exec -T api python -m app.cli reanalyse CVE-2026-12345
 
 The last one forgets the AI summary of one item (a CVE id, an item id or a canonical key) and analyses it
 again now. Exit codes: 0 done, 1 the model failed, 2 not found, 3 another analysis run is in progress.
+
+```bash
+docker compose exec api python -m app.cli cleanup
+```
+
+This one runs the daily retention cleanup now (old job logs, inactive Skills Radar entries; see
+`RETENTION_*` in `.env.example`).
 
 ```bash
 docker compose --profile monitoring up -d
