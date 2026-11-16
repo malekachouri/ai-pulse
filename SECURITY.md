@@ -33,6 +33,8 @@ issues within 14 days. We credit reporters who wish to be credited.
   - 384-bit random value, stored only as a SHA-256 hash;
   - delivered as a `HttpOnly; Secure; SameSite=Strict; Path=/api/v1/auth` cookie;
   - rotated on every use. Replaying a rotated token revokes the whole token family.
+  - The browser ends the session only when the API refuses a refresh (4xx). A network error or 5xx is
+    retried twice, then the session is left as it is; retries stay within the reuse grace period.
 - Password change and reset revoke every session. Deactivating a user revokes their sessions.
 
 ### Authorization
