@@ -32,6 +32,7 @@ const base: Skill = {
   first_seen_at: new Date().toISOString(),
   initial: false,
   is_new: true,
+  explained_at: null,
 };
 
 describe("SkillCard", () => {

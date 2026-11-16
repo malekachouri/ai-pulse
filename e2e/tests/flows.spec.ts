@@ -294,7 +294,13 @@ test("skills radar: install commands from the listing, baseline not counted as n
   await card.getByText(/how to install/i).click();
   await expect(card.getByText("claude mcp add e2e-postgres-helper -e 'DATABASE_URL=<DATABASE_URL>' -- npx -y e2e-postgres-helper@1.0.0")).toBeVisible();
   await expect(card.getByRole("button", { name: "Copy: Run locally from npm" })).toBeVisible();
-  await expect(card.getByRole("link", { name: /official listing/i })).toHaveAttribute("href", "https://example.com/e2e/registry/e2e-postgres-helper");
+  await expect(card.getByRole("link", { name: /official listing/i }).first()).toHaveAttribute("href", "https://example.com/e2e/registry/e2e-postgres-helper");
+  // The stored AI explanation: labelled, cited, honest about what the sources do not say.
+  await card.getByRole("button", { name: "Show the AI explanation" }).click();
+  await expect(card.getByText("AI-generated")).toBeVisible();
+  await expect(card.getByText("[E2E] AI Pulse stores its data in PostgreSQL.")).toBeVisible();
+  await expect(card.getByText("Insufficient information in the sources.")).toBeVisible();
+  await expect(card.getByRole("link", { name: "Source 1: Official listing: [E2E] Postgres helper" }).first()).toHaveAttribute("href", "https://example.com/e2e/registry/e2e-postgres-helper");
   // "New in 7 days" (the default) leaves out what a marketplace already listed; "Everything" shows it.
   await expect(p.getByRole("region", { name: "[E2E] Baseline plugin" })).toHaveCount(0);
   await p.getByRole("combobox", { name: "Period" }).selectOption("");

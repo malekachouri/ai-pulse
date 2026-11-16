@@ -49,6 +49,7 @@ import type {
   SecurityStats,
   Skill,
   SkillFacets,
+  SkillExplanation,
   SourceBrief,
   UnreadCount,
 } from "@/lib/types";
@@ -451,6 +452,26 @@ export function useVulnList(params: Params) {
 
 export function useSkills(params: Params) {
   return useQuery({ queryKey: ["skills", params], queryFn: () => api.get<Page<Skill>>("/skills", params), placeholderData: keepPreviousData });
+}
+
+export function useSkillExplanation(id: string, enabled: boolean) {
+  return useQuery({ queryKey: ["skills", "explanation", id], queryFn: () => api.get<SkillExplanation>(`/skills/${id}/explanation`), enabled });
+}
+
+export function useExplainSkill(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post<SkillExplanation>(`/skills/${id}/explanation`),
+    onSuccess: (data) => {
+      if (data.status === "failed") {
+        toast.error(`The AI model did not answer: ${data.error ?? "unknown error"}`);
+        return; // the stored explanation, if any, stays
+      }
+      qc.setQueryData(["skills", "explanation", id], data);
+      toast.success("Explanation ready");
+    },
+    onError: (err) => toast.error(errorMessage(err)),
+  });
 }
 
 export function useSkillFacets() {

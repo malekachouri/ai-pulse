@@ -893,11 +893,33 @@ export interface Skill {
   initial: boolean;
   /** First seen in the last 7 days and not part of the source's first collection. */
   is_new: boolean;
+  explained_at: string | null;
 }
 
 export interface SkillFacets {
+  llm_available: boolean;
   kinds: { value: SkillKind; count: number }[];
   stack: { value: string; count: number }[];
   sources: { slug: string; name: string; entries: number; last_success_at: string | null; last_error: string | null }[];
   new_last_7_days: number;
+}
+
+export interface ExplanationPart {
+  text: string;
+  insufficient: boolean;
+  citations: number[];
+}
+
+export interface SkillExplanation {
+  status: "none" | "ready" | "insufficient" | "failed";
+  error?: string | null;
+  sections: { what_it_does: ExplanationPart; how_it_helps: ExplanationPart; how_to_try: ExplanationPart; cautions: ExplanationPart } | null;
+  sources: { n: number; kind: "listing" | "readme" | "ai_pulse"; title: string; url: string | null }[];
+  unsupported_claims_removed: string[];
+  ai_generated: boolean;
+  provider: string | null;
+  model: string | null;
+  generated_at: string | null;
+  listing_version: string | null;
+  llm_available: boolean;
 }

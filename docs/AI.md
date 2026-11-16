@@ -198,6 +198,12 @@ A section with neither facts nor grounded text says **"insufficient information"
   logged in `ai_usage` (purpose `bug_intel`).
 - In the UI it appears in the item's analysis panel and behind *Explain* in the bug and CVE tables.
 
+## Skills Radar explanation (`app/skills/explain.py`, `/api/v1/skills/{id}/explanation`)
+
+"How would this help AI Pulse?" for one MCP server, plugin or Agent Skill: written on demand from the
+entry's listing, its README and a fixed description of AI Pulse, grounded and cited like Bug Intelligence.
+See [SKILLS.md](SKILLS.md#how-would-this-help-ai-pulse-ai-on-demand).
+
 ## AI Comparison (`app/services/comparison.py`, `GET /api/v1/models/compare?ids=…`)
 
 It compares 2 to 4 tracked models side by side. The page is `/models/compare`.

@@ -52,6 +52,11 @@ what a role cannot do, but the API enforces it.
   `postgres`, and - without an outbound proxy - names that resolve to such addresses
   (`app/ingestion/netguard.py`). The admin API rejects such URLs up front.
   `INGESTION_ALLOW_PRIVATE_HOSTS=true` lifts this for intranet-only deployments.
+- The Skills Radar explanation (`POST /api/v1/skills/{id}/explanation`, signed in, AI rate limit) reads
+  one README with the same guarded client, only from `raw.githubusercontent.com/<owner>/<repo>/HEAD/README.md`
+  built from a `https://github.com/<owner>/<repo>` repository link; nothing else in the listing is fetched.
+  README and listing text are third-party content: they only reach the model as numbered sources, and the
+  output is grounded and shown as text, labelled AI-generated.
 - SQL goes through SQLAlchemy with bound parameters. The few raw statements use bind parameters only.
 - Errors use one envelope and never leak stack traces (unhandled errors are logged server-side with
   the request path).

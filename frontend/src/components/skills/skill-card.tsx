@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { SkillExplanationPanel } from "@/components/skills/skill-explanation";
 import { Card, CardContent } from "@/components/ui/card";
 import type { Skill, SkillKind } from "@/lib/types";
 import { formatDateTime, safeUrl, timeAgo } from "@/lib/utils";
@@ -74,7 +75,7 @@ export function seenLine(s: Pick<Skill, "published_at" | "first_seen_at" | "init
   return parts.join(" · ");
 }
 
-export function SkillCard({ s }: { s: Skill }) {
+export function SkillCard({ s, llmAvailable = false }: { s: Skill; llmAvailable?: boolean }) {
   const k = KIND[s.kind];
   const id = `skill-${s.id}`;
   return (
@@ -128,6 +129,7 @@ export function SkillCard({ s }: { s: Skill }) {
               <p className="mt-2 text-xs text-muted-foreground">Built from the official listing. Read what a server or plugin does before installing it: AI Pulse does not review third-party code.</p>
             </details>
           )}
+          <SkillExplanationPanel s={s} llmAvailable={llmAvailable} />
           <p className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
             <Link href={s.listing_url}>Official listing</Link>
             <Link href={s.homepage_url}>Website</Link>

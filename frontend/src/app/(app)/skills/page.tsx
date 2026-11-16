@@ -105,7 +105,7 @@ export default function SkillsRadarPage() {
         <>
           <p className="mb-2 text-xs text-muted-foreground" aria-live="polite">{list.data.total} result{list.data.total === 1 ? "" : "s"}</p>
           <div className="space-y-3">
-            {list.data.items.map((s) => <SkillCard key={s.id} s={s} />)}
+            {list.data.items.map((s) => <SkillCard key={s.id} s={s} llmAvailable={!!f?.llm_available} />)}
           </div>
           <Pagination page={page} pages={list.data.pages} total={list.data.total} pageSize={list.data.page_size} onChange={setPage} />
         </>
