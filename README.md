@@ -189,3 +189,8 @@ See [docs/DEPLOYMENT.md §3](docs/DEPLOYMENT.md#3-cicd).
 | 7 Briefings & notifications | 10-section personalised briefings, per-user scheduling, notification center and preferences ([NOTIFICATIONS.md](docs/NOTIFICATIONS.md)) |
 | 8 Production readiness | 7 hardened images, Compose dev/prod, CI/CD with Trivy/CodeQL/audits and signed provenance, Prometheus/Grafana/alerts, rate limiting, secrets, admin console, backups ([DEPLOYMENT.md](docs/DEPLOYMENT.md)) |
 | 9 Audit | live runs of every source, API, browser (axe-core, both themes, all roles) and full-stack checks; 22 bugs fixed incl. SSRF via source URLs, undelivered password-reset emails, ingestion failure accounting, RAG retrieval and WCAG 2.1 AA contrast/structure ([AUDIT_REPORT.md](docs/AUDIT_REPORT.md)) |
+
+## License
+
+Proprietary. Copyright (c) 2026 malekachouri. All rights reserved: copying, forking, reuse, modification
+or redistribution require written permission. See [LICENSE](LICENSE).
