@@ -75,4 +75,34 @@ describe("refreshAccessToken", () => {
     expect(getAccessToken()).toBe("fresh");
     vi.unstubAllGlobals();
   });
+
+  it("retries a dropped connection or a 5xx instead of signing out", async () => {
+    vi.useFakeTimers();
+    setAccessToken("current");
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockRejectedValueOnce(new TypeError("fetch failed")) // ECONNRESET through the proxy
+      .mockResolvedValueOnce(json(500, { error: { code: "internal", message: "proxy error" } }))
+      .mockResolvedValueOnce(json(200, { access_token: "fresh" }));
+    const p = refreshAccessToken();
+    await vi.runAllTimersAsync();
+    await expect(p).resolves.toBe("fresh");
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+
+    fetchMock.mockReset().mockResolvedValue(json(502, {}));
+    const down = refreshAccessToken();
+    await vi.runAllTimersAsync();
+    await expect(down).resolves.toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(3); // 1 + 2 retries, then gives up
+    expect(getAccessToken()).toBe("fresh"); // still signed in: the API never said no
+    vi.useRealTimers();
+  });
+
+  it("signs out only when the API refuses the refresh", async () => {
+    setAccessToken("current");
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(json(401, { error: { code: "unauthorized", message: "expired" } }));
+    await expect(refreshAccessToken()).resolves.toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(getAccessToken()).toBeNull();
+  });
 });
