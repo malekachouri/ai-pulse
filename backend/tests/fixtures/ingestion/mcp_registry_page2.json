@@ -1,0 +1,123 @@
+{
+ "servers": [
+  {
+   "server": {
+    "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+    "name": "com.usegithubthing/ugt",
+    "description": "Get open-source GitHub projects running on your computer, with your AI app",
+    "title": "UGT: Use the GitHub Thing",
+    "repository": {
+     "url": "https://github.com/auscaster/ugt",
+     "source": "github"
+    },
+    "version": "0.3.0",
+    "websiteUrl": "https://usegithubthing.com",
+    "icons": [
+     {
+      "src": "https://usegithubthing.com/brand/ugt-icon-512.png",
+      "mimeType": "image/png",
+      "sizes": [
+       "512x512"
+      ]
+     },
+     {
+      "src": "https://usegithubthing.com/brand/ugt-icon.png",
+      "mimeType": "image/png",
+      "sizes": [
+       "1024x1024"
+      ]
+     },
+     {
+      "src": "https://usegithubthing.com/brand/ugt-icon-180.png",
+      "mimeType": "image/png",
+      "sizes": [
+       "180x180"
+      ]
+     },
+     {
+      "src": "https://usegithubthing.com/brand/ugt-icon.svg",
+      "mimeType": "image/svg+xml",
+      "sizes": [
+       "any"
+      ]
+     }
+    ],
+    "packages": [
+     {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/auscaster/ugt/releases/download/v0.3.0/ugt-mcp-darwin-arm64.mcpb",
+      "version": "0.3.0",
+      "fileSha256": "cc958134e143204daf51bb5afd5284d075fcd37e6c2efbfadddd9c0a4fb0eab9",
+      "transport": {
+       "type": "stdio"
+      }
+     },
+     {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/auscaster/ugt/releases/download/v0.3.0/ugt-mcp-darwin-amd64.mcpb",
+      "version": "0.3.0",
+      "fileSha256": "768cdbbf802b1547dfd123245dd79965fc4768faeccfef175a743c9e02797166",
+      "transport": {
+       "type": "stdio"
+      }
+     },
+     {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/auscaster/ugt/releases/download/v0.3.0/ugt-mcp-linux-amd64.mcpb",
+      "version": "0.3.0",
+      "fileSha256": "39a2780782544ca06eabb24ab46885b5f5fa49eba371f1f7528a5b548a83681d",
+      "transport": {
+       "type": "stdio"
+      }
+     },
+     {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/auscaster/ugt/releases/download/v0.3.0/ugt-mcp-linux-arm64.mcpb",
+      "version": "0.3.0",
+      "fileSha256": "6b7846d334f8b9824d512738574943395b803491256172f7c80a480f473a7baf",
+      "transport": {
+       "type": "stdio"
+      }
+     },
+     {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/auscaster/ugt/releases/download/v0.3.0/ugt-mcp-windows-amd64.mcpb",
+      "version": "0.3.0",
+      "fileSha256": "02d92bafc759c2f87827714329813a56ec63d5ccc58b7f394a8259b7c84f6df8",
+      "transport": {
+       "type": "stdio"
+      }
+     },
+     {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/auscaster/ugt/releases/download/v0.3.0/ugt-mcp-windows-arm64.mcpb",
+      "version": "0.3.0",
+      "fileSha256": "573ec8ebcfa130d08ddb16ffefda722840fd5b5c6abc55f731de4ba32671d895",
+      "transport": {
+       "type": "stdio"
+      }
+     }
+    ],
+    "remotes": [
+     {
+      "type": "streamable-http",
+      "url": "https://mcp.usegithubthing.com/mcp"
+     }
+    ]
+   },
+   "_meta": {
+    "io.modelcontextprotocol.registry/official": {
+     "status": "deprecated",
+     "statusChangedAt": "2026-11-09T01:55:59.926664Z",
+     "statusMessage": "UGT is now Use the Geek Thing: com.usegeekthing/ugt",
+     "publishedAt": "2026-11-05T09:23:58.979436Z",
+     "updatedAt": "2026-11-09T01:55:59.926664Z",
+     "isLatest": true
+    }
+   }
+  }
+ ],
+ "metadata": {
+  "count": 1
+ }
+}

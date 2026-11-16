@@ -47,6 +47,8 @@ import type {
   SearchCapabilities,
   SearchResponse,
   SecurityStats,
+  Skill,
+  SkillFacets,
   SourceBrief,
   UnreadCount,
 } from "@/lib/types";
@@ -443,6 +445,16 @@ export function useIncidentList(params: Params) {
 
 export function useVulnList(params: Params) {
   return useQuery({ queryKey: ["vulns", params], queryFn: () => api.get<Page<Vulnerability>>("/security/vulnerabilities", params), placeholderData: keepPreviousData });
+}
+
+// ---- Skills radar ----
+
+export function useSkills(params: Params) {
+  return useQuery({ queryKey: ["skills", params], queryFn: () => api.get<Page<Skill>>("/skills", params), placeholderData: keepPreviousData });
+}
+
+export function useSkillFacets() {
+  return useQuery({ queryKey: ["skills", "facets"], queryFn: () => api.get<SkillFacets>("/skills/facets"), staleTime: 60_000 });
 }
 
 // ---- Administration ----

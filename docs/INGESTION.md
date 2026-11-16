@@ -79,6 +79,8 @@ Live-checked on 2026-11-09 against the real endpoints unless noted.
 | Status | Azure status RSS | `azure_status_rss` | lists current issues only; vanished items → `unknown` (resolution not claimed) |
 | Status | GitHub, OpenAI, Docker, Anthropic status | `statuspage` | Atlassian Statuspage API; provider's own status and impact. Anthropic moved to `status.claude.com` — *not live-checked here* |
 | DevOps | Kubernetes, Docker, CNCF blogs; AWS What's New; Google Cloud release notes | `rss` | GCP notes moved to `docs.cloud.google.com` — *not live-checked here* |
+| Skills radar | Official MCP Registry | `mcp_registry` | stored in `ai_skills`, not as articles; resumable cursor paging ([SKILLS.md](SKILLS.md)); live-checked 2026-11-15 |
+| Skills radar | Claude Code plugins (official marketplace), Agent Skills (Anthropic) | `claude_marketplace` | `marketplace.json` + `SKILL.md` front matter from raw.githubusercontent.com ([SKILLS.md](SKILLS.md)); live-checked 2026-11-15 |
 
 ### Deliberately not included
 

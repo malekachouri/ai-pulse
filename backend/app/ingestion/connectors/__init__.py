@@ -16,6 +16,7 @@ from app.ingestion.connectors.huggingface import HFDailyPapersConnector, HFModel
 from app.ingestion.connectors.kubernetes_cve import KubernetesCveConnector
 from app.ingestion.connectors.nvd import NvdConnector
 from app.ingestion.connectors.rss import RssConnector
+from app.ingestion.connectors.skills import ClaudeMarketplaceConnector, McpRegistryConnector
 from app.ingestion.connectors.statuspage import StatuspageConnector
 
 REGISTRY: dict[str, type[Connector]] = {
@@ -36,6 +37,8 @@ REGISTRY: dict[str, type[Connector]] = {
         GcpStatusConnector,
         AwsStatusConnector,
         AzureStatusConnector,
+        McpRegistryConnector,
+        ClaudeMarketplaceConnector,
     )
 }
 

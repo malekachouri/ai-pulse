@@ -861,3 +861,43 @@ export interface WeeklyReportItem {
   days_covered: number;
   pdf_url: string;
 }
+
+// ---- Skills radar ----
+export type SkillKind = "mcp_server" | "plugin" | "skill";
+
+export interface InstallStep {
+  label: string;
+  command: string | null;
+  notes: string[];
+}
+
+export interface Skill {
+  id: string;
+  kind: SkillKind;
+  name: string;
+  title: string | null;
+  description: string | null;
+  version: string | null;
+  publisher: string | null;
+  category: string | null;
+  status: string;
+  source: { slug: string; name: string };
+  listing_url: string;
+  homepage_url: string | null;
+  repository_url: string | null;
+  install: InstallStep[];
+  stack_tags: string[];
+  published_at: string | null;
+  source_updated_at: string | null;
+  first_seen_at: string;
+  initial: boolean;
+  /** First seen in the last 7 days and not part of the source's first collection. */
+  is_new: boolean;
+}
+
+export interface SkillFacets {
+  kinds: { value: SkillKind; count: number }[];
+  stack: { value: string; count: number }[];
+  sources: { slug: string; name: string; entries: number; last_success_at: string | null; last_error: string | null }[];
+  new_last_7_days: number;
+}

@@ -470,6 +470,23 @@ export async function demoFetch<T>(
   }
   if (path === "/watchlist")
     return r({ entries: [], window_days: 30, note: "[DEMO] Follow technologies in Settings to build your watchlist.", method: "Demo mode." });
+  if (path === "/skills/facets")
+    return r({ kinds: [{ value: "mcp_server", count: 1 }, { value: "plugin", count: 1 }], stack: [{ value: "postgresql", count: 1 }],
+      sources: [{ slug: "demo-registry", name: "Demo source: MCP registry", entries: 2, last_success_at: new Date().toISOString(), last_error: null }], new_last_7_days: 2 });
+  if (path === "/skills") {
+    const now = new Date().toISOString();
+    const base = { version: "1.0.0", category: null, status: "active", source: { slug: "demo-registry", name: "Demo source: MCP registry" },
+      homepage_url: null, repository_url: null, published_at: now, source_updated_at: null, first_seen_at: now, initial: false, is_new: true };
+    return r(page([
+      { ...base, id: "demo-skill-1", kind: "mcp_server", name: "com.example/demo-postgres", title: "[DEMO] Postgres helper",
+        description: "[DEMO] Fictional MCP server that would query a PostgreSQL database.", publisher: "com.example",
+        listing_url: "https://example.com/demo-postgres", stack_tags: ["postgresql"],
+        install: [{ label: "Run locally from npm", command: "claude mcp add demo-postgres -- npx -y demo-postgres@1.0.0", notes: ["[DEMO] Fictional command."] }] },
+      { ...base, id: "demo-skill-2", kind: "plugin", name: "demo-plugin", title: "[DEMO] Example plugin",
+        description: "[DEMO] Fictional Claude Code plugin.", publisher: "Demo", listing_url: "https://example.com/demo-plugin", stack_tags: [],
+        install: [{ label: "Install the plugin", command: "/plugin install demo-plugin@demo", notes: [] }] },
+    ]));
+  }
   if (path === "/briefings/weekly") return r([]);
   if (path === "/briefings/weekly/generate") throw new Error("Demo mode: weekly reports need the real API.");
   if (path.endsWith("/bug-intelligence") && art) {
