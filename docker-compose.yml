@@ -219,7 +219,7 @@ services:
   alertmanager:
     <<: *hardening
     profiles: [monitoring]
-    image: prom/alertmanager:v0.34.2
+    image: prom/alertmanager:v0.35.0
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9093/-/ready"]
       interval: 30s
