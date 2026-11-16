@@ -63,6 +63,8 @@ class SkillsService:
     def _out[T: SkillOut](self, schema: type[T], row: AISkill) -> T:
         out = schema.model_validate(row)
         out.is_new = not row.initial and row.first_seen_at >= self.now - timedelta(days=NEW_DAYS)
+        if row.explanation:
+            out.explained_at = datetime.fromisoformat(row.explanation["generated_at"])
         return out
 
     async def facets(self) -> SkillFacets:

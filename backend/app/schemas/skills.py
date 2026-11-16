@@ -66,6 +66,7 @@ class SkillOut(ORMModel):
     first_seen_at: datetime
     initial: bool = Field(description="Already listed when AI Pulse started watching the source (not new)")
     is_new: bool = Field(False, description="First seen in the last 7 days and not part of the baseline")
+    explained_at: datetime | None = Field(None, description="When an AI explanation was generated, if any")
 
 
 class SkillDetail(SkillOut):
@@ -86,7 +87,44 @@ class SourceStatus(BaseModel):
 
 
 class SkillFacets(BaseModel):
+    llm_available: bool = False
     kinds: list[FacetCount]
     stack: list[FacetCount]
     sources: list[SourceStatus]
     new_last_7_days: int
+
+
+class ExplanationPart(BaseModel):
+    text: str = Field(description='AI-written, grounded and cited, or "insufficient information"')
+    insufficient: bool
+    citations: list[int]
+
+
+class ExplanationSections(BaseModel):
+    what_it_does: ExplanationPart
+    how_it_helps: ExplanationPart = Field(description="How it could help develop or run AI Pulse")
+    how_to_try: ExplanationPart
+    cautions: ExplanationPart
+
+
+class ExplanationSource(BaseModel):
+    n: int
+    kind: str = Field(description="listing | readme | ai_pulse")
+    title: str
+    url: str | None
+
+
+class SkillExplanationOut(BaseModel):
+    status: str = Field(description="none (not generated yet) | ready | insufficient | failed (model error)")
+    error: str | None = Field(None, description="Why the AI model did not answer (status failed)")
+    sections: ExplanationSections | None = None
+    sources: list[ExplanationSource] = []
+    unsupported_claims_removed: list[str] = []
+    ai_generated: bool = False
+    provider: str | None = None
+    model: str | None = None
+    generated_at: datetime | None = None
+    listing_version: str | None = Field(
+        None, description="The listing version the explanation was written for"
+    )
+    llm_available: bool
