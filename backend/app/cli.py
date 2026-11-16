@@ -6,6 +6,7 @@
     python -m app.cli sync-sources
     python -m app.cli ai-analyze --limit 200
     python -m app.cli reanalyse CVE-2026-12345
+    python -m app.cli cleanup
 
 The password is read from the ADMIN_PASSWORD env var or prompted interactively (never a CLI arg).
 """
@@ -216,6 +217,23 @@ async def _reanalyse(target: str) -> int:
     return 1 if stats.analysis_failed else 0
 
 
+async def _cleanup() -> None:
+    """Run the daily retention cleanup now (RETENTION_* settings)."""
+    from datetime import UTC, datetime
+
+    from app.services.retention import cleanup
+
+    settings = get_settings()
+    engine = create_engine(settings)
+    async with create_session_factory(engine)() as s:
+        out = await cleanup(s, settings, datetime.now(UTC))
+        await s.commit()
+    await engine.dispose()
+    print(f"deleted: {out.skills_deleted} inactive Skills Radar entries "
+          f"(older than {settings.retention_inactive_skills_days} days), "
+          f"{out.jobs_deleted} job logs (older than {settings.retention_jobs_days} days)")  # fmt: skip
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="app.cli")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -231,6 +249,7 @@ def main() -> None:
     p.add_argument("--llm-limit", type=int, default=20)
     p = sub.add_parser("reanalyse", help="Analyse one item again now (CVE id, item id or canonical key)")
     p.add_argument("target")
+    sub.add_parser("cleanup", help="Delete inactive Skills Radar entries and old job logs now")
     args = parser.parse_args()
     if args.cmd == "create-admin":
         asyncio.run(_create_admin(args.email, args.full_name))
@@ -242,6 +261,8 @@ def main() -> None:
         asyncio.run(_sync_sources())
     elif args.cmd == "ai-analyze":
         asyncio.run(_ai_analyze(args.limit, args.llm_limit))
+    elif args.cmd == "cleanup":
+        asyncio.run(_cleanup())
     elif args.cmd == "reanalyse":
         raise SystemExit(asyncio.run(_reanalyse(args.target)))
 

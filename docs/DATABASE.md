@@ -119,7 +119,10 @@ Indicative sizes:
 - an `articles` row is about 10 KB with its embedding;
 - `collection_jobs` grows by one row per source per run, about 30 000 rows a month with the default schedules.
 
-Plan a retention job for `collection_jobs` older than 90 days if the history is not needed.
+A daily cleanup task (`aipulse.cleanup`, also `python -m app.cli cleanup`) deletes finished
+`collection_jobs` older than `RETENTION_JOBS_DAYS` (90) and Skills Radar entries that are no longer active
+(deprecated, deleted or removed) and not updated for `RETENTION_INACTIVE_SKILLS_DAYS` (180). Active
+entries, pending and running jobs are never deleted; `0` keeps everything (`app/services/retention.py`).
 
 ## Configuration
 

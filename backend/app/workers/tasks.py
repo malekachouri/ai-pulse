@@ -255,3 +255,20 @@ def generate_weekly_report(user_id: str, week_start: str) -> dict[str, Any]:
             return out
 
     return _run(body)
+
+
+@celery_app.task(name="aipulse.cleanup")
+def cleanup() -> dict[str, Any]:
+    """Daily retention: inactive Skills Radar entries and old job logs (app/services/retention.py)."""
+    from app.services.retention import cleanup as run_cleanup
+
+    settings = get_settings()
+
+    async def body(factory: async_sessionmaker[AsyncSession]) -> dict[str, Any]:
+        async with factory() as s:
+            out = await run_cleanup(s, settings, datetime.now(UTC))
+            await s.commit()
+        log.info("cleanup_done", skills_deleted=out.skills_deleted, jobs_deleted=out.jobs_deleted)
+        return {"skills_deleted": out.skills_deleted, "jobs_deleted": out.jobs_deleted}
+
+    return _run(body)

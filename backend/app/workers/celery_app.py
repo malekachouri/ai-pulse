@@ -39,5 +39,6 @@ celery_app.conf.update(
         },
         "weekly-reports": {"task": "aipulse.generate_due_weekly_reports", "schedule": 3600.0},
         "alerts": {"task": "aipulse.evaluate_alerts", "schedule": float(settings.alerts_interval_seconds)},
+        "cleanup": {"task": "aipulse.cleanup", "schedule": 86400.0},
     },
 )

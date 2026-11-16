@@ -20,7 +20,9 @@ each one and which AI Pulse technologies it covers. Page: **Skills Radar** (`/sk
 Live-checked on 2026-11-15. More marketplaces: add their repository to a `claude_marketplace` source's
 `marketplaces` list (**Admin → Sources**), e.g. `{"repo": "acme/claude-plugins", "ref": "main"}`.
 
-**Volume.** The registry changes by more than a thousand servers a day. Radar entries are stored in their own
+**Volume.** The registry changes by more than a thousand servers a day. Inactive entries (deprecated,
+deleted, removed) are deleted by the daily cleanup after `RETENTION_INACTIVE_SKILLS_DAYS` (180) without an
+update; active entries are kept. Radar entries are stored in their own
 table (`ai_skills`), never as articles: they do not reach the news feed, search, briefings or the AI
 analysis queue. A run reads at most `max_pages` pages of 100 (default 30); the next run resumes from the
 cursor, so the first sync (the last `initial_days` = 3 days) catches up over a few hours.

@@ -58,6 +58,13 @@ The last one forgets the AI summary of one item (a CVE id, an item id or a canon
 again now. Exit codes: 0 done, 1 the model failed, 2 not found, 3 another analysis run is in progress.
 
 ```bash
+docker compose exec api python -m app.cli cleanup
+```
+
+This one runs the daily retention cleanup now (old job logs, inactive Skills Radar entries; see
+`RETENTION_*` in `.env.example`).
+
+```bash
 docker compose --profile monitoring up -d
 ```
 

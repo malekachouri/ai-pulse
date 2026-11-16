@@ -31,9 +31,10 @@ __all__ = [
 class Embedder:
     """Wraps an embedding provider: batching, empty-text guard and dimension check against pgvector."""
 
-    def __init__(self, inner: EmbeddingProvider, batch_size: int = 64) -> None:
+    def __init__(self, inner: EmbeddingProvider, batch_size: int = 64, per_run: int = 200) -> None:
         self.inner = inner
         self.batch_size = batch_size
+        self.per_run = per_run  # texts embedded per pipeline run (the rest waits for the next run)
 
     @property
     def provider(self) -> str:
@@ -137,4 +138,10 @@ def build_providers(settings: Settings, http: HttpClient | None = None) -> AIPro
         if chat
         else None
     )
-    return AIProviders(llm, Embedder(inner) if inner else None, http, tuple(problems))
+    embedder = None
+    if inner is not None:
+        local = ep == "ollama"
+        batch = settings.embedding_batch_size or (8 if local else 64)
+        per_run = settings.embedding_per_run or (40 if local else 200)
+        embedder = Embedder(inner, batch_size=batch, per_run=per_run)
+    return AIProviders(llm, embedder, http, tuple(problems))
