@@ -183,6 +183,28 @@ async def skills(s) -> None:  # type: ignore[no-untyped-def]
     }  # fmt: skip
 
 
+async def analyse(factory, source_id) -> None:  # type: ignore[no-untyped-def]
+    """Run the analysis on exactly the seeded items. With live sources the worker is busy and processes the
+    newest items first, so the seeded ones (older dates) could wait behind them: wait for the lock instead."""
+    from app.ai.pipeline import AnalysisPipeline
+    from app.ai.providers import build_providers
+
+    providers = build_providers(get_settings())
+    try:
+        for _ in range(60):
+            async with factory() as s:
+                ids = list(await s.scalars(select(Article.id).where(Article.source_id == source_id)))
+                stats = await AnalysisPipeline(s, providers).run(article_ids=ids, llm_limit=0)
+                if not stats.skipped_busy:
+                    await s.commit()
+                    print(f"e2e analysis: {stats.processed} items")
+                    return
+            await asyncio.sleep(2)
+        raise SystemExit("e2e analysis: the analysis lock stayed busy for 2 minutes")
+    finally:
+        await providers.aclose()
+
+
 async def main() -> None:
     settings = get_settings()
     engine = create_engine(settings)
@@ -200,6 +222,8 @@ async def main() -> None:
         await skills(s)
         await s.commit()
         print(f"e2e seed: created={stats.created} updated={stats.updated} skipped={stats.skipped}")
+        source_id = src.id
+    await analyse(create_session_factory(engine), source_id)
     await engine.dispose()
 
 

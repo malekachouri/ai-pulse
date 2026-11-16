@@ -120,7 +120,7 @@ async def _sync_sources() -> None:
     await engine.dispose()
 
 
-async def _ai_analyze(limit: int, llm_limit: int) -> None:
+async def _ai_analyze(limit: int, llm_limit: int) -> int:
     """Run the AI pipeline once in-process (deterministic stages always; LLM/embeddings if configured)."""
     from app.ai.pipeline import AnalysisPipeline
     from app.ai.providers import build_providers
@@ -142,8 +142,9 @@ async def _ai_analyze(limit: int, llm_limit: int) -> None:
             "Another analysis run is in progress (usually the background worker): nothing done. "
             "Try again in a few minutes, or stop the worker first: docker compose stop worker beat"
         )
-        return
+        return 3
     print({k: v for k, v in stats.__dict__.items() if k != "errors"}, "errors:", stats.errors[:3])
+    return 0
 
 
 async def reanalyse(
@@ -260,7 +261,7 @@ def main() -> None:
     elif args.cmd == "sync-sources":
         asyncio.run(_sync_sources())
     elif args.cmd == "ai-analyze":
-        asyncio.run(_ai_analyze(args.limit, args.llm_limit))
+        raise SystemExit(asyncio.run(_ai_analyze(args.limit, args.llm_limit)))
     elif args.cmd == "cleanup":
         asyncio.run(_cleanup())
     elif args.cmd == "reanalyse":

@@ -45,6 +45,8 @@ docker compose exec api python -m app.cli ingest nvd-cve
 ```
 
 The second one runs one source now, in-process.
+`ai-analyze` exits with code 3 when another analysis run (usually the worker) holds the lock: nothing was
+done, try again or stop the worker first.
 
 ```bash
 docker compose exec api python -m app.cli ai-analyze --limit 200
