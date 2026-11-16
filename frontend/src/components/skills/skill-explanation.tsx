@@ -13,7 +13,7 @@ import { formatDateTime, safeUrl } from "@/lib/utils";
 
 const SECTIONS: { key: keyof NonNullable<SkillExplanation["sections"]>; label: string }[] = [
   { key: "what_it_does", label: "What it does" },
-  { key: "how_it_helps", label: "How it could help AI Pulse" },
+  { key: "use_cases", label: "What it is good for" },
   { key: "how_to_try", label: "How to try it" },
   { key: "cautions", label: "Before you use it" },
 ];
@@ -80,7 +80,7 @@ function Panel({ s, llmAvailable }: { s: Skill; llmAvailable: boolean }) {
     <div className="rounded-lg border border-brand-violet/30 bg-brand-violet/5 px-3 py-2">
       {!open ? (
         <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => setOpen(true)} aria-expanded={false}>
-          <Sparkles aria-hidden /> {s.explained_at ? "Show the AI explanation" : "How would this help AI Pulse?"}
+          <Sparkles aria-hidden /> {s.explained_at ? "Show the AI explanation" : "What is it good for? (AI)"}
         </Button>
       ) : (
         <div className="space-y-2" aria-live="polite">
@@ -91,7 +91,7 @@ function Panel({ s, llmAvailable }: { s: Skill; llmAvailable: boolean }) {
           ) : null}
           {gen.isPending ? (
             <p className="text-xs text-muted-foreground">
-              <Loader2 className="inline size-3 animate-spin" aria-hidden /> The AI model is reading the listing, the README and AI Pulse&apos;s stack. With a local model this can take a few minutes.
+              <Loader2 className="inline size-3 animate-spin" aria-hidden /> The AI model is reading the listing and the README. With a local model this can take a few minutes.
             </p>
           ) : !llmAvailable ? (
             <p className="text-xs text-muted-foreground">No AI model is configured, so it cannot be regenerated.</p>

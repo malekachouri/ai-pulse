@@ -289,8 +289,8 @@ The table below is regenerated from the code with `cd backend && python ../scrip
 | `GET` | `/api/v1/skills` | List Skills | public |
 | `GET` | `/api/v1/skills/facets` | Skill Facets | public |
 | `GET` | `/api/v1/skills/{skill_id}` | Get Skill | public |
-| `GET` | `/api/v1/skills/{skill_id}/explanation` | The stored AI explanation of how the entry could help AI Pulse, if one was generated | public |
-| `POST` | `/api/v1/skills/{skill_id}/explanation` | Generate the AI explanation (grounded in the listing, README and AI Pulse; cited) | signed in |
+| `GET` | `/api/v1/skills/{skill_id}/explanation` | The stored AI explanation of what the entry is good for, if one was generated | public |
+| `POST` | `/api/v1/skills/{skill_id}/explanation` | Generate the AI explanation (grounded in the listing and README; cited) | signed in |
 
 ### watchlist
 

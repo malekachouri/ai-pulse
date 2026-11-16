@@ -168,16 +168,15 @@ async def skills(s) -> None:  # type: ignore[no-untyped-def]
     await upsert(s, src.id, baseline, NOW, initial=True)
     # A stored explanation, so the panel can be tested without an AI model in the stack under test.
     row = await s.scalar(select(AISkill).where(AISkill.source_id == src.id, AISkill.name == new[0].name))
-    part = {"insufficient": False, "citations": [1, 3]}
+    part = {"insufficient": False, "citations": [1]}
     row.explanation = {
         "status": "ready", "ai_generated": True, "provider": "e2e", "model": "e2e-model",
         "generated_at": NOW.isoformat(), "listing_version": "1.0.0", "unsupported_claims_removed": [],
         "sources": [{"n": 1, "kind": "listing", "title": "Official listing: [E2E] Postgres helper",
-                     "url": f"{URL}/registry/e2e-postgres-helper"},
-                    {"n": 3, "kind": "ai_pulse", "title": "AI Pulse (this project)", "url": None}],
+                     "url": f"{URL}/registry/e2e-postgres-helper"}],
         "sections": {
             "what_it_does": {**part, "text": "[E2E] It queries a PostgreSQL database.", "citations": [1]},
-            "how_it_helps": {**part, "text": "[E2E] AI Pulse stores its data in PostgreSQL."},
+            "use_cases": {**part, "text": "[E2E] Any project that keeps its data in PostgreSQL."},
             "how_to_try": {"text": "insufficient information", "insufficient": True, "citations": []},
             "cautions": {**part, "text": "[E2E] It needs a DATABASE_URL secret.", "citations": [1]},
         },

@@ -50,7 +50,7 @@ export default function SkillsRadarPage() {
     <>
       <PageHeader
         title="Skills Radar"
-        description="New MCP servers, Claude Code plugins and Agent Skills from official listings, with how to install them and which AI Pulse technologies they cover. Facts from the listings only: AI Pulse does not review third-party code."
+        description="New MCP servers, Claude Code plugins and Agent Skills from official listings, with what they are for, how to install them and the technologies they cover. Facts from the listings only: AI Pulse does not review third-party code."
         icon={Puzzle}
       />
       {f && (
@@ -77,9 +77,9 @@ export default function SkillsRadarPage() {
           <option value="">All types</option>
           {(Object.keys(KIND) as SkillKind[]).map((k) => <option key={k} value={k}>{KIND[k].plural}</option>)}
         </NativeSelect>
-        <NativeSelect aria-label="Fits AI Pulse" className="w-56" value={stack} onChange={reset(setStack)}>
+        <NativeSelect aria-label="Technology" className="w-56" value={stack} onChange={reset(setStack)}>
           <option value="">Any technology</option>
-          <option value="any">Fits AI Pulse (any of its technologies)</option>
+          <option value="any">Any of these technologies</option>
           {Object.entries(STACK_LABEL).map(([v, label]) => <option key={v} value={v}>{label}</option>)}
         </NativeSelect>
         <NativeSelect aria-label="Source" className="w-56" value={source} onChange={reset(setSource)}>

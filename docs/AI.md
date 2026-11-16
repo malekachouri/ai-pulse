@@ -200,9 +200,9 @@ A section with neither facts nor grounded text says **"insufficient information"
 
 ## Skills Radar explanation (`app/skills/explain.py`, `/api/v1/skills/{id}/explanation`)
 
-"How would this help AI Pulse?" for one MCP server, plugin or Agent Skill: written on demand from the
-entry's listing, its README and a fixed description of AI Pulse, grounded and cited like Bug Intelligence.
-See [SKILLS.md](SKILLS.md#how-would-this-help-ai-pulse-ai-on-demand).
+"What is it good for?" for one MCP server, plugin or Agent Skill, in general (any project): written on
+demand from the entry's listing and README only, grounded and cited like Bug Intelligence.
+See [SKILLS.md](SKILLS.md#what-is-it-good-for-ai-on-demand).
 
 ## AI Comparison (`app/services/comparison.py`, `GET /api/v1/models/compare?ids=…`)
 

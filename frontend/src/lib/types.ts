@@ -913,8 +913,8 @@ export interface ExplanationPart {
 export interface SkillExplanation {
   status: "none" | "ready" | "insufficient" | "failed";
   error?: string | null;
-  sections: { what_it_does: ExplanationPart; how_it_helps: ExplanationPart; how_to_try: ExplanationPart; cautions: ExplanationPart } | null;
-  sources: { n: number; kind: "listing" | "readme" | "ai_pulse"; title: string; url: string | null }[];
+  sections: { what_it_does: ExplanationPart; use_cases: ExplanationPart; how_to_try: ExplanationPart; cautions: ExplanationPart } | null;
+  sources: { n: number; kind: "listing" | "readme"; title: string; url: string | null }[];
   unsupported_claims_removed: string[];
   ai_generated: boolean;
   provider: string | null;

@@ -29,8 +29,8 @@ an AI wrote is always labelled and kept apart from the facts.
   - an AI Comparison page: models side by side with only cited benchmark scores and facts, each with its
     source and date.
 - **Skills Radar:** new MCP servers, Claude Code plugins and Agent Skills from the official MCP Registry
-  and Anthropic's marketplaces, with install commands built from each listing and which AI Pulse
-  technologies they cover ([SKILLS.md](docs/SKILLS.md)).
+  and Anthropic's marketplaces, with install commands built from each listing, the technologies they
+  cover, and an on-demand AI explanation of what each one is good for ([SKILLS.md](docs/SKILLS.md)).
 - **Watchlist:** everything new about the models, frameworks, providers and repositories you follow, with
   a notification when one of them has a new release.
 - **Learn:**

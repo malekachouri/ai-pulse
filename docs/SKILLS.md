@@ -53,29 +53,29 @@ Runtime and package arguments are placed where the registry's `server.json` sche
 variables become `<NAME>` placeholders, explained in the notes (secret or not, with the listing's
 description). AI Pulse does not review third-party code: read what a server or plugin does before installing it.
 
-**"Fits AI Pulse"** tags are whole-word matches of the technologies this project uses (PostgreSQL, Redis,
-Docker, Kubernetes, GitHub, security, Python, TypeScript/Next.js, Ollama/local models, monitoring, testing)
-in the name, title, description and category (`app/skills/stack.py`). The registry namespace is ignored:
+**Technologies** tags are whole-word matches of common technologies (PostgreSQL, Redis, Docker, Kubernetes,
+GitHub, security, Python, TypeScript/Next.js, Ollama/local models, monitoring, testing) in the name, title,
+description and category (`app/skills/stack.py`; add a tag there to track another technology). The filter
+"Any of these technologies" is `fits=true` in the API. The registry namespace is ignored:
 `io.github.<user>/…` says where a server is published, not what it does.
 
-## "How would this help AI Pulse?" (AI, on demand)
+## "What is it good for?" (AI, on demand)
 
-Each entry has a button that asks the configured AI model (OpenAI, Anthropic or Ollama) for a short
-explanation in four sections: **what it does**, **how it could help AI Pulse**, **how to try it** and
-**before you use it**. It runs only when a signed-in user asks (AI rate limit), never in the background.
+Each entry has a button that asks the configured AI model (OpenAI, Anthropic or Ollama) for a short,
+**general** explanation, useful for any project, in four sections: **what it does**, **what it is good for**
+(the kinds of projects and tasks the sources describe), **how to try it** and **before you use it**. It runs
+only when a signed-in user asks (AI rate limit), never in the background.
 
-The model may use only numbered sources (`app/skills/explain.py`):
+The model may use only the tool's own material, as numbered sources (`app/skills/explain.py`):
 
 | # | Source |
 |---|---|
 | [1] | the official listing as collected: description, version, publisher, install instructions, packages |
 | [2] | the project's README, when the listing links a `https://github.com/<owner>/<repo>` repository (fetched on demand, badges and HTML removed, first 6,000 characters) |
-| [3] | AI Pulse itself: a fixed, factual description of this project's stack (`AI_PULSE`) |
 
 Then the answer is checked: uncited text and unknown citations are dropped; sentences with numbers,
-versions or ids that the cited sources do not contain are removed and listed; **how it helps** is kept only
-when it cites both AI Pulse [3] and the tool ([1] or [2]); **how to try it** only when it cites the tool. An
-empty section says "insufficient information". The result is stored on the entry with the provider, model,
+versions or ids that the cited sources do not contain are removed and listed. An empty section says
+"insufficient information". The result is stored on the entry with the provider, model,
 date and the listing version it was written for, and shown labelled **AI-generated**. If the model fails
 (a timeout with a slow local model, for example), nothing is replaced and the failure is recorded in AI usage.
 

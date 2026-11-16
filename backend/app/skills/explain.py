@@ -1,14 +1,12 @@
-""" "How would this help AI Pulse?": an on-demand AI explanation of one Skills Radar entry.
+""" "What is it good for?": an on-demand AI explanation of one Skills Radar entry, for any project.
 
-Sources, numbered and returned with their links:
+Sources, numbered and returned with their links (only the tool's own material: the explanation is general,
+not tied to one project):
   [1] the official listing as collected (description, version, publisher, install instructions, packages);
-  [2] the project's README, when the listing links a GitHub repository (read on demand, trimmed);
-  [3] AI Pulse itself: a fixed, factual description of this project's stack (`AI_PULSE`).
+  [2] the project's README, when the listing links a GitHub repository (read on demand, trimmed).
 The model writes four short sections from those sources only and cites them. Then:
   * uncited text and citations to unknown sources are dropped;
-  * sentences with numbers, versions or ids that the cited sources do not contain are removed (claims.py);
-  * "how it helps" is kept only when it cites AI Pulse [3] and the tool ([1] or [2]); "how to try" only
-    when it cites the tool.
+  * sentences with numbers, versions or ids that the cited sources do not contain are removed (claims.py).
 A section left empty says "insufficient information". The result is stored on the entry, labelled
 AI-generated, with the provider, model and listing version it was written for.
 """
@@ -28,29 +26,17 @@ from app.db.session import allow_slow_external_calls
 from app.ingestion.http import FetchError, HttpClient
 from app.models import AISkill
 
-VERSION = "skill-explain-v1"
+VERSION = "skill-explain-v2"  # v2: general use cases, no project-specific source
 INSUFFICIENT = "insufficient information"
-SECTIONS = ("what_it_does", "how_it_helps", "how_to_try", "cautions")
+SECTIONS = ("what_it_does", "use_cases", "how_to_try", "cautions")
 README_CHARS = 6000  # small local models: keep the prompt short
 GITHUB_REPO_RE = re.compile(r"^https://github\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+?)(?:\.git)?/?$")
 
-# What the model may say about this project. Facts about the codebase only; keep in sync with README.md.
-AI_PULSE = (
-    "AI Pulse is a self-hosted web application that collects AI, security and DevOps news, CVEs, releases, "
-    "incidents and research from official sources, analyses them with an AI model and shows them on a "
-    "dashboard. Backend: Python 3.15, FastAPI, SQLAlchemy (async), Alembic migrations, Celery workers and "
-    "Celery Beat. Data: PostgreSQL 16 with pgvector (semantic search), Redis (queues, rate limits). "
-    "Frontend: Next.js and TypeScript (React). Tests: pytest, Vitest, Playwright browser tests with axe-core "
-    "accessibility checks. Operations: Docker Compose, Caddy, Prometheus and Grafana monitoring, GitHub "
-    "Actions CI with CodeQL and Trivy, encrypted backups. AI: OpenAI, Anthropic or a local Ollama model; "
-    "the developer works with Claude Code and runs the stack on Windows WSL2 with Docker."
-)
-
-SYSTEM_SKILL_EXPLAIN = """You advise the developer of AI Pulse about ONE tool for AI assistants (an MCP
-server, a Claude Code plugin or an Agent Skill). Use ONLY the numbered sources; [3] describes AI Pulse.
+SYSTEM_SKILL_EXPLAIN = """You explain ONE tool for AI assistants (an MCP server, a Claude Code plugin or an
+Agent Skill) to a developer who may use it in any kind of project. Use ONLY the numbered sources.
 Write 1-3 plain sentences per section and cite the sources you used by number.
 - what_it_does: what the tool does
-- how_it_helps: how it could help develop or run AI Pulse; cite [3] and a source about the tool
+- use_cases: the kinds of projects and tasks it is useful for, as the sources describe them
 - how_to_try: how to install or try it, from the sources
 - cautions: what to check before using it (secrets it needs, access it gets, maintenance, status)
 If the sources do not support a section, set text to null and citations to []. Never invent features,
@@ -64,7 +50,7 @@ class Part(BaseModel):
 
 class SkillExplanation(BaseModel):
     what_it_does: Part = Field(default_factory=Part)
-    how_it_helps: Part = Field(default_factory=Part)
+    use_cases: Part = Field(default_factory=Part)
     how_to_try: Part = Field(default_factory=Part)
     cautions: Part = Field(default_factory=Part)
 
@@ -72,7 +58,7 @@ class SkillExplanation(BaseModel):
 @dataclass
 class Src:
     n: int
-    kind: str  # listing | readme | ai_pulse
+    kind: str  # listing | readme
     title: str
     url: str | None
     text: str
@@ -134,21 +120,15 @@ class SkillExplainer:
                 text = clean_readme(resp.text)
                 if text:
                     out.append(Src(2, "readme", "Project README", skill.repository_url, text))
-        out.append(Src(3, "ai_pulse", "AI Pulse (this project)", None, AI_PULSE))
         return out
 
     def ground(self, data: SkillExplanation, sources: list[Src]) -> tuple[dict[str, Any], list[str]]:
         by_n = {s.n: s for s in sources}
-        tool = {s.n for s in sources if s.kind in ("listing", "readme")}
         removed: set[str] = set()
         out: dict[str, Any] = {}
         for key in SECTIONS:
             part: Part = getattr(data, key)
             cites = [n for n in dict.fromkeys(part.citations) if n in by_n]
-            if key == "how_it_helps" and not (3 in cites and tool & set(cites)):
-                cites = []  # must relate the tool to AI Pulse, citing both
-            if key == "how_to_try" and not tool & set(cites):
-                cites = []  # instructions only from the tool's own sources
             text = None
             if part.text and cites:
                 kept, bad = claims.strip_unsupported(part.text, "\n".join(by_n[n].text for n in cites))

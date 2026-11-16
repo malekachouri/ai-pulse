@@ -17,7 +17,9 @@ class SkillFilters(ListParams):
     kind: list[SkillKind] | None = None
     source: list[str] | None = Field(None, description="Source slugs, e.g. mcp-registry")
     stack: list[str] | None = Field(None, description=f"Any of: {', '.join(STACK)}")
-    fits: bool = Field(False, description="Only entries that mention a technology AI Pulse uses")
+    fits: bool = Field(
+        False, description="Only entries that mention one of the tracked technologies (see stack)"
+    )
     days: int | None = Field(
         None, ge=1, le=365, description="New in the last N days (first seen by AI Pulse; baseline excluded)"
     )
@@ -102,14 +104,14 @@ class ExplanationPart(BaseModel):
 
 class ExplanationSections(BaseModel):
     what_it_does: ExplanationPart
-    how_it_helps: ExplanationPart = Field(description="How it could help develop or run AI Pulse")
+    use_cases: ExplanationPart = Field(description="The kinds of projects and tasks it is useful for")
     how_to_try: ExplanationPart
     cautions: ExplanationPart
 
 
 class ExplanationSource(BaseModel):
     n: int
-    kind: str = Field(description="listing | readme | ai_pulse")
+    kind: str = Field(description="listing | readme")
     title: str
     url: str | None
 

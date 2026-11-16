@@ -45,7 +45,7 @@ async def _skill(session: SessionDep, skill_id: uuid.UUID) -> AISkill:
 @router.get(
     "/{skill_id}/explanation",
     response_model=SkillExplanationOut,
-    summary="The stored AI explanation of how the entry could help AI Pulse, if one was generated",
+    summary="The stored AI explanation of what the entry is good for, if one was generated",
     responses={404: {"model": ErrorResponse}},
 )
 async def get_explanation(skill_id: uuid.UUID, session: SessionDep, ai: AIDep) -> SkillExplanationOut:
@@ -58,7 +58,7 @@ async def get_explanation(skill_id: uuid.UUID, session: SessionDep, ai: AIDep) -
     "/{skill_id}/explanation",
     response_model=SkillExplanationOut,
     dependencies=[limiter("ai", per_user=True)],
-    summary="Generate the AI explanation (grounded in the listing, README and AI Pulse; cited)",
+    summary="Generate the AI explanation (grounded in the listing and README; cited)",
     responses={404: {"model": ErrorResponse}},
 )
 async def generate_explanation(

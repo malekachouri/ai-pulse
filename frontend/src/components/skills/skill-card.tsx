@@ -17,7 +17,7 @@ export const KIND: Record<SkillKind, { label: string; plural: string; icon: Luci
   skill: { label: "Agent Skill", plural: "Agent Skills", icon: Sparkles, hint: "Instructions and scripts an AI agent loads when a task needs them (a SKILL.md folder)." },
 };
 
-/** AI Pulse technologies, as named on the page. */
+/** The technologies the radar tags entries with, as named on the page. */
 export const STACK_LABEL: Record<string, string> = {
   postgresql: "PostgreSQL",
   redis: "Redis",
@@ -101,7 +101,7 @@ export function SkillCard({ s, llmAvailable = false }: { s: Skill; llmAvailable?
           {s.description && <p className="line-clamp-4 whitespace-pre-line text-sm">{s.description}</p>}
           {s.stack_tags.length > 0 && (
             <p className="flex flex-wrap items-center gap-1.5 text-xs">
-              <span className="font-medium">Fits AI Pulse:</span>
+              <span className="font-medium">Technologies:</span>
               {s.stack_tags.map((t) => <Badge key={t} variant="outline">{STACK_LABEL[t] ?? t}</Badge>)}
             </p>
           )}

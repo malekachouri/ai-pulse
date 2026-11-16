@@ -1,4 +1,4 @@
-""" "How would this help AI Pulse?": grounded, cited, stored, and honest when the sources are silent."""
+"""'What is it good for?': general, from the tool's own sources only, cited, stored, honest when silent."""
 
 import httpx
 from sqlalchemy import select
@@ -6,7 +6,7 @@ from sqlalchemy import select
 from app.ai.providers import ProviderError
 from app.models import AISkill, AIUsage
 from app.models.enums import SkillKind
-from app.skills.explain import AI_PULSE, INSUFFICIENT, clean_readme, readme_url
+from app.skills.explain import INSUFFICIENT, clean_readme, readme_url
 from tests import feature_data as fd
 from tests.ai_fakes import ScriptedChat, providers
 from tests.conftest import register_and_login
@@ -46,15 +46,15 @@ def _setup(client, chat, readme=httpx.Response(200, text=README_TEXT)):  # type:
 
 REPLY = {
     "what_it_does": {"text": "It runs read-only SQL against PostgreSQL 16 and 17.", "citations": [1, 2]},
-    "how_it_helps": {
-        "text": "AI Pulse stores its data in PostgreSQL, so Claude Code could inspect the tables "
-        "while debugging. It also speeds queries up by 40%.",
-        "citations": [3, 1],
+    "use_cases": {
+        "text": "It suits any project that stores data in PostgreSQL and wants an assistant to inspect "
+        "tables while debugging. It also speeds queries up by 40%.",
+        "citations": [2, 1],
     },  # fmt: skip
     "how_to_try": {
         "text": "Add it with claude mcp add and npx pg-mcp@0.2.0.",
         "citations": [3],
-    },  # not the tool
+    },  # no source 3
     "cautions": {"text": "Use a database role that cannot write.", "citations": [2, 99]},
 }
 
@@ -77,7 +77,6 @@ async def test_explanation_is_grounded_cited_and_stored(client, session_factory)
     assert [(s["n"], s["kind"], s["url"]) for s in out["sources"]] == [
         (1, "listing", "https://registry.test/pg-mcp"),
         (2, "readme", "https://github.com/acme/pg-mcp"),
-        (3, "ai_pulse", None),
     ]
     sec = out["sections"]
     assert sec["what_it_does"] == {
@@ -85,10 +84,10 @@ async def test_explanation_is_grounded_cited_and_stored(client, session_factory)
         "insufficient": False,
         "citations": [1, 2],
     }
-    # The invented 40% is removed with its sentence; the rest relates the tool to AI Pulse with both cited.
-    assert sec["how_it_helps"]["text"].startswith("AI Pulse stores its data in PostgreSQL")
-    assert "40%" not in sec["how_it_helps"]["text"] and out["unsupported_claims_removed"] == ["40%"]
-    assert sec["how_it_helps"]["citations"] == [3, 1]
+    # General use cases from the tool's sources; the invented 40% is removed with its sentence.
+    assert sec["use_cases"]["text"].startswith("It suits any project that stores data in PostgreSQL")
+    assert "40%" not in sec["use_cases"]["text"] and out["unsupported_claims_removed"] == ["40%"]
+    assert sec["use_cases"]["citations"] == [2, 1]
     assert sec["how_to_try"] == {
         "text": INSUFFICIENT,
         "insufficient": True,
@@ -97,7 +96,7 @@ async def test_explanation_is_grounded_cited_and_stored(client, session_factory)
     assert sec["cautions"]["citations"] == [2]  # unknown source 99 dropped
 
     prompt = chat.calls[0]["user"]
-    assert AI_PULSE[:60] in prompt and "Read-only SQL for PostgreSQL 16" in prompt
+    assert "Read-only SQL for PostgreSQL 16" in prompt and "AI Pulse" not in prompt  # not tied to one project
     assert "hidden note" not in prompt and "shields.io" not in prompt  # README cleaned
     assert [str(r.url) for r in mock.requests] == [README]
 
@@ -115,12 +114,10 @@ async def test_without_readme_without_llm_and_on_model_errors(client, session_fa
     sid = await _skill(session_factory)
     h = {"Authorization": f"Bearer {await register_and_login(client, 'skills2@example.com')}"}
 
-    silent = {
-        "how_it_helps": {"text": "It could help AI Pulse.", "citations": [3]}
-    }  # no source about the tool
+    silent = {"use_cases": {"text": "It suits data projects.", "citations": [2]}}  # [2] is the absent README
     _setup(client, ScriptedChat(default=silent), readme=httpx.Response(404))
     out = (await client.post(f"/api/v1/skills/{sid}/explanation", headers=h)).json()
-    assert [s["kind"] for s in out["sources"]] == ["listing", "ai_pulse"]  # no README: [2] is absent
+    assert [s["kind"] for s in out["sources"]] == ["listing"]  # no README: [2] is absent
     assert out["status"] == "insufficient"
     assert all(
         v == {"text": INSUFFICIENT, "insufficient": True, "citations": []} for v in out["sections"].values()

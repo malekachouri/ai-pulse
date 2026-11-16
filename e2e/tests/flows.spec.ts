@@ -298,7 +298,8 @@ test("skills radar: install commands from the listing, baseline not counted as n
   // The stored AI explanation: labelled, cited, honest about what the sources do not say.
   await card.getByRole("button", { name: "Show the AI explanation" }).click();
   await expect(card.getByText("AI-generated")).toBeVisible();
-  await expect(card.getByText("[E2E] AI Pulse stores its data in PostgreSQL.")).toBeVisible();
+  await expect(card.getByText("What it is good for")).toBeVisible();
+  await expect(card.getByText("[E2E] Any project that keeps its data in PostgreSQL.")).toBeVisible();
   await expect(card.getByText("Insufficient information in the sources.")).toBeVisible();
   await expect(card.getByRole("link", { name: "Source 1: Official listing: [E2E] Postgres helper" }).first()).toHaveAttribute("href", "https://example.com/e2e/registry/e2e-postgres-helper");
   // "New in 7 days" (the default) leaves out what a marketplace already listed; "Everything" shows it.
