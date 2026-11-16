@@ -24,7 +24,9 @@ from app.ingestion.normalized import (
 )
 from app.ingestion.writer import ItemWriter
 from app.models import Article, DailyBriefing, Source
-from app.models.enums import IncidentStatus, ItemType, Severity, VerificationStatus
+from app.models.enums import IncidentStatus, ItemType, Severity, SkillKind, VerificationStatus
+from app.skills import install
+from app.skills.store import SkillRecord, upsert
 
 NOW = datetime.now(UTC)
 URL = "https://example.com/e2e"
@@ -142,6 +144,30 @@ async def last_week_briefing(s, src: Source) -> None:  # type: ignore[no-untyped
                         cited_article_ids=[str(a.id) for a in rows]))  # fmt: skip
 
 
+async def skills(s) -> None:  # type: ignore[no-untyped-def]
+    """Skills radar entries, saved the way the radar connectors save them."""
+    src = await s.scalar(select(Source).where(Source.slug == "e2e-skills"))
+    if src is None:
+        src = Source(slug="e2e-skills", name="E2E skills radar (test data)", source_type="api", connector="mcp_registry",
+                     url=f"{URL}/registry", default_item_type="tool", is_official=False, reliability=0.5,
+                     enabled=False, config={})  # fmt: skip
+        s.add(src)
+        await s.flush()
+    server = {"remotes": [], "packages": [{"registryType": "npm", "identifier": "e2e-postgres-helper", "version": "1.0.0",
+              "transport": {"type": "stdio"}, "environmentVariables": [
+                  {"name": "DATABASE_URL", "isRequired": True, "isSecret": True, "description": "Connection string"}]}]}  # fmt: skip
+    new = [SkillRecord(kind=SkillKind.MCP_SERVER, name="com.example/e2e-postgres-helper", title="[E2E] Postgres helper",
+                       description="[E2E] Test MCP server that queries a PostgreSQL database.", version="1.0.0",
+                       publisher="com.example", listing_url=f"{URL}/registry/e2e-postgres-helper",
+                       repository_url=f"{URL}/repo/e2e-postgres-helper",
+                       install=install.mcp_server("com.example/e2e-postgres-helper", server), published_at=ago(5))]  # fmt: skip
+    baseline = [SkillRecord(kind=SkillKind.PLUGIN, name="e2e-baseline-plugin", title="[E2E] Baseline plugin",
+                            description="[E2E] Listed before the radar watched the marketplace.",
+                            listing_url=f"{URL}/marketplace", install=install.plugin("e2e-baseline-plugin", "e2e", "example/e2e"))]  # fmt: skip
+    await upsert(s, src.id, new, NOW, initial=False)
+    await upsert(s, src.id, baseline, NOW, initial=True)
+
+
 async def main() -> None:
     settings = get_settings()
     engine = create_engine(settings)
@@ -156,6 +182,7 @@ async def main() -> None:
         stats = await ItemWriter(s, src, NOW).save(items())
         await s.commit()
         await last_week_briefing(s, src)
+        await skills(s)
         await s.commit()
         print(f"e2e seed: created={stats.created} updated={stats.updated} skipped={stats.skipped}")
     await engine.dispose()

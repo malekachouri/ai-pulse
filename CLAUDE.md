@@ -7,7 +7,8 @@ rules; the module guides are in `docs/`.
 ## Layout
 
 - `backend/`: FastAPI on Python 3.15, SQLAlchemy async, Alembic migrations, Celery worker and Beat
-  (`app/ingestion` collects, `app/ai` analyses, `app/api/v1` serves, `app/cli.py` operational commands).
+  (`app/ingestion` collects, `app/ai` analyses, `app/skills` is the Skills Radar, `app/api/v1` serves,
+  `app/cli.py` operational commands).
 - `frontend/`: Next.js on Node 26 (App Router, TanStack Query, Vitest).
 - `e2e/`: Playwright + axe-core browser tests. `infra/`: PostgreSQL + pgvector, Redis, Caddy, Prometheus,
   Grafana, backups. `scripts/`: checks, update, deploy, backup, restore.

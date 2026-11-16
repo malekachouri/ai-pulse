@@ -436,4 +436,41 @@ _src(
     live_check=False,
 )
 
+# --- Skills radar (stored in ai_skills, not as articles; see app/skills) -------------------------------
+_src(
+    "mcp-registry",
+    "Official MCP Registry",
+    "api",
+    "mcp_registry",
+    "https://registry.modelcontextprotocol.io",
+    "tool",
+    homepage="https://registry.modelcontextprotocol.io/",
+    reliability=0.8,  # official registry; the servers themselves are published by third parties
+    interval=60,
+    initial_days=3,  # ~1,000+ servers change per day: the first sync catches up over a few runs
+    max_pages=30,
+)
+_src(
+    "claude-plugins-official",
+    "Claude Code plugins (official marketplace)",
+    "github",
+    "claude_marketplace",
+    "https://raw.githubusercontent.com",
+    "tool",
+    homepage="https://github.com/anthropics/claude-plugins-official",
+    interval=360,
+    marketplaces=[{"repo": "anthropics/claude-plugins-official"}],
+)
+_src(
+    "anthropic-agent-skills",
+    "Agent Skills (Anthropic)",
+    "github",
+    "claude_marketplace",
+    "https://raw.githubusercontent.com",
+    "tool",
+    homepage="https://github.com/anthropics/skills",
+    interval=360,
+    marketplaces=[{"repo": "anthropics/skills"}],
+)
+
 DEFAULT_SOURCES = S

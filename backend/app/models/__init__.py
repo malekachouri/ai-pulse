@@ -2,6 +2,7 @@ from app.models.content import Article, Category, Source, article_categories
 from app.models.intel import (
     AIModel,
     AIModelRelease,
+    AISkill,
     AITool,
     GitHubIssue,
     GitHubRepository,
@@ -29,6 +30,7 @@ __all__ = [
     "AIUsage",
     "AIModel",
     "AIModelRelease",
+    "AISkill",
     "AITool",
     "Article",
     "ArticleRead",

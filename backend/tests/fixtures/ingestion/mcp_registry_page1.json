@@ -1,0 +1,225 @@
+{
+ "servers": [
+  {
+   "server": {
+    "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+    "name": "ad.tributs/mcp",
+    "description": "Read-only access to Andorran accounting and tax data in Tributs: invoices, bank, IGI filings.",
+    "title": "Tributs",
+    "version": "1.0.0",
+    "websiteUrl": "https://tributs.ad/en/ai",
+    "remotes": [
+     {
+      "type": "streamable-http",
+      "url": "https://mcp.tributs.ad/mcp"
+     }
+    ]
+   },
+   "_meta": {
+    "io.modelcontextprotocol.registry/official": {
+     "status": "active",
+     "statusChangedAt": "2026-11-14T10:27:16.913528Z",
+     "publishedAt": "2026-11-14T10:27:16.913528Z",
+     "updatedAt": "2026-11-14T10:27:16.913528Z",
+     "isLatest": true
+    }
+   }
+  },
+  {
+   "server": {
+    "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+    "name": "io.github.Eszetael/postgres-mcp-hardened",
+    "description": "Read-only PostgreSQL over MCP. Writes refused at the parsed SQL, plus a READ ONLY transaction.",
+    "title": "PostgreSQL (hardened, read-only)",
+    "repository": {
+     "url": "https://github.com/Eszetael/postgres-mcp-hardened",
+     "source": "github"
+    },
+    "version": "0.1.10",
+    "websiteUrl": "https://github.com/Eszetael/postgres-mcp-hardened",
+    "packages": [
+     {
+      "registryType": "npm",
+      "identifier": "postgres-mcp-hardened",
+      "version": "0.1.10",
+      "runtimeHint": "npx",
+      "transport": {
+       "type": "stdio"
+      },
+      "runtimeArguments": [
+       {
+        "isRequired": true,
+        "type": "positional",
+        "value": "--stdio"
+       }
+      ],
+      "environmentVariables": [
+       {
+        "description": "Connection string for the role the server connects as. Use a role that cannot write — the server refuses writes twice, but a read-only role is the layer that does not depend on us being correct. `--print-setup-sql` prints the SQL that creates one.",
+        "isRequired": true,
+        "isSecret": true,
+        "name": "DATABASE_URL"
+       },
+       {
+        "description": "Server-side statement timeout, e.g. `5s`. A question that would pin the database is cancelled by PostgreSQL, not by hope.",
+        "name": "MCP_STATEMENT_TIMEOUT"
+       },
+       {
+        "description": "Comma-separated allowlist. A table off the list is refused by name, and hiding it inside a CTE, a view or a join does not help.",
+        "name": "MCP_ALLOW_TABLES"
+       },
+       {
+        "description": "Path to the tamper-evident audit log. Entries are chained by hash and survive a restart; `--verify-audit` checks the chain against an off-host anchor.",
+        "name": "MCP_AUDIT_LOG"
+       }
+      ]
+     },
+     {
+      "registryType": "oci",
+      "identifier": "ghcr.io/eszetael/postgres-mcp-hardened:0.1.10",
+      "transport": {
+       "type": "streamable-http",
+       "url": "http://localhost:8080/mcp"
+      },
+      "environmentVariables": [
+       {
+        "description": "Connection string for a role that cannot write.",
+        "isRequired": true,
+        "isSecret": true,
+        "name": "DATABASE_URL"
+       },
+       {
+        "description": "Address to bind, default 127.0.0.1:8080.",
+        "name": "MCP_ADDR"
+       }
+      ]
+     }
+    ]
+   },
+   "_meta": {
+    "io.modelcontextprotocol.registry/official": {
+     "status": "active",
+     "statusChangedAt": "2026-09-04T23:18:25.068686Z",
+     "publishedAt": "2026-09-04T23:18:25.068686Z",
+     "updatedAt": "2026-09-04T23:18:25.068686Z",
+     "isLatest": true
+    }
+   }
+  },
+  {
+   "server": {
+    "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+    "name": "io.github.AIops-tools/postgres-aiops",
+    "description": "Governed PostgreSQL DBA ops: slow-query RCA, bloat/vacuum & blocking-lock analysis; 35 MCP tools.",
+    "title": "Postgres AIops",
+    "repository": {
+     "url": "https://github.com/AIops-tools/Postgres-AIops",
+     "source": "github"
+    },
+    "version": "0.13.0",
+    "packages": [
+     {
+      "registryType": "pypi",
+      "identifier": "postgres-aiops",
+      "version": "0.13.0",
+      "transport": {
+       "type": "stdio"
+      }
+     }
+    ]
+   },
+   "_meta": {
+    "io.modelcontextprotocol.registry/official": {
+     "status": "active",
+     "statusChangedAt": "2026-10-30T01:35:10.715144Z",
+     "publishedAt": "2026-10-30T01:35:10.715144Z",
+     "updatedAt": "2026-10-30T01:35:10.715144Z",
+     "isLatest": true
+    }
+   }
+  },
+  {
+   "server": {
+    "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+    "name": "com.devart/mcp-postgresql",
+    "description": "Schema-aware read/write access to PostgreSQL through Devart dotConnect ADO.NET data provider.",
+    "title": "Devart MCP Server for PostgreSQL (ADO.NET)",
+    "repository": {
+     "url": "https://github.com/devart-ai-connectivity/devart-mcp-server-postgresql",
+     "source": "github"
+    },
+    "version": "1.1.0",
+    "packages": [
+     {
+      "registryType": "nuget",
+      "registryBaseUrl": "https://api.nuget.org/v3/index.json",
+      "identifier": "Devart.Mcp.PostgreSql",
+      "version": "1.1.0",
+      "transport": {
+       "type": "stdio"
+      },
+      "packageArguments": [
+       {
+        "type": "positional",
+        "value": "run"
+       }
+      ],
+      "environmentVariables": [
+       {
+        "description": "A dotConnect for PostgreSQL connection string.",
+        "isRequired": true,
+        "value": "Server={server};Port={port};Database={database};User Id={user};Password={password};Unicode=True;License Key={license_key};",
+        "isSecret": true,
+        "variables": {
+         "database": {
+          "description": "Database to connect to.",
+          "isRequired": true
+         },
+         "license_key": {
+          "description": "Devart dotConnect for PostgreSQL license key, from the Devart Customer Portal.",
+          "isRequired": true,
+          "isSecret": true
+         },
+         "password": {
+          "description": "Password for the role.",
+          "isRequired": true,
+          "isSecret": true
+         },
+         "port": {
+          "description": "Port the PostgreSQL server listens on.",
+          "isRequired": true,
+          "default": "5432"
+         },
+         "server": {
+          "description": "PostgreSQL host name or network address.",
+          "isRequired": true,
+          "default": "localhost"
+         },
+         "user": {
+          "description": "PostgreSQL role to authenticate as.",
+          "isRequired": true,
+          "default": "postgres"
+         }
+        },
+        "name": "DEVART_MCP_POSTGRESQL_CONNECTION"
+       }
+      ]
+     }
+    ]
+   },
+   "_meta": {
+    "io.modelcontextprotocol.registry/official": {
+     "status": "active",
+     "statusChangedAt": "2026-09-23T12:29:00.801751Z",
+     "publishedAt": "2026-09-23T12:29:00.801751Z",
+     "updatedAt": "2026-09-23T12:29:00.801751Z",
+     "isLatest": true
+    }
+   }
+  }
+ ],
+ "metadata": {
+  "nextCursor": "com.devart/mcp-postgresql:1.0.0",
+  "count": 4
+ }
+}

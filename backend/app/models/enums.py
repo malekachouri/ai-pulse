@@ -47,6 +47,14 @@ class ItemType(StrEnum):
     DEVOPS = "devops"
 
 
+class SkillKind(StrEnum):
+    """What a Skills radar entry is (see app/skills)."""
+
+    MCP_SERVER = "mcp_server"  # Model Context Protocol server (official MCP Registry)
+    PLUGIN = "plugin"  # Claude Code plugin (a plugin marketplace)
+    SKILL = "skill"  # Agent Skill (a SKILL.md folder listed by a marketplace)
+
+
 class VerificationStatus(StrEnum):
     """How trustworthy the record is - shown next to every item in the UI."""
 

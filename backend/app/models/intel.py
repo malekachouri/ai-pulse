@@ -2,7 +2,7 @@
 
 import uuid
 from datetime import date, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import (
     Boolean,
@@ -21,7 +21,18 @@ from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
-from app.models.enums import BugKind, BugResolution, IncidentStatus, IssueState, Severity, enum_column
+from app.models.enums import (
+    BugKind,
+    BugResolution,
+    IncidentStatus,
+    IssueState,
+    Severity,
+    SkillKind,
+    enum_column,
+)
+
+if TYPE_CHECKING:
+    from app.models.content import Source
 
 
 def _article_fk(unique: bool = True) -> Mapped[uuid.UUID | None]:
@@ -220,3 +231,41 @@ class Incident(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     status_page_url: Mapped[str] = mapped_column(String(2048))
     last_verified_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))  # last status-page check
     updates: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, default=list, server_default="[]")
+
+
+class AISkill(Base, UUIDPrimaryKeyMixin, TimestampMixin):
+    """One entry of the Skills radar: an MCP server, a Claude Code plugin or an Agent Skill, as listed by an
+    official source. Facts only: every field comes from the listing; `install` is built from it."""
+
+    __tablename__ = "ai_skills"
+    __table_args__ = (
+        UniqueConstraint("source_id", "kind", "name", name="uq_ai_skills_source_kind_name"),
+        Index("ix_ai_skills_first_seen_at", "first_seen_at"),
+        Index("ix_ai_skills_stack_tags", "stack_tags", postgresql_using="gin"),
+    )
+
+    source_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("sources.id", ondelete="CASCADE"), index=True
+    )
+    kind: Mapped[SkillKind] = mapped_column(enum_column(SkillKind, "skill_kind"), index=True)
+    name: Mapped[str] = mapped_column(String(300))  # unique id in the source, e.g. io.github.acme/server
+    title: Mapped[str | None] = mapped_column(String(300))
+    description: Mapped[str | None] = mapped_column(Text)
+    version: Mapped[str | None] = mapped_column(String(100))
+    publisher: Mapped[str | None] = mapped_column(String(200))
+    category: Mapped[str | None] = mapped_column(String(100), index=True)
+    status: Mapped[str] = mapped_column(String(32), default="active", server_default="active")
+    listing_url: Mapped[str] = mapped_column(String(2048))  # where the listing itself can be checked
+    homepage_url: Mapped[str | None] = mapped_column(String(2048))
+    repository_url: Mapped[str | None] = mapped_column(String(2048))
+    install: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, default=list, server_default="[]")
+    facts: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, server_default="{}")
+    stack_tags: Mapped[list[str]] = mapped_column(ARRAY(String(32)), default=list, server_default="{}")
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    source_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    # Found by the source's first collection: already listed before AI Pulse watched it, so not "new".
+    initial: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+
+    source: Mapped[Source] = relationship(lazy="joined")
