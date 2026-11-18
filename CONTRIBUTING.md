@@ -58,6 +58,12 @@ check that no longer runs.
 
 ## Checks before pushing
 
+**When the dependency audit fails:** update the package (`npm update <name>`, or a newer version in
+`package.json`). If no fix exists **and** the package is development-only (`npm audit --omit=dev` is clean),
+add a line to `.github/npm-audit-allowlist` with the advisory id, an expiry date (at most about 6 weeks
+ahead) and the reason, and a row in SECURITY.md's "Accepted advisories" table, in the same pull request.
+Never allowlist a production dependency, and never lower `--audit-level` instead.
+
 With Docker only, everything below except the browser tests: `./scripts/check.sh` (or `/check` in Claude Code).
 
 Backend:

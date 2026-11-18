@@ -9,8 +9,8 @@ const d: SkillExplanation = {
   sections: {
     what_it_does: { text: "It runs read-only SQL against PostgreSQL.", insufficient: false, citations: [1, 2] },
     use_cases: { text: "It suits any project that stores data in PostgreSQL and wants an assistant to inspect tables.", insufficient: false, citations: [2, 1] },
-    how_to_try: { text: "insufficient information", insufficient: true, citations: [] },
-    cautions: { text: "Use a database role that cannot write.", insufficient: false, citations: [2] },
+    how_to_try: { text: "insufficient information", insufficient: true, citations: [], reason: "the model wrote nothing for this section" },
+    cautions: { text: "Use a database role that cannot write.", insufficient: false, citations: [2], citations_matched: true },
   },
   sources: [
     { n: 1, kind: "listing", title: "Official listing: pg-mcp", url: "https://registry.test/pg-mcp" },
@@ -37,6 +37,8 @@ describe("ExplanationView", () => {
     expect(screen.getAllByRole("link", { name: "Source 1: Official listing: pg-mcp" })[0]?.getAttribute("href")).toBe("https://registry.test/pg-mcp");
     expect(screen.getAllByRole("link", { name: /^Source 2:/ })).toHaveLength(3);
     expect(screen.getByText(/removed here: 40%/)).toBeTruthy();
+    expect(screen.getByText(/the model wrote nothing for this section/)).toBeTruthy(); // why it is empty
+    expect(screen.getAllByText(/matched to the source/)).toHaveLength(1); // only where the model gave no citation
   });
 });
 

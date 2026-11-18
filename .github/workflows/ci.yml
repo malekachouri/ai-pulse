@@ -111,9 +111,10 @@ jobs:
         run: |
           pip install pip-audit==2.9.0
           pip-audit -r backend/requirements.txt -r backend/requirements-dev.txt --progress-spinner off
-      - name: Node (npm audit, all dependencies)
-        working-directory: frontend
-        run: npm audit --audit-level=moderate
+      # Production dependencies: no exceptions. All dependencies: development-only exceptions listed in
+      # .github/npm-audit-allowlist, each with a reason and an expiry date (SECURITY.md).
+      - name: Node (npm audit, production strict, dev allowlist with expiry)
+        run: ./scripts/npm-audit.sh frontend
 
   compose:
     name: Compose configuration

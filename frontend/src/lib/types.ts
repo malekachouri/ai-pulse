@@ -908,6 +908,10 @@ export interface ExplanationPart {
   text: string;
   insufficient: boolean;
   citations: number[];
+  /** The model gave no citation: the text was matched to the sources that contain its words. */
+  citations_matched?: boolean;
+  /** Why the section is insufficient. */
+  reason?: string | null;
 }
 
 export interface SkillExplanation {
