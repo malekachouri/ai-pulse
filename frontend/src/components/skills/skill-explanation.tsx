@@ -50,6 +50,12 @@ export function ExplanationView({ d }: { d: SkillExplanation }) {
               <dd className={part.insufficient ? "text-muted-foreground italic" : undefined}>
                 {part.insufficient ? "Insufficient information in the sources." : part.text}{" "}
                 {part.citations.map((n) => <Cite key={n} n={n} d={d} />)}
+                {part.citations_matched && (
+                  <span className="text-xs text-muted-foreground" title="The model did not cite a source: this text was matched to the source that contains its words.">
+                    {" "}(matched to the source)
+                  </span>
+                )}
+                {part.insufficient && part.reason && <span className="not-italic text-xs"> ({part.reason})</span>}
               </dd>
             </div>
           );

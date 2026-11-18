@@ -75,9 +75,13 @@ The model may use only the tool's own material, as numbered sources (`app/skills
 | [1] | the official listing as collected: description, version, publisher, install instructions, packages |
 | [2] | the project's README, when the listing links a `https://github.com/<owner>/<repo>` repository (fetched on demand, badges and HTML removed, first 6,000 characters) |
 
-Then the answer is checked: uncited text and unknown citations are dropped; sentences with numbers,
-versions or ids that the cited sources do not contain are removed and listed. An empty section says
-"insufficient information". The result is stored on the entry with the provider, model,
+Then the answer is checked. Unknown citations are dropped. Small local models (such as `qwen2.5:3b`)
+often write a correct section but leave its citations empty: such a section is **matched** to the sources
+that contain most of its words (at least 60 % and 3 words) and shown "(matched to the source)"; text that
+matches no source is dropped. Sentences with numbers, versions or ids that the cited sources do not contain
+are removed and listed. An empty section says "insufficient information" with the reason (the model wrote
+nothing, the text matches no source, or its claims were unsupported). The reply schema requires every
+section, so a model constrained to the schema (Ollama) cannot leave one out. The result is stored on the entry with the provider, model,
 date and the listing version it was written for, and shown labelled **AI-generated**. If the model fails
 (a timeout with a slow local model, for example), nothing is replaced and the failure is recorded in AI usage.
 

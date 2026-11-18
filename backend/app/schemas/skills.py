@@ -100,6 +100,11 @@ class ExplanationPart(BaseModel):
     text: str = Field(description='AI-written, grounded and cited, or "insufficient information"')
     insufficient: bool
     citations: list[int]
+    citations_matched: bool = Field(
+        False,
+        description="The model gave no citation: the text was matched to the sources containing its words",
+    )
+    reason: str | None = Field(None, description="Why the section is insufficient")
 
 
 class ExplanationSections(BaseModel):

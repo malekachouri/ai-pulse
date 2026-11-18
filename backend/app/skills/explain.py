@@ -26,7 +26,7 @@ from app.db.session import allow_slow_external_calls
 from app.ingestion.http import FetchError, HttpClient
 from app.models import AISkill
 
-VERSION = "skill-explain-v2"  # v2: general use cases, no project-specific source
+VERSION = "skill-explain-v3"  # v3: required fields, example reply, matched citations, reasons
 INSUFFICIENT = "insufficient information"
 SECTIONS = ("what_it_does", "use_cases", "how_to_try", "cautions")
 README_CHARS = 6000  # small local models: keep the prompt short
@@ -39,20 +39,54 @@ Write 1-3 plain sentences per section and cite the sources you used by number.
 - use_cases: the kinds of projects and tasks it is useful for, as the sources describe them
 - how_to_try: how to install or try it, from the sources
 - cautions: what to check before using it (secrets it needs, access it gets, maintenance, status)
+Every section needs "text" and "citations" (the numbers of the sources it comes from, e.g. [1] or [1, 2]).
 If the sources do not support a section, set text to null and citations to []. Never invent features,
-commands, versions or numbers. JSON only."""
+commands, versions or numbers. Reply with JSON only, shaped like this example:
+{"what_it_does": {"text": "It converts PDF files to text.", "citations": [1]},
+ "use_cases": {"text": "Useful in projects that index documents.", "citations": [1, 2]},
+ "how_to_try": {"text": "Install it with the command from the listing.", "citations": [1]},
+ "cautions": {"text": null, "citations": []}}"""
+
+# A sentence the model did not cite is matched to a source when most of its words come from that source.
+MATCH_SHARE = 0.6
+MATCH_MIN_WORDS = 3
+_WORD_RE = re.compile(r"[a-z][a-z0-9+#.-]{2,}")
+_STOP = frozenset(
+    "the and for with that this from into your you are can its use used using will which when what how "
+    "they them their has have not but all any also more most such other about than then there these those "
+    "via per may must should could would been being was were does".split()
+)
 
 
 class Part(BaseModel):
-    text: str | None = Field(None, max_length=900)
-    citations: list[int] = Field(default_factory=list, max_length=4)
+    # Required (no defaults): with a JSON-schema constrained reply, optional fields let a small model
+    # answer with empty sections.
+    text: str | None = Field(max_length=900)
+    citations: list[int] = Field(max_length=4)
 
 
 class SkillExplanation(BaseModel):
-    what_it_does: Part = Field(default_factory=Part)
-    use_cases: Part = Field(default_factory=Part)
-    how_to_try: Part = Field(default_factory=Part)
-    cautions: Part = Field(default_factory=Part)
+    what_it_does: Part
+    use_cases: Part
+    how_to_try: Part
+    cautions: Part
+
+
+def _words(text: str) -> set[str]:
+    return {w.strip(".-") for w in _WORD_RE.findall(text.lower())} - _STOP
+
+
+def matching_sources(text: str, sources: list[Src]) -> list[int]:
+    """Sources that contain most of the text's words: used when the model wrote a section without citing."""
+    words = _words(text)
+    if len(words) < MATCH_MIN_WORDS:
+        return []
+    out = []
+    for s in sources:
+        shared = words & _words(s.text)
+        if len(shared) >= MATCH_MIN_WORDS and len(shared) / len(words) >= MATCH_SHARE:
+            out.append(s.n)
+    return out
 
 
 @dataclass
@@ -129,15 +163,31 @@ class SkillExplainer:
         for key in SECTIONS:
             part: Part = getattr(data, key)
             cites = [n for n in dict.fromkeys(part.citations) if n in by_n]
+            matched = False
             text = None
-            if part.text and cites:
-                kept, bad = claims.strip_unsupported(part.text, "\n".join(by_n[n].text for n in cites))
-                removed.update(bad)
-                text = kept or None
+            reason = None
+            if not (part.text or "").strip():
+                reason = "the model wrote nothing for this section"
+            else:
+                if not cites:  # small models often leave citations empty: match the text to a source instead
+                    cites = matching_sources(part.text or "", sources)
+                    matched = bool(cites)
+                if not cites:
+                    reason = "the model's text matches no source"
+                else:
+                    kept, bad = claims.strip_unsupported(
+                        part.text or "", "\n".join(by_n[n].text for n in cites)
+                    )
+                    removed.update(bad)
+                    text = kept or None
+                    if not text:
+                        reason = "the model's text contained claims the sources do not support"
             out[key] = {
                 "text": text or INSUFFICIENT,
                 "insufficient": not text,
                 "citations": cites if text else [],
+                "citations_matched": bool(text) and matched,
+                "reason": reason,
             }
         return out, sorted(removed)
 
