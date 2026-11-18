@@ -127,7 +127,9 @@ per-IP rate limits apply to the proxy as a whole.
    - Ruff (including Bandit-style `S` rules) and formatting;
    - migrations upgrade → `alembic check` → downgrade to base → upgrade;
    - pytest against real PostgreSQL + pgvector and Redis.
-3. Dependency audit: `pip-audit` and `npm audit`.
+3. Dependency audit: `pip-audit`, and `npm audit` through `scripts/npm-audit.sh` (production dependencies
+   without exceptions; development dependencies with the expiring exceptions of `.github/npm-audit-allowlist`,
+   see [SECURITY.md](../SECURITY.md#accepted-advisories-githubnpm-audit-allowlist)).
 4. Configuration:
    - `docker compose config` for the base, dev and prod files with every profile;
    - promtool config check and alert unit tests, amtool;

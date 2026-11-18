@@ -1,0 +1,5 @@
+# Advisories accepted in DEVELOPMENT dependencies only, until the date given (scripts/npm-audit.sh).
+# Production dependencies are always audited without exceptions. One per line:
+#   <GHSA id> <expires YYYY-MM-DD> <reason>
+# After the expiry date the advisory blocks CI again: update the dependency, or renew with a new reason.
+GHSA-fc5q-39xc-vjpf 2026-12-31 picomatch ReDoS; every version affected, no fix released; only in ESLint/Vite/Vitest (dev tooling, trusted glob patterns)

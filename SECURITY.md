@@ -138,12 +138,23 @@ that a cache outage does not take the whole service down.
 | Check | Where | Gate |
 |---|---|---|
 | `pip-audit` (backend, incl. dev) | CI `dependencies` | any known vulnerability fails |
-| `npm audit` (all frontend dependencies) | CI `dependencies` | moderate and above fail |
+| `npm audit` (frontend, `scripts/npm-audit.sh`) | CI `dependencies` | production dependencies: moderate and above fail, no exceptions; all dependencies: moderate and above fail unless the advisory is listed in `.github/npm-audit-allowlist` and not expired |
 | Trivy (all 7 images: OS + language packages + secrets) | CI `containers`, release `publish` | fixable HIGH/CRITICAL fail; SARIF uploaded to code scanning |
 | CodeQL (Python, TypeScript, workflow files) | `codeql.yml` | findings in code scanning |
 | Ruff `S` rules (Bandit), shellcheck, actionlint | CI | any finding fails |
 | Dependabot | weekly | pip, npm, Docker base images, compose images, GitHub Actions |
 | Pinned GitHub Actions | every workflow | each `uses:` is pinned to a full commit SHA (version in a comment, kept current by Dependabot), so a moved or hijacked tag cannot change what runs |
+
+#### Accepted advisories (`.github/npm-audit-allowlist`)
+Only for **development** dependencies (linters, test and build tools that never ship in the app), and only
+when no fixed version exists. Each line names the advisory, an **expiry date** and the reason; every CI run
+prints it as "accepted until …". On the expiry date the advisory blocks CI again: update the dependency, or
+renew the entry with a new reason in a reviewed pull request. An advisory in a production dependency can
+never be allowlisted. Current entries:
+
+| Advisory | Package | Until | Why it is accepted |
+|---|---|---|---|
+| [GHSA-fc5q-39xc-vjpf](https://github.com/advisories/GHSA-fc5q-39xc-vjpf) | `picomatch` (ReDoS on crafted glob patterns) | 2026-12-31 | every version affected, no fix released (2026-11-18); reached only through ESLint, Vite and Vitest, which read glob patterns from this repository's own configuration; `npm audit --omit=dev` finds 0 vulnerabilities |
 
 Base-image CVEs keep arriving after a release, so CI also rebuilds and re-scans every week. When a
 finding has no fix yet, Trivy's `--ignore-unfixed` keeps the gate actionable. Review the full report in
