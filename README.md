@@ -148,6 +148,7 @@ deterministic analysis, ranking and keyword search still work.
 | [docs/prompts/](docs/prompts/README.md) | the nine build prompts, one per phase, ready to reuse, plus next-feature prompts |
 | [e2e/README.md](e2e/README.md) | browser end-to-end tests (Playwright + axe-core) and how to run them |
 | [docs/AUDIT_REPORT.md](docs/AUDIT_REPORT.md) | final audit: verified features, fixed bugs, test results, security findings, limitations, credentials |
+| [docs/PROJECT_HISTORY.md](docs/PROJECT_HISTORY.md) | every step, incident, concept and decision, traced to its pull request |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | suggestions for later: AI on small local models, operations, features, tests to add |
 | [docs/INGESTION.md](docs/INGESTION.md) · [docs/AI.md](docs/AI.md) · [docs/RADAR.md](docs/RADAR.md) · [docs/NOTIFICATIONS.md](docs/NOTIFICATIONS.md) · [docs/SKILLS.md](docs/SKILLS.md) | module guides |
 
